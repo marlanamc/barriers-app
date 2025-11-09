@@ -1,465 +1,350 @@
 import { createClient } from '@supabase/supabase-js';
+import type { Database, Json } from './database.types';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key';
 
-// Only warn in development, not during build
 if ((!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) && process.env.NODE_ENV === 'development') {
   console.warn('Missing Supabase environment variables. Some features may not work.');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
 
-// ==========================================
-// DATABASE TYPES
-// ==========================================
+export type BarrierType = Database['public']['Tables']['barrier_types']['Row'];
+export type Checkin = Database['public']['Tables']['checkins']['Row'];
+export type FocusItem = Database['public']['Tables']['focus_items']['Row'];
+export type FocusBarrier = Database['public']['Tables']['focus_barriers']['Row'];
+export type InternalWeatherStat = Database['public']['Views']['user_internal_weather_stats']['Row'];
 
-export interface UserProfile {
-  id: string;
-  user_id: string;
-  display_name: string | null;
-  timezone: string;
-  preferences: Record<string, any>;
-  created_at: string;
-  updated_at: string;
-}
+export type CalendarEntry = Database['public']['Tables']['user_calendar_entries']['Row'];
 
-export interface DailyCheckIn {
-  id: string;
-  user_id: string;
-  check_in_date: string;
-  selected_barriers: string[];
-  selected_tasks: string[];
-  notes: string | null;
-  mood_level: number | null;
-  energy_level: number | null;
-  completed_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface BarrierSelection {
-  id: string;
-  check_in_id: string;
-  user_id: string;
-  barrier_slug: string;
-  barrier_name: string;
-  issue_description: string | null;
-  selected_at: string;
-}
-
-export interface TaskSelection {
-  id: string;
-  check_in_id: string;
-  user_id: string;
-  task_slug: string;
-  task_name: string;
-  is_completed: boolean;
-  completed_at: string | null;
-  selected_at: string;
-}
-
-export interface LifeAreaSelection {
-  id: string;
-  check_in_id: string;
-  user_id: string;
-  life_area_slug: string;
-  life_area_name: string;
-  note: string | null;
-  selected_at: string;
-}
-
-export interface CalendarEntry {
-  id: string;
-  user_id: string;
-  date: string;
-  barrier_count: number;
-  task_count: number;
-  completed_task_count: number;
-  top_barriers: string[];
-  has_check_in: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-// Content types from ADHD First Aid (read-only)
-export interface ContentPage {
-  id: string;
-  content_type_id: string;
-  name: string;
+export interface BarrierTipMessage {
   slug: string;
-  subtitle: string | null;
-  emoji: string | null;
-  intro_paragraph: string;
-  gentle_advice: string;
-  stern_advice: string;
-  adhd_reasons: string[];
-  content_sections: any[];
-  meta_data: Record<string, any>;
-  is_published: boolean;
-  sort_order: number;
-  created_at: string;
-  updated_at: string;
+  message: string;
+  tone?: string | null;
 }
 
-// ==========================================
-// CONTENT QUERIES (Read from ADHD First Aid)
-// ==========================================
+export type FocusItemPayload = {
+  id: string;
+  description: string;
+  categories: string[];
+  sortOrder: number;
+  barrier?: {
+    barrierTypeSlug?: string | null;
+    custom?: string | null;
+  } | null;
+};
 
-/**
- * Get all published barriers from content_pages
- * Optionally limit the number returned
- */
-export async function getBarriers(limit?: number) {
-  let query = supabase
-    .from('content_pages')
-    .select(`
-      *,
-      content_types!inner(name)
-    `)
-    .eq('is_published', true)
-    .eq('content_types.name', 'barrier')
-    .order('sort_order', { ascending: true })
-    .order('name', { ascending: true });
+export interface SaveCheckinPayload {
+  userId: string;
+  internalWeather: {
+    key: string;
+    label: string;
+    icon: string;
+  };
+  forecastNote?: string;
+  focusItems: FocusItemPayload[];
+  checkinDate?: string;
+}
 
-  if (limit) {
-    query = query.limit(limit);
+export type FocusItemWithRelations = FocusItem & {
+  focus_barriers: Array<
+    FocusBarrier & {
+      barrier_types: BarrierType | null;
+    }
+  >;
+};
+
+export type CheckinWithRelations = Checkin & {
+  focus_items: FocusItemWithRelations[];
+};
+
+const focusItemsSelect = `*, focus_barriers(*, barrier_types(*))`;
+const checkinSelect = `*, focus_items(${focusItemsSelect})`;
+
+const LEGACY_NAME_FIELDS = [
+  'label',
+  'name',
+  'title',
+  'display_name',
+  'barrier',
+  'barrier_name',
+  'short_label',
+  'short_name',
+  'friendly_name',
+  'display_label',
+  'displayLabel',
+];
+
+const LEGACY_DESCRIPTION_FIELDS = ['description', 'summary', 'subtitle', 'details', 'copy', 'intro', 'body', 'body_text'];
+
+const LEGACY_ICON_FIELDS = ['icon', 'emoji', 'glyph', 'badge'];
+
+const LEGACY_TIP_FIELDS = [
+  'gentle_advice',
+  'gentleAdvice',
+  'gentle_message',
+  'gentleMessage',
+  'support_tip',
+  'supportTip',
+  'tip',
+  'advice',
+  'comfort',
+  'encouragement',
+];
+
+function isMissingRelation(error: any, relation: string) {
+  if (!error) return false;
+  if (error.code === '42P01') return true;
+  const message = `${error.message ?? ''} ${error.details ?? ''}`.toLowerCase();
+  return message.includes(relation.toLowerCase());
+}
+
+function findFirstString(row: Record<string, any>, keys: string[]) {
+  for (const key of keys) {
+    const value = row?.[key];
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
   }
+  return undefined;
+}
 
-  const { data, error } = await query;
+function toSlug(value: string | undefined) {
+  if (!value) return undefined;
+  const slug = value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+  return slug || undefined;
+}
 
+function mapLegacyBarrier(row: Record<string, any>): BarrierType {
+  const now = new Date().toISOString();
+  const friendlyName = findFirstString(row, LEGACY_NAME_FIELDS);
+  const slugFromRow = typeof row.slug === 'string' && row.slug.trim() ? row.slug.trim() : undefined;
+  const slugCandidate = slugFromRow ?? friendlyName ?? (typeof row.id === 'string' ? row.id : undefined);
+  const slug = toSlug(slugCandidate) ?? `legacy-${Math.random().toString(36).slice(2)}`;
+  const label = friendlyName ?? slug ?? 'Barrier';
+  const description =
+    findFirstString(row, LEGACY_DESCRIPTION_FIELDS) ?? (typeof row.description === 'string' ? row.description : null);
+  const icon = findFirstString(row, LEGACY_ICON_FIELDS) ?? null;
+
+  return {
+    id: String(row.id ?? slug ?? `legacy-${Math.random().toString(36).slice(2)}`),
+    slug,
+    label,
+    description,
+    icon,
+    created_at: row.created_at ?? now,
+    updated_at: row.updated_at ?? now,
+  };
+}
+
+async function fetchLegacyBarrierTypes(): Promise<BarrierType[]> {
+  const { data, error } = await supabase.from('barriers_content').select('*');
   if (error) {
-    console.error('Error fetching barriers:', error);
+    console.error('Error fetching legacy barriers_content data', error);
     return [];
   }
-
-  return data as ContentPage[];
+  return (data ?? []).map(mapLegacyBarrier);
 }
 
-/**
- * Get all published tasks from content_pages
- */
-export async function getTasks() {
-  const { data, error } = await supabase
-    .from('content_pages')
-    .select(`
-      *,
-      content_types!inner(name)
-    `)
-    .eq('is_published', true)
-    .eq('content_types.name', 'task')
-    .order('sort_order', { ascending: true })
-    .order('name', { ascending: true });
+function sortBarrierTypes(barriers: BarrierType[]): BarrierType[] {
+  return [...barriers].sort((a, b) => {
+    const aLabel = (a.label ?? '').toLowerCase();
+    const bLabel = (b.label ?? '').toLowerCase();
+    return aLabel.localeCompare(bLabel);
+  });
+}
+
+function buildDefaultTips(barrierTypes: BarrierType[]): BarrierTipMessage[] {
+  return barrierTypes.map((barrier) => ({
+    slug: barrier.slug,
+    message: barrier.label
+      ? `Offer one small kindness toward "${barrier.label}". Start tiny and breathe.`
+      : 'Offer one small kindness toward this focus. Start tiny and breathe.',
+    tone: 'gentle',
+  }));
+}
+
+export async function saveCheckinWithFocus(payload: SaveCheckinPayload) {
+  const focusItemsJson: Json = payload.focusItems.map((item, index) => ({
+    id: item.id,
+    description: item.description,
+    categories: item.categories,
+    sortOrder: item.sortOrder ?? index,
+    barrier: item.barrier || null,
+  }));
+
+  // @ts-expect-error - Supabase RPC type inference issue
+  const { data, error } = await supabase.rpc('create_checkin_with_focus', {
+    p_user_id: payload.userId,
+    p_internal_weather: payload.internalWeather.key,
+    p_weather_icon: payload.internalWeather.icon ?? null,
+    p_forecast_note: payload.forecastNote ?? null,
+    p_focus_items: focusItemsJson,
+    p_checkin_date: payload.checkinDate ?? null,
+  });
 
   if (error) {
-    console.error('Error fetching tasks:', error);
-    return [];
+    console.error('Error saving check-in', error);
+    throw error;
   }
 
-  return data as ContentPage[];
+  return data;
 }
 
-/**
- * Get barrier by slug
- */
-export async function getBarrierBySlug(slug: string) {
-  const { data, error } = await supabase
-    .from('content_pages')
-    .select('*')
-    .eq('slug', slug)
-    .eq('is_published', true)
-    .single();
-
-  if (error) {
-    console.error('Error fetching barrier:', error);
+function mapLegacyTip(row: Record<string, any>): BarrierTipMessage | null {
+  const slug = toSlug(typeof row.slug === 'string' ? row.slug : String(row.id ?? ''));
+  const message = findFirstString(row, LEGACY_TIP_FIELDS);
+  if (!slug || !message) {
     return null;
   }
-
-  return data as ContentPage;
+  return {
+    slug,
+    message,
+    tone: null,
+  };
 }
 
-/**
- * Get task by slug
- */
-export async function getTaskBySlug(slug: string) {
+async function fetchLegacyTips(barrierTypes: BarrierType[]): Promise<BarrierTipMessage[]> {
+  const slugs = barrierTypes.map((type) => type.slug).filter(Boolean);
+  if (!slugs.length) return [];
+
   const { data, error } = await supabase
-    .from('content_pages')
+    .from('barriers_content')
     .select('*')
-    .eq('slug', slug)
-    .eq('is_published', true)
-    .single();
+    .in('slug', slugs as string[]);
 
   if (error) {
-    console.error('Error fetching task:', error);
-    return null;
+    console.warn('Error fetching legacy tips from barriers_content, using defaults', error);
+    return buildDefaultTips(barrierTypes);
   }
 
-  return data as ContentPage;
+  const slugSet = new Set(slugs);
+  const mapped = (data ?? [])
+    .map(mapLegacyTip)
+    .filter((tip): tip is BarrierTipMessage => Boolean(tip && slugSet.has(tip.slug)));
+
+  if (!mapped.length) {
+    return buildDefaultTips(barrierTypes);
+  }
+
+  return mapped;
 }
 
-/**
- * Get all published life_areas from tasks_content table
- */
-export async function getLifeAreas() {
-  // First, try to get all records to see the structure
-  let query = supabase
-    .from('tasks_content')
-    .select('*');
-
-  // Try with is_published filter first
-  const { data: dataWithFilter, error: errorWithFilter } = await query.eq('is_published', true);
-  
-  if (!errorWithFilter && dataWithFilter && dataWithFilter.length > 0) {
-    console.log('Found life areas with is_published filter:', dataWithFilter.length);
-    return mapTasksContentToContentPage(dataWithFilter);
-  }
-
-  // If that fails, try without the filter
+export async function getBarrierTypes() {
   const { data, error } = await supabase
-    .from('tasks_content')
+    .from('barrier_types')
     .select('*')
-    .order('sort_order', { ascending: true })
-    .order('name', { ascending: true });
+    .order('label', { ascending: true });
 
   if (error) {
-    console.error('Error fetching life areas from tasks_content:', error);
-    console.error('Error details:', {
-      message: error.message,
-      code: error.code,
-      details: error.details,
-      hint: error.hint,
-    });
-    
-    // Try to see what tables exist
-    const { data: tables } = await supabase.rpc('get_tables', {});
-    console.log('Available tables (if RPC exists):', tables);
-    
-    return [];
+    if (isMissingRelation(error, 'barrier_types')) {
+      console.warn('Falling back to barriers_content for barrier options');
+      const legacy = await fetchLegacyBarrierTypes();
+      return sortBarrierTypes(legacy);
+    }
+    console.error('Error fetching barrier types', error);
+    return [] as BarrierType[];
   }
 
-  if (!data || data.length === 0) {
-    console.warn('No life areas found in tasks_content table');
-    console.log('Query returned:', data);
-    return [];
-  }
-
-  console.log('Found life areas (without filter):', data.length);
-  console.log('Sample item structure:', data[0]);
-  
-  return mapTasksContentToContentPage(data);
+  return sortBarrierTypes((data ?? []) as BarrierType[]);
 }
 
-function mapTasksContentToContentPage(data: any[]): ContentPage[] {
-  return data.map((item: any) => ({
-    id: item.id || item.uuid || '',
-    content_type_id: item.content_type_id || '',
-    name: item.name || item.title || '',
-    slug: item.slug || '',
-    subtitle: item.subtitle || null,
-    emoji: item.emoji || null,
-    intro_paragraph: item.intro_paragraph || item.intro || '',
-    gentle_advice: item.gentle_advice || item.tip || item.advice || '',
-    stern_advice: item.stern_advice || '',
-    adhd_reasons: item.adhd_reasons || [],
-    content_sections: item.content_sections || [],
-    meta_data: item.meta_data || {},
-    is_published: item.is_published !== undefined ? item.is_published : true,
-    sort_order: item.sort_order || item.order || 0,
-    created_at: item.created_at || '',
-    updated_at: item.updated_at || '',
-  })) as ContentPage[];
-}
+export async function getTipsForBarrierTypes(barrierTypes: BarrierType[]): Promise<BarrierTipMessage[]> {
+  if (!barrierTypes.length) return [];
 
-/**
- * Get life_area by slug from tasks_content table
- */
-export async function getLifeAreaBySlug(slug: string) {
-  let query = supabase
-    .from('tasks_content')
-    .select('*')
-    .eq('slug', slug);
+  const barrierTypeIds = barrierTypes.map((type) => type.id).filter((id): id is string => Boolean(id));
+  const slugById = new Map(barrierTypes.map((type) => [type.id, type.slug]));
 
-  // Try with is_published filter first
-  const { data: dataWithFilter, error: errorWithFilter } = await query.eq('is_published', true).single();
-  
-  if (!errorWithFilter && dataWithFilter) {
-    return mapTasksContentToContentPage([dataWithFilter])[0];
-  }
+  if (barrierTypeIds.length) {
+    const { data, error } = await supabase
+      .from('tips')
+      .select('*')
+      .in('barrier_type_id', barrierTypeIds);
 
-  // If that fails, try without the filter
-  const { data, error } = await supabase
-    .from('tasks_content')
-    .select('*')
-    .eq('slug', slug)
-    .single();
-
-  if (error) {
-    console.error('Error fetching life_area from tasks_content:', error);
-    return null;
-  }
-
-  return mapTasksContentToContentPage([data])[0];
-}
-
-// ==========================================
-// USER PROFILE QUERIES
-// ==========================================
-
-/**
- * Get or create user profile
- */
-export async function getUserProfile(userId: string) {
-  const { data, error } = await supabase
-    .from('user_profiles')
-    .select('*')
-    .eq('user_id', userId)
-    .single();
-
-  if (error && error.code !== 'PGRST116') {
-    // PGRST116 = no rows returned
-    console.error('Error fetching user profile:', error);
-    return null;
-  }
-
-  // If no profile exists, create one
-  if (!data) {
-    const { data: newProfile, error: createError } = await supabase
-      .from('user_profiles')
-      .insert({ user_id: userId })
-      .select()
-      .single();
-
-    if (createError) {
-      console.error('Error creating user profile:', createError);
-      return null;
+    if (error) {
+      if (isMissingRelation(error, 'tips')) {
+        console.warn('Tips table missing; using gentle_advice from barriers_content');
+        return fetchLegacyTips(barrierTypes);
+      }
+      console.error('Error fetching tips', error);
+      return [];
     }
 
-    return newProfile as UserProfile;
+    const mapped = (data as Database['public']['Tables']['tips']['Row'][] || [])
+      .map((tip) => {
+        const slug = slugById.get(tip.barrier_type_id ?? '') ?? null;
+        if (!slug) return null;
+        return {
+          slug,
+          message: tip.message,
+          tone: tip.tone ?? null,
+        } as BarrierTipMessage;
+      })
+      .filter(Boolean);
+
+    if (mapped.length) {
+      return mapped as BarrierTipMessage[];
+    }
   }
 
-  return data as UserProfile;
+  return fetchLegacyTips(barrierTypes);
 }
 
-/**
- * Update user profile
- */
-export async function updateUserProfile(
-  userId: string,
-  updates: Partial<UserProfile>
-) {
+export async function getCheckinsForRange(userId: string, startDate: string, endDate: string) {
   const { data, error } = await supabase
-    .from('user_profiles')
-    .update(updates)
+    .from('checkins')
+    .select(checkinSelect)
     .eq('user_id', userId)
-    .select()
-    .single();
+    .gte('checkin_date', startDate)
+    .lte('checkin_date', endDate)
+    .order('checkin_date', { ascending: true })
+    .order('sort_order', { ascending: true, referencedTable: 'focus_items' });
 
   if (error) {
-    console.error('Error updating user profile:', error);
-    return null;
+    console.error('Error fetching checkins', error);
+    return [] as CheckinWithRelations[];
   }
 
-  return data as UserProfile;
+  return (data ?? []) as CheckinWithRelations[];
 }
 
-// ==========================================
-// CHECK-IN QUERIES
-// ==========================================
-
-/**
- * Create a new daily check-in
- */
-export async function createCheckIn(
-  userId: string,
-  checkInData: {
-    check_in_date?: string;
-    selected_barriers: string[];
-    selected_tasks: string[];
-    notes?: string;
-    mood_level?: number;
-    energy_level?: number;
-  }
-) {
-  const today = checkInData.check_in_date || new Date().toISOString().split('T')[0];
-  
+export async function getCheckinByDate(userId: string, date: string) {
   const { data, error } = await supabase
-    .from('daily_check_ins')
-    .insert({
-      user_id: userId,
-      check_in_date: today,
-      selected_barriers: checkInData.selected_barriers || [],
-      selected_tasks: checkInData.selected_tasks || [],
-      notes: checkInData.notes || null,
-      mood_level: checkInData.mood_level || null,
-      energy_level: checkInData.energy_level || null,
-    })
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Error creating check-in:', error);
-    console.error('Error details:', {
-      message: error.message,
-      code: error.code,
-      details: error.details,
-      hint: error.hint,
-    });
-    return null;
-  }
-
-  return data as DailyCheckIn;
-}
-
-/**
- * Get check-ins for a user
- */
-export async function getUserCheckIns(userId: string, limit = 30) {
-  const { data, error } = await supabase
-    .from('daily_check_ins')
-    .select('*')
+    .from('checkins')
+    .select(checkinSelect)
     .eq('user_id', userId)
-    .order('check_in_date', { ascending: false })
-    .limit(limit);
-
-  if (error) {
-    console.error('Error fetching check-ins:', error);
-    return [];
-  }
-
-  return data as DailyCheckIn[];
-}
-
-/**
- * Get check-in for a specific date
- */
-export async function getCheckInByDate(userId: string, date: string) {
-  const { data, error } = await supabase
-    .from('daily_check_ins')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('check_in_date', date)
-    .single();
+    .eq('checkin_date', date)
+    .order('created_at', { ascending: false })
+    .maybeSingle();
 
   if (error && error.code !== 'PGRST116') {
-    console.error('Error fetching check-in:', error);
+    console.error('Error fetching check-in by date', error);
     return null;
   }
 
-  return data as DailyCheckIn | null;
+  return data ? (data as CheckinWithRelations) : null;
 }
 
-// ==========================================
-// CALENDAR QUERIES
-// ==========================================
+export async function getInternalWeatherStats(userId: string) {
+  const { data, error } = await supabase
+    .from('user_internal_weather_stats')
+    .select('*')
+    .eq('user_id', userId)
+    .order('occurrence_count', { ascending: false });
 
-/**
- * Get calendar entries for a user (date range)
- */
-export async function getCalendarEntries(
-  userId: string,
-  startDate: string,
-  endDate: string
-) {
+  if (error) {
+    console.error('Error fetching weather stats', error);
+    return [] as InternalWeatherStat[];
+  }
+
+  return data as InternalWeatherStat[];
+}
+
+export async function getCalendarEntries(userId: string, startDate: string, endDate: string) {
   const { data, error } = await supabase
     .from('user_calendar_entries')
     .select('*')
@@ -470,25 +355,6 @@ export async function getCalendarEntries(
 
   if (error) {
     console.error('Error fetching calendar entries:', error);
-    return [];
-  }
-
-  return data as CalendarEntry[];
-}
-
-/**
- * Get user barrier patterns (most common barriers)
- */
-export async function getUserBarrierPatterns(userId: string) {
-  const { data, error } = await supabase
-    .from('user_barrier_patterns')
-    .select('*')
-    .eq('user_id', userId)
-    .order('selection_count', { ascending: false })
-    .limit(10);
-
-  if (error) {
-    console.error('Error fetching barrier patterns:', error);
     return [];
   }
 

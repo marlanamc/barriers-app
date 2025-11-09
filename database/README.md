@@ -1,23 +1,33 @@
 # Database Setup for ADHD Barrier Tracker
 
+## 🚀 Quick Start
+
+**Getting "relation does not exist" errors?**
+
+→ See [QUICK_START.md](./QUICK_START.md) for 3-step setup
+
+## 📚 Full Documentation
+
+- **[QUICK_START.md](./QUICK_START.md)** - 3-step setup guide
+- **[SETUP_INSTRUCTIONS.md](./SETUP_INSTRUCTIONS.md)** - Detailed setup with seed data
+- **[SCHEMA_CLEANUP_SUMMARY.md](./SCHEMA_CLEANUP_SUMMARY.md)** - What was fixed and why
+- **[migrations/README.md](./migrations/README.md)** - Migration instructions (if needed)
+
 ## Overview
 
-This app **shares a Supabase project** with ADHD First Aid Kit. It:
-- **READS** from existing content tables (`content_pages`, `content_types`)
-- **CREATES** new user-specific tables for tracking check-ins and patterns
+This is a standalone ADHD companion app focused on **Internal Weather** tracking. It:
+- Tracks daily internal weather (clear, cloudy, rainy, stormy, quiet)
+- Captures up to 3 focus items per day
+- Links barriers to each focus item
+- Shows patterns over time in calendar view
 
-## Prerequisites
-
-1. You must have the ADHD First Aid Kit Supabase project already set up
-2. The following tables must exist:
-   - `content_types`
-   - `content_pages` (with barriers and tasks content)
+**Note**: This app previously shared content with ADHD First Aid Kit, but now uses a self-contained schema.
 
 ## Setup Instructions
 
-### 1. Run the Schema Migration
+### 1. Run the Schema
 
-Run `database/schema.sql` in your Supabase SQL editor:
+Run [schema.sql](./schema.sql) in your Supabase SQL editor:
 
 1. Go to your Supabase dashboard
 2. Navigate to SQL Editor
@@ -26,14 +36,16 @@ Run `database/schema.sql` in your Supabase SQL editor:
 5. Click "Run"
 
 This will create:
+- `barrier_types` - Reference library of common barriers
+- `tips` - Gentle support messages mapped to barrier types
+- `checkins` - Internal weather snapshot per user per day
+- `focus_items` - Up to three focus statements per check-in
+- `focus_barriers` - Links each focus item to a barrier type or custom description
+- `user_calendar_entries` - Pre-computed calendar view (auto-synced)
 - `user_profiles` - Extended user information
-- `daily_check_ins` - Daily barrier/task selections
-- `barrier_selections` - Granular barrier tracking
-- `task_selections` - Granular task tracking with completion status
-- `user_calendar_entries` - Pre-computed calendar view
-- Helpful views for analytics
 - Row Level Security policies
 - Indexes for performance
+- Helpful views and triggers
 
 ### 2. Verify Tables Were Created
 
@@ -43,43 +55,22 @@ Run this query to verify:
 SELECT table_name
 FROM information_schema.tables
 WHERE table_schema = 'public'
-AND table_name IN (
-  'user_profiles',
-  'daily_check_ins',
-  'barrier_selections',
-  'task_selections',
-  'user_calendar_entries'
-)
+AND table_type = 'BASE TABLE'
 ORDER BY table_name;
 ```
 
-You should see all 5 tables listed.
+You should see:
+- `barrier_types`
+- `checkins`
+- `focus_barriers`
+- `focus_items`
+- `tips`
+- `user_calendar_entries`
+- `user_profiles`
 
-### 3. Test Read Access to Content Tables
+### 3. Add Sample Barrier Types (Optional)
 
-Verify the app can read from ADHD First Aid content:
-
-```sql
--- Get content types
-SELECT * FROM content_types
-WHERE name IN ('barrier', 'task');
-
--- Get some barriers
-SELECT name, slug, emoji
-FROM content_pages cp
-JOIN content_types ct ON cp.content_type_id = ct.id
-WHERE ct.name = 'barrier'
-AND cp.is_published = true
-LIMIT 5;
-
--- Get some tasks
-SELECT name, slug, emoji
-FROM content_pages cp
-JOIN content_types ct ON cp.content_type_id = ct.id
-WHERE ct.name = 'task'
-AND cp.is_published = true
-LIMIT 5;
-```
+See [SETUP_INSTRUCTIONS.md](./SETUP_INSTRUCTIONS.md) for seed data to populate barrier types and tips.
 
 ### 4. Enable Authentication
 
@@ -106,6 +97,11 @@ daily_check_ins         → One record per day per user
 barrier_selections      → Granular barrier tracking
 task_selections         → Granular task tracking with completion
 user_calendar_entries   → Pre-computed calendar aggregations
+barrier_types           → Reference list of common barrier themes
+tips                    → Gentle support messages tied to barrier types
+checkins                → Internal weather snapshots (lavender → aqua flow)
+focus_items             → Up to three focus statements per check-in
+focus_barriers          → Barrier metadata + custom notes per focus item
 ```
 
 ### Relationships

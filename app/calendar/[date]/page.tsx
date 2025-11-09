@@ -1,118 +1,117 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { getCheckInByDate } from "@/lib/supabase";
-import { supabase } from "@/lib/supabase";
-import type { DailyCheckIn } from "@/lib/supabase";
+import { useSupabaseUser } from "@/lib/useSupabaseUser";
+import { getCheckinByDate, type CheckinWithRelations } from "@/lib/supabase";
 
-export default function DayDetailPage() {
-  const router = useRouter();
+export default function CalendarDetailPage() {
   const params = useParams();
   const date = params.date as string;
-  const [userId, setUserId] = useState<string | null>(null);
-  const [checkIn, setCheckIn] = useState<DailyCheckIn | null>(null);
+  const { user, loading: authLoading } = useSupabaseUser();
+  const [checkin, setCheckin] = useState<CheckinWithRelations | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function setupUser() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setUserId(user.id);
-        loadCheckIn(user.id);
-      } else {
-        // Try dummy user for development
-        const testEmail = 'test@example.com';
-        const testPassword = 'test123456';
-        
-        const { data: signInData } = await supabase.auth.signInWithPassword({
-          email: testEmail,
-          password: testPassword,
-        });
-
-        if (signInData?.user) {
-          setUserId(signInData.user.id);
-          loadCheckIn(signInData.user.id);
-        }
-      }
-    }
-
-    setupUser();
-  }, [date]);
-
-  async function loadCheckIn(userId: string) {
-    setLoading(true);
-    try {
-      const checkInData = await getCheckInByDate(userId, date);
-      setCheckIn(checkInData);
-    } catch (error) {
-      console.error('Error loading check-in:', error);
-    } finally {
+    async function load() {
+      if (!user || !date) return;
+      setLoading(true);
+      const data = await getCheckinByDate(user.id, date);
+      setCheckin(data);
       setLoading(false);
     }
-  }
 
-  if (loading) {
+    load();
+  }, [date, user]);
+
+  if (authLoading || loading) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-100 to-orange-100 flex items-center justify-center">
-        <p className="text-gray-700">Loading...</p>
+      <main className="min-h-screen flex items-center justify-center px-4">
+        <p className="text-slate-600">Loading your check-in...</p>
       </main>
     );
   }
 
-  const dateObj = new Date(date);
-  const formattedDate = dateObj.toLocaleDateString('en-US', { 
-    weekday: 'long', 
-    year: 'numeric', 
-    month: 'long', 
-    day: 'numeric' 
+  const displayDate = new Date(date).toLocaleDateString(undefined, {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
   });
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-100 to-orange-100">
-      {/* Header */}
-      <header className="px-4 py-4 flex items-center gap-4">
-        <Link href="/calendar" className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center hover:shadow-md transition-shadow">
-          <ArrowLeft className="w-5 h-5 text-gray-700" />
-        </Link>
-        <h1 className="text-xl font-semibold">
-          <span className="text-gray-900">ADHD</span> <span className="text-pink-500">Barrier</span> <span className="text-gray-900">Tracker</span>
-        </h1>
-      </header>
+    <main className="min-h-screen px-4 pb-16 pt-6">
+      <div className="mx-auto max-w-3xl space-y-6">
+        <header className="flex items-center gap-4">
+          <Link
+            href="/calendar"
+            className="rounded-full border border-white/40 bg-white/70 p-2 text-slate-600 transition hover:-translate-y-0.5"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <div>
+            <p className="text-sm uppercase tracking-wide text-cyan-600">Daily detail</p>
+            <h1 className="text-2xl font-bold text-slate-900">{displayDate}</h1>
+          </div>
+        </header>
 
-      {/* Main Content */}
-      <div className="px-4 pb-8 max-w-2xl mx-auto">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            {formattedDate}
-          </h2>
-        </div>
-
-        {checkIn ? (
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Logged Life Areas</h3>
-            {checkIn.selected_barriers && checkIn.selected_barriers.length > 0 ? (
-              <div className="space-y-2">
-                {checkIn.selected_barriers.map((slug, index) => (
-                  <div key={index} className="p-3 bg-pink-50 rounded-lg">
-                    <span className="text-gray-700">{slug}</span>
-                  </div>
-                ))}
+        {checkin ? (
+          <div className="space-y-4">
+            <section className="rounded-3xl border border-white/20 bg-white/80 p-6 shadow-sm">
+              <div className="flex items-center gap-4">
+                <div className="text-4xl">{checkin.weather_icon}</div>
+                <div>
+                  <p className="text-sm uppercase tracking-wide text-slate-500">Internal weather</p>
+                  <p className="text-xl font-semibold text-slate-900">{checkin.internal_weather}</p>
+                  {checkin.forecast_note && (
+                    <p className="text-sm text-slate-600">{checkin.forecast_note}</p>
+                  )}
+                </div>
               </div>
-            ) : (
-              <p className="text-gray-500">No life areas logged for this day.</p>
-            )}
+            </section>
+
+            <section className="space-y-3">
+              {checkin.focus_items.map((item) => {
+                const barrier = item.focus_barriers[0];
+                return (
+                  <div key={item.id} className="rounded-3xl border border-white/30 bg-white/80 p-5 shadow-sm">
+                    <p className="text-base font-semibold text-slate-900">{item.description}</p>
+                    {item.categories.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
+                        {item.categories.map((category) => (
+                          <span key={category} className="rounded-full bg-slate-100 px-3 py-1">
+                            {category}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {barrier && (
+                      <div className="mt-3 text-sm text-slate-600">
+                        <p className="font-semibold text-slate-700">Barrier</p>
+                        <p>
+                          {barrier.barrier_types?.icon && <span className="mr-1">{barrier.barrier_types.icon}</span>}
+                          {barrier.barrier_types?.label || barrier.custom_barrier}
+                        </p>
+                        {barrier.custom_barrier && (
+                          <p className="text-xs text-slate-500">{barrier.custom_barrier}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </section>
           </div>
         ) : (
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm text-center">
-            <p className="text-gray-500">No check-in found for this day.</p>
-            <Link 
-              href="/check-in"
-              className="mt-4 inline-block px-6 py-3 bg-pink-500 text-white rounded-xl font-semibold hover:bg-pink-600 transition-colors"
+          <div className="rounded-3xl border border-dashed border-white/40 bg-white/60 p-6 text-center">
+            <p className="text-slate-600">No check-in found for this day.</p>
+            <Link
+              href="/"
+              className="mt-4 inline-flex items-center justify-center rounded-2xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
             >
-              Log a Check-in
+              Start today&rsquo;s flow
             </Link>
           </div>
         )}
@@ -120,4 +119,3 @@ export default function DayDetailPage() {
     </main>
   );
 }
-

@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
+import { CheckInProvider } from "@/lib/checkin-context";
 
 export const metadata: Metadata = {
   title: "ADHD Barrier Tracker",
@@ -32,6 +34,11 @@ export const viewport: Viewport = {
   themeColor: "#a855f7",
 };
 
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+});
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -39,8 +46,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased">
-        {children}
+      <body className={`${inter.className} bg-app-gradient text-slate-900`}>
+        <CheckInProvider>{children}</CheckInProvider>
       </body>
     </html>
   );

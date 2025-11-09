@@ -1,0 +1,131 @@
+'use client';
+
+import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+
+export interface WeatherSelection {
+  key: string;
+  label: string;
+  icon: string;
+  description: string;
+}
+
+export interface BarrierSelectionState {
+  barrierTypeSlug?: string | null;
+  custom?: string | null;
+}
+
+export interface FocusItemState {
+  id: string;
+  description: string;
+  categories: string[];
+  sortOrder: number;
+  barrier?: BarrierSelectionState | null;
+}
+
+interface CheckInContextValue {
+  weather: WeatherSelection | null;
+  setWeather: (weather: WeatherSelection | null) => void;
+  forecastNote: string;
+  setForecastNote: (note: string) => void;
+  focusItems: FocusItemState[];
+  addFocusItem: (description: string, categories: string[]) => void;
+  updateFocusItem: (id: string, updates: Partial<Omit<FocusItemState, 'id'>>) => void;
+  removeFocusItem: (id: string) => void;
+  setBarrierForFocusItem: (id: string, barrier: BarrierSelectionState | null) => void;
+  resetCheckIn: () => void;
+}
+
+const MAX_FOCUS_ITEMS = 3;
+
+const CheckInContext = createContext<CheckInContextValue | undefined>(undefined);
+
+export function CheckInProvider({ children }: { children: React.ReactNode }) {
+  const [weather, setWeather] = useState<WeatherSelection | null>(null);
+  const [forecastNote, setForecastNote] = useState('');
+  const [focusItems, setFocusItems] = useState<FocusItemState[]>([]);
+
+  const addFocusItem = useCallback((description: string, categories: string[]) => {
+    if (!description.trim() || focusItems.length >= MAX_FOCUS_ITEMS) return;
+
+    setFocusItems((prev) => {
+      if (prev.length >= MAX_FOCUS_ITEMS) return prev;
+      const id = crypto.randomUUID();
+      const next: FocusItemState = {
+        id,
+        description: description.trim(),
+        categories,
+        sortOrder: prev.length,
+        barrier: null,
+      };
+      return [...prev, next];
+    });
+  }, [focusItems.length]);
+
+  const updateFocusItem = useCallback((id: string, updates: Partial<Omit<FocusItemState, 'id'>>) => {
+    setFocusItems((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              ...updates,
+            }
+          : item
+      )
+    );
+  }, []);
+
+  const removeFocusItem = useCallback((id: string) => {
+    setFocusItems((prev) =>
+      prev
+        .filter((item) => item.id !== id)
+        .map((item, index) => ({ ...item, sortOrder: index }))
+    );
+  }, []);
+
+  const setBarrierForFocusItem = useCallback((id: string, barrier: BarrierSelectionState | null) => {
+    setFocusItems((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              barrier,
+            }
+          : item
+      )
+    );
+  }, []);
+
+  const resetCheckIn = useCallback(() => {
+    setWeather(null);
+    setForecastNote('');
+    setFocusItems([]);
+  }, []);
+
+  const value = useMemo(
+    () => ({
+      weather,
+      setWeather,
+      forecastNote,
+      setForecastNote,
+      focusItems,
+      addFocusItem,
+      updateFocusItem,
+      removeFocusItem,
+      setBarrierForFocusItem,
+      resetCheckIn,
+    }),
+    [weather, forecastNote, focusItems, addFocusItem, updateFocusItem, removeFocusItem, setBarrierForFocusItem, resetCheckIn]
+  );
+
+  return <CheckInContext.Provider value={value}>{children}</CheckInContext.Provider>;
+}
+
+export function useCheckIn() {
+  const context = useContext(CheckInContext);
+  if (!context) {
+    throw new Error('useCheckIn must be used within a CheckInProvider');
+  }
+  return context;
+}
+
+export { MAX_FOCUS_ITEMS };

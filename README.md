@@ -4,12 +4,11 @@ A lightweight companion app to [ADHD First Aid](https://adhd-first-aid.vercel.ap
 
 ## Features
 
-- **Two-Step Barrier Selection**: Pick 1-3 ADHD-related barriers, then select specific tasks that feel hard
-- **Beautiful Pastel UI**: Gradient cards with icons for visual clarity
-- **Contextual Guidance**: Empathetic tips and questions based on your barriers
-- **Calendar View**: Track barrier patterns over time
-- **Simple Authentication**: Secure sign-up and login with Supabase
-- **Light/Dark Themes**: Match ADHD First Aid aesthetic
+- **Internal Weather Flow** – Start each morning by naming your internal weather with five gentle cards
+- **Focus + Barriers** – Capture up to three focus points, then note the barrier or choose from common barrier types
+- **Gentle Support** – Automatic tips are pulled from the Supabase `tips` table for each focus/barrier pair
+- **Calendar with Icons** – Every check-in drops a weather emoji on the calendar; tap a date to see focus items and forecast notes
+- **Pattern Insights** – Weekly summary card + micro chart highlighting the most common internal weather for the past seven days
 
 ## Tech Stack
 

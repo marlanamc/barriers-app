@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { useMemo } from "react";
+import { ArrowRight, CalendarDays, LineChart } from "lucide-react";
+import { InternalWeatherSelector } from "@/components/InternalWeatherSelector";
+import { useCheckIn } from "@/lib/checkin-context";
+import { useSupabaseUser } from "@/lib/useSupabaseUser";
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -14,103 +17,106 @@ function getGreeting() {
 
 export default function HomePage() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { weather, setWeather, forecastNote, setForecastNote } = useCheckIn();
+  const { loading, error } = useSupabaseUser();
 
-  useEffect(() => {
-    // Check if user is signed in
-    async function checkAuth() {
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (currentUser) {
-        setUser(currentUser);
-      }
-      setLoading(false);
-    }
+  const greeting = useMemo(() => getGreeting(), []);
 
-    checkAuth();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+  const handleNext = () => {
+    if (!weather) return;
+    router.push("/focus");
+  };
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-100 to-orange-100 flex items-center justify-center">
-        <p className="text-gray-700">Loading...</p>
+      <main className="min-h-screen flex items-center justify-center px-4">
+        <p className="text-slate-600">Warming up your companion...</p>
       </main>
     );
   }
 
-  // If not logged in, redirect to onboarding
-  if (!user) {
-    router.push('/onboarding');
-    return null;
-  }
-
   return (
-    <main className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-100 to-orange-100">
-      {/* Header */}
-      <header className="px-4 py-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">
-          <span className="text-gray-900">ADHD</span> <span className="text-pink-500">Barrier</span> <span className="text-gray-900">Tracker</span>
-        </h1>
-      </header>
+    <main className="min-h-screen px-4 pb-16 pt-6">
+      <div className="mx-auto max-w-3xl space-y-8">
+        <header className="flex items-center justify-between">
+          <div>
+            <p className="text-sm uppercase tracking-wide text-slate-500">Barrier Companion</p>
+            <h1 className="text-3xl font-bold text-slate-900">{greeting}</h1>
+          </div>
+          <div className="rounded-full bg-white/70 px-4 py-2 text-sm font-semibold text-slate-600 shadow-sm">
+            Morning Flow
+          </div>
+        </header>
 
-      {/* Main Content */}
-      <div className="px-4 pb-8 max-w-2xl mx-auto">
-        {/* Greeting */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">
-            {getGreeting()}.
-          </h2>
-          <p className="text-gray-700">
-            Ready to check in?
-          </p>
-        </div>
+        <section className="space-y-4 rounded-3xl border border-white/20 bg-white/70 p-6 backdrop-blur">
+          <div>
+            <p className="text-sm font-medium uppercase tracking-wide text-cyan-600">Step 1</p>
+            <h2 className="text-2xl font-bold text-slate-900">What&rsquo;s the weather inside today?</h2>
+            <p className="text-slate-600">Tap the card that feels the closest match.</p>
+          </div>
 
-        {/* Main CTA */}
-        <Link
-          href="/check-in"
-          className="block gradient-purple p-8 rounded-2xl shadow-sm hover:shadow-md transition-shadow mb-6"
-        >
-          <h3 className="text-2xl font-bold text-gray-900 mb-2">
-            Start Check-in
-          </h3>
-          <p className="text-gray-700">
-            Log barriers and get helpful tips
-          </p>
-        </Link>
+          <InternalWeatherSelector selectedKey={weather?.key} onSelect={setWeather} />
 
-        {/* Quick Links */}
-        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-700" htmlFor="forecast-note">
+              Want to describe the forecast?
+            </label>
+            <textarea
+              id="forecast-note"
+              value={forecastNote}
+              onChange={(event) => setForecastNote(event.target.value)}
+              placeholder="Mentally foggy? Overstimulated? Drop a few words."
+              className="w-full rounded-2xl border border-white/30 bg-white/70 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-100"
+              rows={3}
+            />
+          </div>
+
+          {error && (
+            <p className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+              {error}. You can still explore the flow, but saving may not work until Supabase is configured.
+            </p>
+          )}
+
+          <button
+            type="button"
+            onClick={handleNext}
+            disabled={!weather}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-6 py-4 text-lg font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Next: What Matters Today
+            <ArrowRight className="h-5 w-5" />
+          </button>
+        </section>
+
+        <section className="grid gap-4 md:grid-cols-2">
           <Link
             href="/calendar"
-            className="gradient-blue-purple p-5 rounded-2xl shadow-sm hover:shadow-md transition-shadow"
+            className="group rounded-3xl border border-white/30 bg-white/70 p-5 shadow-sm transition hover:-translate-y-1 hover:bg-white"
           >
-            <h3 className="font-bold text-base text-gray-900 mb-1">
-              View Calendar
-            </h3>
-            <p className="text-sm text-gray-700">
-              See your check-ins
-            </p>
+            <div className="mb-2 flex items-center gap-3 text-slate-600">
+              <span className="rounded-full bg-cyan-100 p-2 text-cyan-700">
+                <CalendarDays className="h-5 w-5" />
+              </span>
+              Calendar
+            </div>
+            <p className="text-lg font-semibold text-slate-900">See your daily weather</p>
+            <p className="text-sm text-slate-600">Tap any day to review focus items and notes.</p>
           </Link>
 
           <Link
-            href="/insights"
-            className="gradient-yellow-green p-5 rounded-2xl shadow-sm hover:shadow-md transition-shadow"
+            href="/patterns"
+            className="group rounded-3xl border border-white/30 bg-white/70 p-5 shadow-sm transition hover:-translate-y-1 hover:bg-white"
           >
-            <h3 className="font-bold text-base text-gray-900 mb-1">
-              Track Patterns
-            </h3>
-            <p className="text-sm text-gray-700">
-              See your barrier trends
-            </p>
+            <div className="mb-2 flex items-center gap-3 text-slate-600">
+              <span className="rounded-full bg-indigo-100 p-2 text-indigo-700">
+                <LineChart className="h-5 w-5" />
+              </span>
+              Patterns
+            </div>
+            <p className="text-lg font-semibold text-slate-900">Notice gentle trends</p>
+            <p className="text-sm text-slate-600">Which internal weather shows up the most?</p>
           </Link>
-        </div>
+        </section>
       </div>
     </main>
   );

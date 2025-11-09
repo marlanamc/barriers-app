@@ -129,7 +129,7 @@ export default function OnboardingPage() {
         {/* CTA Button */}
         <div className="text-center">
           <Link
-            href="/check-in"
+            href="/"
             className="inline-block px-8 py-4 bg-gray-900 text-white rounded-xl font-semibold hover:bg-gray-800 transition-colors"
           >
             Get Started
@@ -139,4 +139,3 @@ export default function OnboardingPage() {
     </main>
   );
 }
-

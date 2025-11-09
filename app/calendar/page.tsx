@@ -1,73 +1,63 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, ChevronLeft, ChevronRight, X } from "lucide-react";
 import Link from "next/link";
-import { ArrowLeft, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-react";
-import { getCalendarEntries, CalendarEntry } from "@/lib/supabase";
-import { supabase } from "@/lib/supabase";
+import { useCheckIn } from "@/lib/checkin-context";
+import { useSupabaseUser } from "@/lib/useSupabaseUser";
+import { getCheckinsForRange, type CheckinWithRelations } from "@/lib/supabase";
 
-// Disable static generation for this page
-export const dynamic = 'force-dynamic';
+const monthNames = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default function CalendarPage() {
-  const router = useRouter();
-  const [userId, setUserId] = useState<string | null>(null);
-  const [calendarEntries, setCalendarEntries] = useState<CalendarEntry[]>([]);
+  const { weather } = useCheckIn();
+  const { user, loading: authLoading } = useSupabaseUser();
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [checkins, setCheckins] = useState<CheckinWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedCheckin, setSelectedCheckin] = useState<CheckinWithRelations | null>(null);
 
   useEffect(() => {
-    async function setupUser() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setUserId(user.id);
-        loadCalendarEntries(user.id);
-      } else {
-        // Try dummy user for development
-        const testEmail = 'test@example.com';
-        const testPassword = 'test123456';
-        
-        const { data: signInData } = await supabase.auth.signInWithPassword({
-          email: testEmail,
-          password: testPassword,
-        });
-
-        if (signInData?.user) {
-          setUserId(signInData.user.id);
-          loadCalendarEntries(signInData.user.id);
-        }
-      }
-    }
-
-    setupUser();
-  }, []);
-
-  useEffect(() => {
-    if (userId) {
-      loadCalendarEntries(userId);
-    }
-  }, [currentDate, userId]);
-
-  async function loadCalendarEntries(userId: string) {
-    setLoading(true);
-    try {
+    async function load() {
+      if (!user) return;
+      setLoading(true);
       const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
       const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
-      
-      const entries = await getCalendarEntries(
-        userId,
-        startOfMonth.toISOString().split('T')[0],
-        endOfMonth.toISOString().split('T')[0]
+
+      const data = await getCheckinsForRange(
+        user.id,
+        startOfMonth.toISOString().split("T")[0],
+        endOfMonth.toISOString().split("T")[0]
       );
-      
-      setCalendarEntries(entries);
-    } catch (error) {
-      console.error('Error loading calendar entries:', error);
-    } finally {
+
+      setCheckins(data);
       setLoading(false);
     }
-  }
+
+    load();
+  }, [currentDate, user]);
+
+  const checkinsByDate = useMemo(() => {
+    return checkins.reduce<Record<string, CheckinWithRelations>>((acc, checkin) => {
+      acc[checkin.checkin_date] = checkin;
+      return acc;
+    }, {});
+  }, [checkins]);
 
   function getDaysInMonth() {
     const year = currentDate.getFullYear();
@@ -77,14 +67,12 @@ export default function CalendarPage() {
     const daysInMonth = lastDay.getDate();
     const startingDayOfWeek = firstDay.getDay();
 
-    const days = [];
-    
-    // Add empty cells for days before the first day of the month
+    const days: Array<Date | null> = [];
+
     for (let i = 0; i < startingDayOfWeek; i++) {
       days.push(null);
     }
 
-    // Add all days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       days.push(new Date(year, month, day));
     }
@@ -92,157 +80,159 @@ export default function CalendarPage() {
     return days;
   }
 
-  function getEntryForDate(date: Date): CalendarEntry | undefined {
-    const dateStr = date.toISOString().split('T')[0];
-    return calendarEntries.find(entry => entry.date === dateStr);
+  function openModal(date: Date) {
+    const iso = date.toISOString().split("T")[0];
+    const entry = checkinsByDate[iso];
+    if (!entry) return;
+    setSelectedDate(iso);
+    setSelectedCheckin(entry);
   }
 
-  function isToday(date: Date): boolean {
-    const today = new Date();
-    return date.toDateString() === today.toDateString();
+  function closeModal() {
+    setSelectedDate(null);
+    setSelectedCheckin(null);
   }
 
-  function goToPreviousMonth() {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
-  }
-
-  function goToNextMonth() {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
-  }
-
-  function goToToday() {
-    setCurrentDate(new Date());
-  }
-
-  const monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
-
-  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const days = getDaysInMonth();
-
-  if (loading) {
+  if (authLoading || loading) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-100 to-orange-100 flex items-center justify-center">
-        <p className="text-gray-700">Loading calendar...</p>
+      <main className="min-h-screen flex items-center justify-center px-4">
+        <p className="text-slate-600">Syncing your calendar...</p>
       </main>
     );
   }
 
-  return (
-    <main className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-100 to-orange-100">
-      {/* Header */}
-      <header className="px-4 py-4 flex items-center gap-4">
-        <Link href="/" className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center hover:shadow-md transition-shadow">
-          <ArrowLeft className="w-5 h-5 text-gray-700" />
-        </Link>
-        <h1 className="text-xl font-semibold">
-          <span className="text-gray-900">ADHD</span> <span className="text-pink-500">Barrier</span> <span className="text-gray-900">Tracker</span>
-        </h1>
-      </header>
+  const days = getDaysInMonth();
 
-      {/* Main Content */}
-      <div className="px-4 pb-8 max-w-4xl mx-auto">
-        {/* Calendar Header */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 mb-6 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
+  return (
+    <main className="min-h-screen px-4 pb-16 pt-6">
+      <div className="mx-auto max-w-5xl space-y-6">
+        <header className="flex items-center gap-4">
+          <Link
+            href="/"
+            className="rounded-full border border-white/40 bg-white/70 p-2 text-slate-600 transition hover:-translate-y-0.5"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <div>
+            <p className="text-sm uppercase tracking-wide text-cyan-600">Step 5</p>
+            <h1 className="text-2xl font-bold text-slate-900">Calendar</h1>
+            <p className="text-sm text-slate-600">Tap a day to revisit your focus + barriers.</p>
+          </div>
+        </header>
+
+        <section className="rounded-3xl border border-white/20 bg-white/80 p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
             <button
-              onClick={goToPreviousMonth}
-              className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+              type="button"
+              onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}
+              className="rounded-full border border-white/40 bg-white/70 p-2 text-slate-600 transition hover:bg-white"
             >
-              <ChevronLeft className="w-5 h-5 text-gray-700" />
+              <ChevronLeft className="h-5 w-5" />
             </button>
-            
             <div className="text-center">
-              <h2 className="text-2xl font-bold text-gray-900">
+              <p className="text-lg font-semibold text-slate-900">
                 {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
-              </h2>
-              <button
-                onClick={goToToday}
-                className="text-sm text-pink-500 hover:text-pink-600 mt-1"
-              >
-                Go to Today
-              </button>
+              </p>
+              {weather && <p className="text-xs text-slate-500">Today feels {weather.label.toLowerCase()}</p>}
             </div>
-            
             <button
-              onClick={goToNextMonth}
-              className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+              type="button"
+              onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))}
+              className="rounded-full border border-white/40 bg-white/70 p-2 text-slate-600 transition hover:bg-white"
             >
-              <ChevronRight className="w-5 h-5 text-gray-700" />
+              <ChevronRight className="h-5 w-5" />
             </button>
           </div>
 
-          {/* Calendar Grid */}
-          <div className="grid grid-cols-7 gap-2">
-            {/* Day Headers */}
-            {dayNames.map(day => (
-              <div key={day} className="text-center text-sm font-semibold text-gray-600 py-2">
-                {day}
-              </div>
+          <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold text-slate-500">
+            {dayNames.map((day) => (
+              <div key={day}>{day}</div>
             ))}
+          </div>
 
-            {/* Calendar Days */}
+          <div className="mt-3 grid grid-cols-7 gap-2">
             {days.map((date, index) => {
               if (!date) {
                 return <div key={`empty-${index}`} className="aspect-square" />;
               }
 
-              const entry = getEntryForDate(date);
-              const hasCheckIn = entry?.has_check_in || false;
-              const isTodayDate = isToday(date);
+              const iso = date.toISOString().split("T")[0];
+              const entry = checkinsByDate[iso];
+              const isToday = new Date().toDateString() === date.toDateString();
 
               return (
                 <button
-                  key={date.toISOString()}
-                  onClick={() => {
-                    // Could navigate to day detail view
-                    const dateStr = date.toISOString().split('T')[0];
-                    router.push(`/calendar/${dateStr}`);
-                  }}
-                  className={`
-                    aspect-square rounded-xl p-2 flex flex-col items-center justify-center
-                    transition-all relative
-                    ${isTodayDate ? 'ring-2 ring-pink-500 ring-offset-2 bg-pink-50' : 'bg-white/60 hover:bg-white/80'}
-                    ${hasCheckIn ? 'shadow-md' : 'shadow-sm'}
-                  `}
+                  key={iso}
+                  type="button"
+                  onClick={() => openModal(date)}
+                  className={`aspect-square rounded-2xl border px-2 py-2 text-left transition ${
+                    entry
+                      ? "border-cyan-200 bg-white shadow-sm hover:-translate-y-0.5"
+                      : "border-white/40 bg-white/60"
+                  } ${isToday ? "ring-2 ring-cyan-200" : ""} disabled:cursor-not-allowed disabled:opacity-60`}
+                  disabled={!entry}
                 >
-                  <span className={`
-                    text-sm font-medium
-                    ${isTodayDate ? 'text-pink-600' : 'text-gray-700'}
-                  `}>
-                    {date.getDate()}
-                  </span>
-                  {hasCheckIn && (
-                    <div className="mt-1 flex gap-1">
-                      {(entry?.barrier_count ?? 0) > 0 && (
-                        <div className="w-1.5 h-1.5 rounded-full bg-pink-500" />
-                      )}
-                      {(entry?.task_count ?? 0) > 0 && (
-                        <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                      )}
-                    </div>
+                  <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
+                    <span>{date.getDate()}</span>
+                    {entry && entry.weather_icon && <span className="text-base">{entry.weather_icon}</span>}
+                  </div>
+                  {entry && (
+                    <p className="mt-2 line-clamp-2 text-xs text-slate-500">
+                      {entry.internal_weather}
+                    </p>
                   )}
                 </button>
               );
             })}
           </div>
-        </div>
-
-        {/* Legend */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-sm flex items-center gap-6 text-sm">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-pink-500" />
-            <span className="text-gray-700">Life Area</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-blue-500" />
-            <span className="text-gray-700">Tasks</span>
-          </div>
-        </div>
+        </section>
       </div>
+
+      {selectedCheckin && selectedDate && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/30 px-4 pb-6 pt-12 backdrop-blur-sm sm:items-center">
+          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-start justify-between">
+              <div>
+                <p className="text-sm uppercase tracking-wide text-slate-500">{selectedDate}</p>
+                <p className="text-xl font-semibold text-slate-900">
+                  {selectedCheckin.weather_icon} {selectedCheckin.internal_weather}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeModal}
+                className="rounded-full bg-slate-100 p-2 text-slate-500 hover:text-slate-800"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {selectedCheckin.forecast_note && (
+              <p className="mb-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                {selectedCheckin.forecast_note}
+              </p>
+            )}
+
+            <div className="space-y-3">
+              {selectedCheckin.focus_items.map((item) => {
+                const barrier = item.focus_barriers[0];
+                const barrierLabel = barrier?.barrier_types?.label || barrier?.custom_barrier;
+                return (
+                  <div key={item.id} className="rounded-2xl border border-white/40 bg-white px-4 py-3">
+                    <p className="text-sm font-semibold text-slate-900">{item.description}</p>
+                    {barrierLabel && (
+                      <p className="text-xs text-slate-500">
+                        {barrier?.barrier_types?.icon && <span className="mr-1">{barrier.barrier_types.icon}</span>}
+                        {barrierLabel}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
-
