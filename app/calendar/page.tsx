@@ -7,6 +7,9 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "
 import { getCalendarEntries, CalendarEntry } from "@/lib/supabase";
 import { supabase } from "@/lib/supabase";
 
+// Disable static generation for this page
+export const dynamic = 'force-dynamic';
+
 export default function CalendarPage() {
   const router = useRouter();
   const [userId, setUserId] = useState<string | null>(null);

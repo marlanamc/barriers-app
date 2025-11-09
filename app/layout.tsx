@@ -5,7 +5,6 @@ export const metadata: Metadata = {
   title: "ADHD Barrier Tracker",
   description: "A gentle companion to help you track daily barriers and find supportive guidance",
   manifest: "/manifest.json",
-  themeColor: "#a855f7",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -30,6 +29,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  themeColor: "#a855f7",
 };
 
 export default function RootLayout({
