@@ -1,0 +1,69 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: linear-gradient(to bottom right, #EDE9FE, #FCE7F3, #FFEDD5);
+  --foreground: #2d2d2d;
+}
+
+body {
+  color: var(--foreground);
+  background: linear-gradient(to bottom right, #EDE9FE, #FCE7F3, #FFEDD5);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  background: linear-gradient(to bottom right, #EDE9FE, #FCE7F3, #FFEDD5);
+  min-height: 100vh;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Soft pastel gradient backgrounds matching ADHD First Aid Kit */
+.gradient-pink {
+  background: linear-gradient(135deg, #fce7f3 0%, #f9d0e7 100%);
+}
+
+.gradient-purple {
+  background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%);
+}
+
+.gradient-blue {
+  background: linear-gradient(135deg, #e0f2fe 0%, #d0ebff 100%);
+}
+
+.gradient-green {
+  background: linear-gradient(135deg, #dcfce7 0%, #d1fae5 100%);
+}
+
+.gradient-yellow {
+  background: linear-gradient(135deg, #fef9c3 0%, #fef08a 100%);
+}
+
+.gradient-peach {
+  background: linear-gradient(135deg, #ffe4d6 0%, #ffd9c4 100%);
+}
+
+/* Card-specific gradients matching the exact First Aid Kit style */
+.gradient-pink-purple {
+  background: linear-gradient(135deg, #fce7f3 0%, #f3e8ff 100%);
+}
+
+.gradient-yellow-green {
+  background: linear-gradient(135deg, #fef9c3 0%, #dcfce7 100%);
+}
+
+.gradient-green-blue {
+  background: linear-gradient(135deg, #dcfce7 0%, #e0f2fe 100%);
+}
+
+.gradient-blue-purple {
+  background: linear-gradient(135deg, #e0f2fe 0%, #f3e8ff 100%);
+}
