@@ -213,10 +213,10 @@ export default function CalendarPage() {
                   </span>
                   {hasCheckIn && (
                     <div className="mt-1 flex gap-1">
-                      {entry?.barrier_count > 0 && (
+                      {(entry?.barrier_count ?? 0) > 0 && (
                         <div className="w-1.5 h-1.5 rounded-full bg-pink-500" />
                       )}
-                      {entry?.task_count > 0 && (
+                      {(entry?.task_count ?? 0) > 0 && (
                         <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
                       )}
                     </div>
