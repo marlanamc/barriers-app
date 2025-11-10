@@ -31,6 +31,41 @@ function getTodayLabel() {
   }).format(new Date());
 }
 
+const weatherThemes: Record<
+  string,
+  {
+    gradient: [string, string];
+    textColor: string;
+    subtleTextColor: string;
+  }
+> = {
+  clear: {
+    gradient: ["#FFD580", "#FFF9E3"],
+    textColor: "text-slate-900",
+    subtleTextColor: "text-slate-700",
+  },
+  cloudy: {
+    gradient: ["#CDE3F5", "#F2F2F2"],
+    textColor: "text-slate-900",
+    subtleTextColor: "text-slate-600",
+  },
+  rainy: {
+    gradient: ["#9CBED7", "#D1E2EA"],
+    textColor: "text-slate-900",
+    subtleTextColor: "text-slate-700",
+  },
+  stormy: {
+    gradient: ["#B38DCB", "#5D7AA2"],
+    textColor: "text-white",
+    subtleTextColor: "text-indigo-100",
+  },
+  quiet: {
+    gradient: ["#B6B6D8", "#E0D5F2"],
+    textColor: "text-slate-900",
+    subtleTextColor: "text-slate-700",
+  },
+};
+
 export default function HomePage() {
   const router = useRouter();
   const {
@@ -350,23 +385,35 @@ export default function HomePage() {
       {showCompactWeather && weather && (
         <>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{todayLabel}</h2>
-          <div className="gradient-energy-panel rounded-2xl border border-white/40 px-4 py-3 text-sm text-slate-900 shadow-sm dark:border-slate-600/40 dark:text-slate-100">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <p className="flex flex-wrap items-center gap-2 text-base font-semibold">
-              <span className="text-2xl leading-none">{weather.icon}</span>
-              <span>{weather.label}</span>
-              <span className="text-sm font-normal text-slate-500 dark:text-slate-300">— {weather.description}</span>
-            </p>
-            <button
-              type="button"
-              onClick={handleAdjustWeather}
-              className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white/60 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600 transition hover:bg-white dark:border-slate-600 dark:bg-slate-700/60 dark:text-slate-200 dark:hover:bg-slate-700"
-            >
-              <RotateCcw className="h-4 w-4" />
-              Change
-            </button>
-          </div>
-        </div>
+          {(() => {
+            const theme = weather?.key && weatherThemes[weather.key] ? weatherThemes[weather.key] : null;
+            return (
+              <div 
+                className={`rounded-2xl border border-white/40 px-4 py-3 text-sm shadow-sm dark:border-slate-600/40 ${theme?.textColor || 'text-slate-900 dark:text-slate-100'}`}
+                style={{
+                  background: theme
+                    ? `linear-gradient(135deg, ${theme.gradient[0]} 0%, ${theme.gradient[1]} 100%)`
+                    : 'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%)'
+                }}
+              >
+                <div className="flex items-center justify-between gap-x-3 gap-y-1">
+                  <p className={`flex flex-wrap items-center gap-2 text-base font-semibold ${theme?.textColor || 'text-slate-900'}`}>
+                    <span className="text-2xl leading-none">{weather.icon}</span>
+                    <span>{weather.label}</span>
+                    <span className={`text-sm font-normal ${theme?.subtleTextColor || 'text-slate-500 dark:text-slate-300'}`}>{weather.description}</span>
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleAdjustWeather}
+                    className={`flex-shrink-0 rounded-full border border-slate-200 bg-white/60 p-2 transition hover:bg-white dark:border-slate-600 dark:bg-slate-700/60 dark:hover:bg-slate-700 ${theme?.textColor === 'text-white' ? 'text-white border-white/40 bg-white/20 hover:bg-white/30' : 'text-slate-600 dark:text-slate-200'}`}
+                    aria-label="Change weather"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
         </>
       )}
 
@@ -525,6 +572,11 @@ export default function HomePage() {
         )}
 
         <section className="space-y-3">
+          <div className="flex items-center gap-3 pt-4">
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-slate-700"></div>
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Explore</h2>
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-slate-700"></div>
+          </div>
           <Link
             href="/calendar"
             className="group flex items-center gap-4 rounded-2xl border border-white/30 bg-white/70 p-4 shadow-sm transition hover:bg-white hover:shadow-md dark:border-slate-700/30 dark:bg-slate-800/70 dark:hover:bg-slate-800"

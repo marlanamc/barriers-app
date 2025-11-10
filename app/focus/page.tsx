@@ -8,6 +8,7 @@ import { useCheckIn, MAX_FOCUS_ITEMS, type TaskAnchorType } from "@/lib/checkin-
 import { CATEGORY_OPTIONS, getCategoryEmoji } from "@/lib/categories";
 import { getBarrierTypes, type BarrierType } from "@/lib/supabase";
 import { anchorValueForDisplay, cleanAnchorInput } from "@/lib/anchors";
+import { hasBarrierSelection } from "@/lib/barrier-helpers";
 
 const whileSuggestions = [
   "while watching TV",
@@ -281,7 +282,18 @@ export default function FocusScreen() {
   const [text, setText] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [barrierTypes, setBarrierTypes] = useState<BarrierType[]>([]);
-  const focusPlaceholder = useMemo(() => buildFocusPlaceholderText(), []);
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640); // sm breakpoint
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+  
+  const focusPlaceholder = useMemo(() => buildFocusPlaceholderText(new Date(), isMobile ? 2 : 3), [isMobile]);
 
   useEffect(() => {
     getBarrierTypes().then(setBarrierTypes);
@@ -318,14 +330,7 @@ export default function FocusScreen() {
   const completedFocusItems = useMemo(() => focusItems.filter((item) => item.completed), [focusItems]);
   const activeCount = useMemo(() => activeFocusItems.length, [activeFocusItems.length]);
   const barriersComplete = useMemo(() => {
-    return (
-      Boolean(weather) &&
-      activeFocusItems.length > 0 &&
-      activeFocusItems.every((item) => {
-        const barrier = item.barrier;
-        return Boolean(barrier && (barrier.barrierTypeSlug || barrier.custom?.trim()));
-      })
-    );
+    return Boolean(weather) && activeFocusItems.length > 0 && activeFocusItems.every((item) => hasBarrierSelection(item.barrier));
   }, [weather, activeFocusItems]);
 
   return (
