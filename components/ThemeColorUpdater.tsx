@@ -1,12 +1,36 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useTheme } from '@/lib/theme-context';
+import { useEffect, useState } from 'react';
 
 export function ThemeColorUpdater() {
-  const { theme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
+    setMounted(true);
+    
+    // Get initial theme from document class or localStorage
+    const isDark = document.documentElement.classList.contains('dark') ||
+      (typeof window !== 'undefined' && localStorage.getItem('theme') === 'dark');
+    setTheme(isDark ? 'dark' : 'light');
+
+    // Watch for theme changes by observing the document class
+    const observer = new MutationObserver(() => {
+      const isDarkNow = document.documentElement.classList.contains('dark');
+      setTheme(isDarkNow ? 'dark' : 'light');
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!mounted || typeof document === 'undefined') return;
+
     // Update the theme-color meta tag based on current theme
     // Light mode: soft purple from gradient start (#f5f3ff)
     // Dark mode: dark purple from gradient start (#1e1b3d)
@@ -34,7 +58,7 @@ export function ThemeColorUpdater() {
     
     // Use 'black-translucent' for dark mode (shows white text) or 'default' for light mode
     appleStatusBar.setAttribute('content', theme === 'dark' ? 'black-translucent' : 'default');
-  }, [theme]);
+  }, [theme, mounted]);
 
   return null;
 }
