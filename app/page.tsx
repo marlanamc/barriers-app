@@ -398,7 +398,7 @@ export default function HomePage() {
   // All hooks must be called before any conditional returns
   const activeFocusItems = useMemo(() => focusItems.filter((item) => !item.completed), [focusItems]);
   const completedFocusItems = useMemo(() => focusItems.filter((item) => item.completed), [focusItems]);
-  const hasFocus = useMemo(() => focusItems.length > 0, [focusItems.length]);
+  const hasFocus = useMemo(() => activeFocusItems.length > 0, [activeFocusItems.length]);
   const hasWeather = useMemo(() => Boolean(weather), [weather]);
   const showCompactWeather = hasWeather && !isEditingWeather; // Hide summary while editing
   const shouldShowWeatherSection = !hasWeather || isEditingWeather;

@@ -415,16 +415,7 @@ export default function GentleSupportScreen() {
     return () => window.clearTimeout(timer);
   }, [showSuccess]);
 
-  // Redirect to home after showing the forecast image
-  useEffect(() => {
-    if (done && dailyForecast) {
-      // Show the image for 3 seconds, then redirect to home
-      const timer = setTimeout(() => {
-        router.push("/");
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [done, dailyForecast, router]);
+  // Removed auto-redirect - user can navigate back manually via the back button or Done button
 
   useEffect(() => {
     // Detect device type and set appropriate dimensions
@@ -626,7 +617,7 @@ export default function GentleSupportScreen() {
   }
 
   function handleDone() {
-    router.push("/calendar");
+    router.push("/");
   }
 
   async function handleSave() {
