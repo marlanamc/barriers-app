@@ -339,7 +339,7 @@ export default function HomePage() {
       await saveCheckinWithFocus({
         userId: user.id,
         internalWeather: weather,
-        forecastNote: forecastNote || null,
+        forecastNote: forecastNote || undefined,
         focusItems: activeItems.map((item) => ({
           id: item.id,
           description: item.description,
