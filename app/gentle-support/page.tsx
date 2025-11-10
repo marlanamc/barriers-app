@@ -544,11 +544,11 @@ export default function GentleSupportScreen() {
 
         <section className="rounded-3xl border border-white/20 bg-white/80 p-6 shadow-sm space-y-4">
           <div className="flex items-center gap-3">
-            <div className="text-4xl">{weather.icon}</div>
+            <div className="text-4xl">{weather?.icon}</div>
             <div>
               <p className="text-sm uppercase tracking-wide text-slate-500">Internal weather</p>
-              <p className="text-xl font-semibold text-slate-900">{weather.label}</p>
-              <p className="text-sm text-slate-600">{weather.description}</p>
+              <p className="text-xl font-semibold text-slate-900">{weather?.label}</p>
+              <p className="text-sm text-slate-600">{weather?.description}</p>
             </div>
           </div>
           {forecastNote && (
