@@ -296,7 +296,7 @@ export async function saveCheckinWithFocus(payload: SaveCheckinPayload): Promise
     p_weather_icon: payload.internalWeather.icon ?? null,
     p_forecast_note: payload.forecastNote?.trim() || null,
     p_focus_items: focusItemsJson,
-    p_checkin_date: normalizedCheckinDate,
+    p_checkin_date: normalizedCheckinDate ?? undefined,
   };
 
   const { data, error } = await supabase.rpc('create_checkin_with_focus', rpcParams);
