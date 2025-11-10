@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import html2canvas from "html2canvas";
 import { useCheckIn, type TaskAnchorType, type WeatherSelection } from "@/lib/checkin-context";
+import { CheckinDatePicker } from "@/components/CheckinDatePicker";
 import { useSupabaseUser } from "@/lib/useSupabaseUser";
 import {
   getBarrierTypes,
