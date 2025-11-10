@@ -3,16 +3,18 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, CalendarDays, CalendarPlus, CheckCircle2, Circle, LineChart, RotateCcw, Trash2 } from "lucide-react";
+import { ArrowRight, CalendarDays, CalendarPlus, CheckCircle2, Circle, LineChart, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { InternalWeatherSelector, internalWeatherOptions } from "@/components/InternalWeatherSelector";
 import { AppWordmark } from "@/components/AppWordmark";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { UserMenu } from "@/components/UserMenu";
 import { useCheckIn, MAX_FOCUS_ITEMS, type FocusItemState, type WeatherSelection } from "@/lib/checkin-context";
 import { useSupabaseUser } from "@/lib/useSupabaseUser";
 import { getCategoryEmoji } from "@/lib/categories";
 import { getPlannedItemsForDate, getCheckinByDate } from "@/lib/supabase";
 import { appliesToDate } from "@/lib/recurrence";
 import { getTodayLocalDateString } from "@/lib/date-utils";
+import { anchorValueForDisplay } from "@/lib/anchors";
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -21,11 +23,12 @@ function getGreeting() {
   return "Good evening";
 }
 
-function getFlowLabel() {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Morning Flow";
-  if (hour < 18) return "Afternoon Flow";
-  return "Evening Flow";
+function getTodayLabel() {
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  }).format(new Date());
 }
 
 export default function HomePage() {
@@ -40,16 +43,20 @@ export default function HomePage() {
     loadFocusItemsFromCheckin,
     updateFocusItem,
     removeFocusItem,
+    resetCheckIn,
   } = useCheckIn();
   const { user, loading, error } = useSupabaseUser();
   const [loadedPlanned, setLoadedPlanned] = useState(false);
   const [loadedCheckin, setLoadedCheckin] = useState(false);
+  const [lastLoadedDate, setLastLoadedDate] = useState<string | null>(null);
   const [suppressAutoSelectWeather, setSuppressAutoSelectWeather] = useState(false);
   const [shouldScrollToWeather, setShouldScrollToWeather] = useState(false);
+  const [isEditingWeather, setIsEditingWeather] = useState(false);
   const weatherSectionRef = useRef<HTMLDivElement>(null);
+  const lastLoadedDateRef = useRef<string | null>(null);
 
   const greeting = useMemo(() => getGreeting(), []);
-  const flowLabel = useMemo(() => getFlowLabel(), []);
+  const todayLabel = useMemo(() => getTodayLabel(), []);
 
   // Memoize the load planned items function to avoid recreating it on every render
   const loadPlannedItemsIfNeeded = useCallback(async (userId: string, date: string, cancelled: { current: boolean }) => {
@@ -100,6 +107,39 @@ export default function HomePage() {
     }
   }, [loadedPlanned, loadPlannedItems]);
 
+  // Initial check on mount - if we have stale data from a previous day, reset
+  useEffect(() => {
+    const today = getTodayLocalDateString();
+    if (lastLoadedDate && lastLoadedDate !== today) {
+      resetCheckIn();
+      setLoadedCheckin(false);
+      setLoadedPlanned(false);
+      setLastLoadedDate(null);
+      lastLoadedDateRef.current = null;
+    }
+  }, []); // Run only once on mount
+
+  // Check if date has changed (new day) and reset state if needed
+  useEffect(() => {
+    const checkDateChange = () => {
+      const currentDate = getTodayLocalDateString();
+
+      // If we've loaded a check-in before and the date has changed, reset everything
+      if (lastLoadedDateRef.current && lastLoadedDateRef.current !== currentDate) {
+        resetCheckIn(); // This clears weather, forecastNote, focusItems, and resets checkinDate
+        setLoadedCheckin(false);
+        setLoadedPlanned(false);
+        setLastLoadedDate(null);
+        lastLoadedDateRef.current = null;
+      }
+    };
+
+    // Check periodically (every minute) to catch date changes
+    const interval = setInterval(checkDateChange, 60000);
+
+    return () => clearInterval(interval);
+  }, [resetCheckIn]); // Only depend on stable resetCheckIn
+
   // Load today's checkin first (it takes priority as saved data), then load planned items if no checkin exists
   useEffect(() => {
     if (!user?.id || loadedCheckin) return;
@@ -109,10 +149,20 @@ export default function HomePage() {
 
     // Set loadedCheckin immediately to prevent duplicate loads
     setLoadedCheckin(true);
+    setLastLoadedDate(today);
+    lastLoadedDateRef.current = today;
 
     getCheckinByDate(user.id, today)
       .then((checkin) => {
         if (cancelled.current) return;
+        
+        // Double-check that the check-in is actually for today
+        const currentDate = getTodayLocalDateString();
+        if (checkin && checkin.checkin_date !== currentDate) {
+          // This check-in is not for today, don't load it
+          loadPlannedItemsIfNeeded(user.id, currentDate, cancelled);
+          return;
+        }
         
         if (checkin) {
           // Restore weather if it exists
@@ -192,7 +242,7 @@ export default function HomePage() {
 
   // Scroll to weather section when it appears after reset
   useEffect(() => {
-    if (shouldScrollToWeather && !weather && weatherSectionRef.current) {
+    if (shouldScrollToWeather && weatherSectionRef.current) {
       // Small delay to ensure DOM has updated
       const timer = setTimeout(() => {
         weatherSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -200,25 +250,43 @@ export default function HomePage() {
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [shouldScrollToWeather, weather]);
+  }, [shouldScrollToWeather, weather, isEditingWeather]);
+
+  useEffect(() => {
+    if (!weather) {
+      setIsEditingWeather(false);
+      setSuppressAutoSelectWeather(false);
+    }
+  }, [weather]);
 
   // All hooks must be called before any conditional returns
   const activeFocusItems = useMemo(() => focusItems.filter((item) => !item.completed), [focusItems]);
   const completedFocusItems = useMemo(() => focusItems.filter((item) => item.completed), [focusItems]);
   const hasFocus = useMemo(() => focusItems.length > 0, [focusItems.length]);
   const hasWeather = useMemo(() => Boolean(weather), [weather]);
-  const showCompactWeather = hasWeather; // Show weather whenever it's selected, even without focus items
+  const showCompactWeather = hasWeather && !isEditingWeather; // Hide summary while editing
+  const shouldShowWeatherSection = !hasWeather || isEditingWeather;
 
-  const handleResetWeather = () => {
-    setWeather(null);
-    setForecastNote(''); // Also clear the forecast note
+  const handleAdjustWeather = () => {
+    if (isEditingWeather) {
+      setIsEditingWeather(false);
+      setSuppressAutoSelectWeather(false);
+      setShouldScrollToWeather(false);
+      return;
+    }
+
+    setIsEditingWeather(true);
     setSuppressAutoSelectWeather(true);
-    setShouldScrollToWeather(true); // Trigger scroll after section appears
+    setShouldScrollToWeather(true);
   };
 
   const handleSelectWeather = (option: WeatherSelection) => {
     setWeather(option);
     setSuppressAutoSelectWeather(false);
+    if (isEditingWeather) {
+      setIsEditingWeather(false);
+      setShouldScrollToWeather(false);
+    }
   };
 
   if (loading) {
@@ -231,9 +299,10 @@ export default function HomePage() {
 
   const renderWeatherSection = () => (
     <section ref={weatherSectionRef} className="space-y-4 rounded-3xl border border-white/20 bg-white/70 p-6 backdrop-blur dark:border-slate-700/30 dark:bg-slate-800/70">
+      <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{todayLabel}</h2>
       <div>
         <p className="text-sm font-medium uppercase tracking-wide text-cyan-600 dark:text-cyan-400">Energy level</p>
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">What kind of day does it feel like inside?</h2>
+        <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100">What kind of day does it feel like inside?</h3>
         <p className="text-slate-600 dark:text-slate-400">Tap the card that feels the closest match.</p>
       </div>
 
@@ -277,107 +346,130 @@ export default function HomePage() {
   );
 
   const renderFocusSummary = () => (
-    <section className="space-y-4 rounded-3xl border border-white/20 bg-white/80 p-6 shadow-sm dark:border-slate-700/30 dark:bg-slate-800/80">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium uppercase tracking-wide text-cyan-600 dark:text-cyan-400">Today&rsquo;s focus list</p>
-          <p className="text-xs text-slate-500 dark:text-slate-400">A soft snapshot of what matters.</p>
+    <section className="space-y-3 rounded-3xl border border-white/30 bg-pink-50 p-5 shadow-sm dark:border-slate-700/30 dark:bg-slate-800/80">
+      {showCompactWeather && weather && (
+        <>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{todayLabel}</h2>
+          <div className="gradient-energy-panel rounded-2xl border border-white/40 px-4 py-3 text-sm text-slate-900 shadow-sm dark:border-slate-600/40 dark:text-slate-100">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <p className="flex flex-wrap items-center gap-2 text-base font-semibold">
+              <span className="text-2xl leading-none">{weather.icon}</span>
+              <span>{weather.label}</span>
+              <span className="text-sm font-normal text-slate-500 dark:text-slate-300">— {weather.description}</span>
+            </p>
+            <button
+              type="button"
+              onClick={handleAdjustWeather}
+              className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white/60 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600 transition hover:bg-white dark:border-slate-600 dark:bg-slate-700/60 dark:text-slate-200 dark:hover:bg-slate-700"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Change
+            </button>
+          </div>
         </div>
-        <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+        </>
+      )}
+
+      <div className="flex items-center justify-between border-t border-dashed border-slate-200 pt-3 text-[0.75rem] font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-600 dark:text-slate-400">
+        <span>What matters today</span>
+        <span>
           {activeFocusItems.length}/{MAX_FOCUS_ITEMS}
         </span>
       </div>
 
-      {showCompactWeather && weather && (
-        <div className="flex flex-col gap-2 rounded-2xl border border-cyan-200 bg-cyan-50/70 px-4 py-3 text-slate-900 sm:flex-row sm:items-center sm:justify-between dark:border-cyan-800/50 dark:bg-cyan-900/30 dark:text-slate-100">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-cyan-600 dark:text-cyan-400">Today&rsquo;s energy</p>
-            <p className="flex items-center gap-2 text-lg font-semibold">
-              <span className="text-2xl">{weather.icon}</span>
-              {weather.label}
-            </p>
-            <p className="text-sm text-slate-600 dark:text-slate-300">{weather.description}</p>
-          </div>
-          <button
-            type="button"
-            onClick={handleResetWeather}
-            className="inline-flex items-center gap-2 rounded-full border border-cyan-200 px-3 py-1 text-sm font-semibold text-cyan-700 transition hover:bg-cyan-100 dark:border-cyan-700/50 dark:text-cyan-300 dark:hover:bg-cyan-900/50"
-          >
-            <RotateCcw className="h-4 w-4" />
-            Adjust energy
-          </button>
-        </div>
-      )}
-
       {hasFocus ? (
         <>
-          <ul className="space-y-3">
+          <ul className="space-y-2">
             {activeFocusItems
               .slice()
               .sort((a, b) => a.sortOrder - b.sortOrder)
-              .map((item) => (
-                <li key={item.id} className="flex items-center gap-3 rounded-2xl bg-white/70 px-4 py-3 dark:bg-slate-700/50">
-                  <button
-                    type="button"
-                    onClick={() => updateFocusItem(item.id, { completed: true })}
-                    className="rounded-full border border-transparent p-1 text-slate-400 transition hover:border-cyan-200 hover:text-cyan-600 dark:hover:border-cyan-600 dark:hover:text-cyan-400"
-                    aria-label="Mark focus as done"
+              .map((item) => {
+                const anchorDisplayValue = anchorValueForDisplay(item.anchorType, item.anchorValue);
+                const anchorType = item.anchorType && anchorDisplayValue ? item.anchorType : null;
+                return (
+                  <li
+                    key={item.id}
+                    className="flex items-start gap-3 rounded-2xl border border-white/40 bg-white/70 px-3 py-2 text-sm dark:border-slate-600/40 dark:bg-slate-700/50"
                   >
-                    <Circle className="h-5 w-5" />
-                  </button>
-                  <div className="flex-1">
-                    <p className="font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                      <span className="text-2xl leading-none">{getCategoryEmoji(item.categories[0]) || "•"}</span>
-                      <span>{item.description}</span>
-                    </p>
-                    {item.categories.length > 0 && (
-                      <p className="text-xs uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                        {item.categories.join(" • ")}
+                    <button
+                      type="button"
+                      onClick={() => updateFocusItem(item.id, { completed: true })}
+                      className="rounded-full border border-transparent p-1 text-slate-400 transition hover:border-cyan-200 hover:text-cyan-600 dark:hover:border-cyan-500 dark:hover:text-cyan-300"
+                      aria-label="Mark focus as done"
+                    >
+                      <Circle className="h-4 w-4" />
+                    </button>
+                    <div className="flex-1 space-y-1">
+                      <p className="flex flex-wrap items-center gap-2 text-sm font-semibold leading-tight text-slate-900 dark:text-slate-100">
+                        <span className="text-lg leading-none">{getCategoryEmoji(item.categories[0]) || "•"}</span>
+                        <span>{item.description}</span>
                       </p>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeFocusItem(item.id)}
-                    className="rounded-full border border-transparent p-1 text-slate-400 transition hover:border-rose-200 hover:text-rose-600 dark:hover:border-rose-700 dark:hover:text-rose-400"
-                    aria-label="Delete focus"
-                  >
-                    <Trash2 className="h-5 w-5" />
-                  </button>
-                </li>
-              ))}
+                      {anchorType && anchorDisplayValue && (
+                        <p className="text-xs font-semibold text-cyan-700 dark:text-cyan-300">
+                          {anchorType} {anchorDisplayValue}
+                        </p>
+                      )}
+                      {item.categories.length > 0 && (
+                        <p className="text-[0.65rem] uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                          {item.categories.join(" • ")}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeFocusItem(item.id)}
+                      className="rounded-full border border-transparent p-1 text-slate-400 transition hover:border-rose-200 hover:text-rose-600 dark:hover:border-rose-600 dark:hover:text-rose-400"
+                      aria-label="Delete focus"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </li>
+                );
+              })}
           </ul>
 
           {completedFocusItems.length > 0 && (
-            <div className="space-y-2 border-t border-white/40 dark:border-slate-700/50 pt-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Completed today</p>
-              <ul className="space-y-2">
+            <div className="space-y-2 border-t border-dashed border-slate-200 pt-3 dark:border-slate-600">
+              <p className="text-[0.7rem] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Completed today</p>
+              <ul className="space-y-1">
                 {completedFocusItems
                   .slice()
                   .sort((a, b) => a.sortOrder - b.sortOrder)
-                  .map((item) => (
-                    <li key={item.id} className="flex items-center gap-3 rounded-2xl bg-slate-50/80 px-4 py-3 dark:bg-slate-700/30">
-                      <button
-                        type="button"
-                        onClick={() => updateFocusItem(item.id, { completed: false })}
-                        className="rounded-full border border-transparent p-1 text-emerald-500 transition hover:border-emerald-200 dark:hover:border-emerald-700"
-                        aria-label="Mark focus as not done"
+                  .map((item) => {
+                    const anchorDisplayValue = anchorValueForDisplay(item.anchorType, item.anchorValue);
+                    const anchorType = item.anchorType && anchorDisplayValue ? item.anchorType : null;
+                    return (
+                      <li
+                        key={item.id}
+                        className="flex items-start gap-3 rounded-2xl border border-transparent bg-slate-50/80 px-3 py-2 text-sm dark:bg-slate-700/30"
                       >
-                        <CheckCircle2 className="h-5 w-5" />
-                      </button>
-                      <div className="flex-1">
-                        <p className="font-semibold text-slate-500 dark:text-slate-400 line-through">{item.description}</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeFocusItem(item.id)}
-                        className="rounded-full border border-transparent p-1 text-slate-400 transition hover:border-rose-200 hover:text-rose-600 dark:hover:border-rose-700 dark:hover:text-rose-400"
-                        aria-label="Delete completed focus"
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </button>
-                    </li>
-                  ))}
+                        <button
+                          type="button"
+                          onClick={() => updateFocusItem(item.id, { completed: false })}
+                          className="rounded-full border border-transparent p-1 text-emerald-500 transition hover:border-emerald-200 dark:hover:border-emerald-700"
+                          aria-label="Mark focus as not done"
+                        >
+                          <CheckCircle2 className="h-4 w-4" />
+                        </button>
+                        <div className="flex-1 space-y-1">
+                          <p className="text-sm font-semibold text-slate-500 line-through dark:text-slate-400">{item.description}</p>
+                          {anchorType && anchorDisplayValue && (
+                            <p className="text-xs font-semibold text-cyan-700 dark:text-cyan-300">
+                              {anchorType} {anchorDisplayValue}
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeFocusItem(item.id)}
+                          className="rounded-full border border-transparent p-1 text-slate-400 transition hover:border-rose-200 hover:text-rose-600 dark:hover:border-rose-600 dark:hover:text-rose-400"
+                          aria-label="Delete completed focus"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </li>
+                    );
+                  })}
               </ul>
             </div>
           )}
@@ -385,19 +477,20 @@ export default function HomePage() {
           <button
             type="button"
             onClick={() => router.push("/focus")}
-            className="flex w-full items-center justify-center rounded-2xl border border-cyan-200 bg-cyan-50/80 px-4 py-3 text-sm font-semibold text-cyan-700 transition hover:bg-cyan-100 dark:border-cyan-800/50 dark:bg-cyan-900/30 dark:text-cyan-300 dark:hover:bg-cyan-900/50"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white/70 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white dark:border-slate-600/50 dark:bg-slate-700/40 dark:text-slate-100 dark:hover:bg-slate-700"
           >
             Open focus & supports
           </button>
         </>
       ) : (
-        <div className="rounded-2xl border border-dashed border-white/40 bg-white/70 p-5 text-center dark:border-slate-700/50 dark:bg-slate-800/50">
-          <p className="text-sm text-slate-600 dark:text-slate-400">No focus items yet. Add your focus when you&rsquo;re ready.</p>
+        <div className="rounded-2xl border border-dashed border-white/40 bg-white/70 p-4 text-center text-sm text-slate-600 dark:border-slate-700/40 dark:bg-slate-800/50 dark:text-slate-400">
+          <p>Nothing added yet. Drop today&rsquo;s focus when you&rsquo;re ready.</p>
           <button
             type="button"
             onClick={() => router.push("/focus")}
-            className="mt-3 inline-flex items-center justify-center rounded-full border border-cyan-200 bg-cyan-50 px-4 py-2 text-sm font-semibold text-cyan-700 transition hover:bg-cyan-100 dark:border-cyan-800/50 dark:bg-cyan-900/30 dark:text-cyan-300 dark:hover:bg-cyan-900/50"
+            className="mt-3 inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white dark:border-slate-600/60 dark:bg-slate-700/40 dark:text-slate-100"
           >
+            <Plus className="h-4 w-4" />
             Add focus
           </button>
         </div>
@@ -408,27 +501,25 @@ export default function HomePage() {
   return (
     <main className="min-h-screen px-4 pb-16 pt-6">
       <div className="mx-auto max-w-3xl space-y-8">
-        <header className="flex items-center justify-between">
+        <header className="flex items-start justify-between">
           <div>
             <AppWordmark className="text-base font-semibold" />
             <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">{greeting}</h1>
           </div>
           <div className="flex items-center gap-3">
-            <div className="rounded-full bg-white/70 px-4 py-2 text-sm font-semibold text-slate-600 shadow-sm dark:bg-slate-800/70 dark:text-slate-300">
-              {flowLabel}
-            </div>
             <ThemeToggle />
+            <UserMenu />
           </div>
         </header>
 
         {hasFocus ? (
           <>
             {renderFocusSummary()}
-            {!hasWeather && renderWeatherSection()}
+            {shouldShowWeatherSection && renderWeatherSection()}
           </>
         ) : (
           <>
-            {!hasWeather && renderWeatherSection()}
+            {shouldShowWeatherSection && renderWeatherSection()}
             {renderFocusSummary()}
           </>
         )}

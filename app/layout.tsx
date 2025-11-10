@@ -4,6 +4,7 @@ import "./globals.css";
 import { CheckInProvider } from "@/lib/checkin-context";
 import { PlanningProvider } from "@/lib/planning-context";
 import { ThemeProvider } from "@/lib/theme-context";
+import { AuthProvider } from "@/components/AuthProvider";
 
 export const metadata: Metadata = {
   title: "ADHD Barrier Tracker",
@@ -50,9 +51,11 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} bg-app-gradient text-slate-900 dark:text-slate-100`}>
         <ThemeProvider>
-          <CheckInProvider>
-            <PlanningProvider>{children}</PlanningProvider>
-          </CheckInProvider>
+          <AuthProvider>
+            <CheckInProvider>
+              <PlanningProvider>{children}</PlanningProvider>
+            </CheckInProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
