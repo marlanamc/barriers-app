@@ -1,9 +1,7 @@
 'use client';
 
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { getTodayLocalDateString } from './date-utils';
-
-const TODAY_ISO = getTodayLocalDateString();
 
 export interface WeatherSelection {
   key: string;
@@ -64,9 +62,10 @@ const CheckInContext = createContext<CheckInContextValue | undefined>(undefined)
 export function CheckInProvider({ children }: { children: React.ReactNode }) {
   const [weather, setWeather] = useState<WeatherSelection | null>(null);
   const [forecastNote, setForecastNote] = useState('');
-  const [checkinDate, setCheckinDate] = useState<string>(TODAY_ISO);
+  const [checkinDate, setCheckinDate] = useState<string>(() => getTodayLocalDateString());
   const [focusItems, setFocusItems] = useState<FocusItemState[]>([]);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [lastResetDate, setLastResetDate] = useState(() => getTodayLocalDateString());
 
   const clearValidationError = useCallback(() => {
     setValidationError(null);
@@ -261,12 +260,35 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const resetCheckIn = useCallback(() => {
+    const today = getTodayLocalDateString();
     setWeather(null);
     setForecastNote('');
-    setCheckinDate(getTodayLocalDateString());
+    setCheckinDate(today);
     setFocusItems([]);
     setValidationError(null);
+    setLastResetDate(today);
   }, []);
+
+  useEffect(() => {
+    const checkForDateChange = () => {
+      const currentDate = getTodayLocalDateString();
+      setLastResetDate((previousDate) => {
+        if (previousDate !== currentDate) {
+          resetCheckIn();
+          return currentDate;
+        }
+        return previousDate;
+      });
+    };
+
+    const intervalId = window.setInterval(checkForDateChange, 60000);
+    // Run once on mount in case the tab was suspended for a long time
+    checkForDateChange();
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [resetCheckIn]);
 
   const value = useMemo(
     () => ({

@@ -130,10 +130,16 @@ export default function CalendarPage() {
             >
               <ArrowLeft className="h-5 w-5" />
             </Link>
-            <div>
+            <div className="flex-1">
               <p className="text-sm uppercase tracking-wide text-cyan-600">Calendar</p>
               <h1 className="text-2xl font-bold text-slate-900">Calendar</h1>
             </div>
+            <Link
+              href="/"
+              className="rounded-2xl border border-white/40 bg-white/70 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:-translate-y-0.5 hover:bg-white"
+            >
+              Home
+            </Link>
           </header>
           <div className="rounded-2xl bg-rose-50 border border-rose-200 p-6" role="alert">
             <p className="text-sm font-medium text-rose-800 mb-2">Unable to load calendar</p>
@@ -164,11 +170,17 @@ export default function CalendarPage() {
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <div>
+          <div className="flex-1">
             <p className="text-sm uppercase tracking-wide text-cyan-600">Calendar</p>
             <h1 className="text-2xl font-bold text-slate-900">Calendar</h1>
             <p className="text-sm text-slate-600">Tap a day to revisit your focus + barriers.</p>
           </div>
+          <Link
+            href="/"
+            className="rounded-2xl border border-white/40 bg-white/70 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:-translate-y-0.5 hover:bg-white"
+          >
+            Home
+          </Link>
         </header>
 
         <section className="rounded-3xl border border-white/20 bg-white/80 p-6 shadow-sm">

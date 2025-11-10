@@ -6,15 +6,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import html2canvas from "html2canvas";
 import { useCheckIn, type TaskAnchorType, type WeatherSelection } from "@/lib/checkin-context";
-import { CheckinDatePicker } from "@/components/CheckinDatePicker";
 import { useSupabaseUser } from "@/lib/useSupabaseUser";
-import {
-  getBarrierTypes,
-  getTipsForBarrierTypes,
-  saveCheckinWithFocus,
-  type BarrierType,
-  type BarrierTipMessage,
-} from "@/lib/supabase";
+import { getBarrierTypes, saveCheckinWithFocus, type BarrierType } from "@/lib/supabase";
 import { anchorLabel, buildAnchorPhrase } from "@/lib/anchors";
 import { getCategoryEmoji } from "@/lib/categories";
 
@@ -24,6 +17,8 @@ type ForecastTask = {
   anchorType: TaskAnchorType | null;
   anchorValue: string | null;
   emoji: string | null;
+  barrierSlug: string | null;
+  barrierLabel: string | null;
 };
 
 interface DailyForecastData {
@@ -75,7 +70,118 @@ const weatherThemes: Record<
   },
 };
 
-type WallpaperThemeKey = "auto" | "sunset" | "forest" | "dusk";
+type WeatherSupport = {
+  headline: string;
+  message: string;
+};
+
+const weatherSupportMessages: Record<string, WeatherSupport> = {
+  clear: {
+    headline: "Shine with intention",
+    message: "Use this steady energy on one meaningful move, then let yourself coast.",
+  },
+  cloudy: {
+    headline: "One gentle thing",
+    message: "Pick a single tiny task and keep it simple—cloudy brains crave easy wins.",
+  },
+  rainy: {
+    headline: "Move at rain speed",
+    message: "Lower the bar, add softness, and rest between small bursts.",
+  },
+  stormy: {
+    headline: "Protect your system",
+    message: "Shrink the work, add support, and pause often. Safety first.",
+  },
+  quiet: {
+    headline: "Keep input low",
+    message: "Tend to essentials only; quiet energy loves calm pacing.",
+  },
+};
+
+const defaultWeatherSupport: WeatherSupport = {
+  headline: "Keep it gentle",
+  message: "Listen to your energy and choose the kindest next step.",
+};
+
+type BarrierSupport = {
+  action: string;
+  kitSlug?: string;
+};
+
+const barrierSupportLibrary: Record<string, BarrierSupport> = {
+  "low-energy": {
+    action: "Choose the lightest version of your task—sit, lean, or do it from the coziest spot available.",
+    kitSlug: "i-dont-have-energy",
+  },
+  "no-motivation": {
+    action: "Pair the task with comfort: music, a warm drink, or a small reward waiting after.",
+    kitSlug: "i-feel-emotionally-blocked",
+  },
+  "decision-fatigue": {
+    action: "Limit yourself to two choices, flip a coin, and work with whichever side lands first.",
+    kitSlug: "too-many-decisions",
+  },
+  "stuck-frozen": {
+    action: "Name the first physical motion—open the tab, lay out the supplies—then pause and notice you moved.",
+    kitSlug: "i-feel-frozen",
+  },
+  "cant-focus": {
+    action: "Try a body double, a short timer, or a sound change to gently invite your brain back in bursts.",
+    kitSlug: "i-got-distracted",
+  },
+  overwhelm: {
+    action: "Shrink the scope to one tile in the mosaic and park the rest on paper to calm your brain.",
+    kitSlug: "it-feels-too-big",
+  },
+  "no-time": {
+    action: "Give it five minutes and let anything beyond that be extra credit.",
+    kitSlug: "i-dont-have-time",
+  },
+  "perfection-loop": {
+    action: "Decide on the 'good-enough' version and send the messy draft before your brain renegotiates.",
+    kitSlug: "im-afraid-ill-fail",
+  },
+  "keep-avoiding-it": {
+    action: "Set a five-minute timer, touch the tiniest piece once, and celebrate closing that loop.",
+    kitSlug: "i-keep-avoiding-it",
+  },
+  "shame-guilt": {
+    action: "Offer yourself repair, not punishment—do one kind action today and let it count.",
+    kitSlug: "i-already-failed",
+  },
+  "feeling-alone": {
+    action: "Grab a body double, text someone, or simply say it aloud so your nervous system feels less solo.",
+    kitSlug: "i-feel-alone",
+  },
+  "waiting-on-someone": {
+    action: "Send one short nudge or script your next reply, then reclaim your focus elsewhere.",
+    kitSlug: "waiting-on-someone",
+  },
+};
+
+const defaultBarrierSupport: BarrierSupport = {
+  action: "Offer yourself one tiny kindness. Breathe, sip water, and pick the next soft step when you’re ready.",
+};
+
+const ADHD_KIT_BASE_URL = "https://adhd-first-aid.vercel.app/barriers";
+const ADHD_KIT_CATEGORY_PARAM = encodeURIComponent("View All");
+
+function getWeatherSupport(key?: string | null): WeatherSupport {
+  return weatherSupportMessages[key ?? ""] ?? defaultWeatherSupport;
+}
+
+function getWeatherTheme(key?: string | null) {
+  return (
+    weatherThemes[key ?? ""] ?? {
+      gradient: ["#D6E8F5", "#FDFCFB"],
+      accent: "text-slate-800",
+      text: "text-slate-900",
+      subtleText: "text-slate-700",
+    }
+  );
+}
+
+type WallpaperThemeKey = "auto" | "sunset" | "forest" | "dusk" | "ocean" | "lavender";
 
 const customWallpaperThemes: Record<
   Exclude<WallpaperThemeKey, "auto">,
@@ -95,39 +201,34 @@ const customWallpaperThemes: Record<
     subtleText: "text-amber-900/70",
   },
   forest: {
-    name: "Forest Calm",
-    gradient: ["#0bab64", "#3bb78f"],
-    accent: "text-emerald-100",
+    name: "Emerald Mist",
+    gradient: ["#11998e", "#38ef7d"],
+    accent: "text-emerald-50",
     text: "text-white",
-    subtleText: "text-emerald-100/80",
+    subtleText: "text-emerald-50/90",
   },
   dusk: {
-    name: "Indigo Dusk",
-    gradient: ["#4e54c8", "#8f94fb"],
-    accent: "text-indigo-100",
+    name: "Purple Dreams",
+    gradient: ["#667eea", "#764ba2"],
+    accent: "text-purple-50",
     text: "text-white",
-    subtleText: "text-indigo-100/80",
+    subtleText: "text-purple-50/90",
+  },
+  ocean: {
+    name: "Ocean Breeze",
+    gradient: ["#00c9ff", "#92fe9d"],
+    accent: "text-cyan-900",
+    text: "text-slate-900",
+    subtleText: "text-slate-700",
+  },
+  lavender: {
+    name: "Lavender Fields",
+    gradient: ["#d299c2", "#fef9d7"],
+    accent: "text-purple-900",
+    text: "text-slate-900",
+    subtleText: "text-purple-900/70",
   },
 };
-
-const reminderBank = [
-  "Gentle steps still count.",
-  "Tiny moves can shift the whole day.",
-  "Pause, sip water, soften your shoulders.",
-  "Kind repetition beats perfect effort.",
-  "You can move at the speed of kindness.",
-];
-
-function getWeatherTheme(key?: string | null) {
-  return (
-    weatherThemes[key ?? ""] ?? {
-      gradient: ["#D6E8F5", "#FDFCFB"],
-      accent: "text-slate-800",
-      text: "text-slate-900",
-      subtleText: "text-slate-700",
-    }
-  );
-}
 
 function resolveWallpaperTheme(weatherKey: string | null, theme: WallpaperThemeKey) {
   if (theme !== "auto") {
@@ -139,24 +240,29 @@ function resolveWallpaperTheme(weatherKey: string | null, theme: WallpaperThemeK
 const wallpaperThemeOptions: Array<{ key: WallpaperThemeKey; label: string }> = [
   { key: "auto", label: "Match weather" },
   { key: "sunset", label: "Sunset Bloom" },
-  { key: "forest", label: "Forest Calm" },
-  { key: "dusk", label: "Indigo Dusk" },
+  { key: "forest", label: "Emerald Mist" },
+  { key: "dusk", label: "Purple Dreams" },
+  { key: "ocean", label: "Ocean Breeze" },
+  { key: "lavender", label: "Lavender Fields" },
 ];
 
-function pickReminder(seed: string) {
-  const seedValue = Array.from(seed).reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  return reminderBank[seedValue % reminderBank.length];
+function getBarrierSupport(slug?: string | null): BarrierSupport {
+  if (!slug) return defaultBarrierSupport;
+  return barrierSupportLibrary[slug] ?? defaultBarrierSupport;
+}
+
+function getBarrierKitUrl(kitSlug?: string | null) {
+  if (!kitSlug) return null;
+  return `${ADHD_KIT_BASE_URL}/${kitSlug}?category=${ADHD_KIT_CATEGORY_PARAM}`;
 }
 
 export default function GentleSupportScreen() {
   const router = useRouter();
-  const { weather, forecastNote, focusItems, checkinDate, setCheckinDate } = useCheckIn();
+  const { weather, forecastNote, focusItems, checkinDate } = useCheckIn();
   const activeFocusItems = useMemo(() => focusItems.filter((item) => !item.completed), [focusItems]);
   const { user, loading: authLoading, error: authError } = useSupabaseUser();
   const forecastRef = useRef<HTMLDivElement>(null);
   const [barrierTypes, setBarrierTypes] = useState<BarrierType[]>([]);
-  const [tipsBySlug, setTipsBySlug] = useState<Record<string, BarrierTipMessage>>({});
-  const [loadingTips, setLoadingTips] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -176,43 +282,19 @@ export default function GentleSupportScreen() {
 
   useEffect(() => {
     let mounted = true;
-
-    async function loadTips() {
-      setLoadingTips(true);
-      const types = await getBarrierTypes();
-      if (!mounted) return;
-      setBarrierTypes(types);
-
-      const slugSet = new Set(
-        activeFocusItems
-          .map((item) => item.barrier?.barrierTypeSlug)
-          .filter(Boolean) as string[]
-      );
-
-      if (!slugSet.size) {
-        setLoadingTips(false);
-        return;
-      }
-
-      const relevantTypes = types.filter((type) => slugSet.has(type.slug));
-      const tips = await getTipsForBarrierTypes(relevantTypes);
-      if (!mounted) return;
-
-      const map: Record<string, BarrierTipMessage> = {};
-      tips.forEach((tip) => {
-        map[tip.slug] = tip;
+    getBarrierTypes()
+      .then((types) => {
+        if (!mounted) return;
+        setBarrierTypes(types);
+      })
+      .catch((error) => {
+        console.error("Error loading barrier types", error);
       });
-
-      setTipsBySlug(map);
-      setLoadingTips(false);
-    }
-
-    loadTips();
 
     return () => {
       mounted = false;
     };
-  }, [activeFocusItems]);
+  }, []);
 
   useEffect(() => {
     if (!exportMessage) return;
@@ -226,15 +308,12 @@ export default function GentleSupportScreen() {
       return acc;
     }, {});
   }, [barrierTypes]);
+  const weatherSupport = getWeatherSupport(weather?.key);
 
   const canSave = useMemo(() => {
     return Boolean(user) && !saving && activeFocusItems.every((item) => {
       const barrier = item.barrier;
-      const hasBarrier = Boolean(
-        barrier && (barrier.barrierTypeSlug || barrier.custom?.trim())
-      );
-      const hasAnchor = Boolean(item.anchorType && item.anchorValue?.trim());
-      return hasBarrier && hasAnchor;
+      return Boolean(barrier && (barrier.barrierTypeSlug || barrier.custom?.trim()));
     });
   }, [user, saving, activeFocusItems]);
 
@@ -343,13 +422,19 @@ export default function GentleSupportScreen() {
     setSaveError(null);
 
     try {
-      const snapshotTasks: ForecastTask[] = activeFocusItems.map((item) => ({
-        id: item.id,
-        description: item.description,
-        anchorType: item.anchorType ?? null,
-        anchorValue: item.anchorValue ?? null,
-        emoji: getCategoryEmoji(item.categories[0]) || null,
-      }));
+      const snapshotTasks: ForecastTask[] = activeFocusItems.map((item) => {
+        const slug = item.barrier?.barrierTypeSlug ?? null;
+        const friendlyBarrier = slug ? barrierBySlug[slug] : null;
+        return {
+          id: item.id,
+          description: item.description,
+          anchorType: item.anchorType ?? null,
+          anchorValue: item.anchorValue ?? null,
+          emoji: getCategoryEmoji(item.categories[0]) || null,
+          barrierSlug: slug,
+          barrierLabel: friendlyBarrier?.label ?? item.barrier?.custom ?? null,
+        };
+      });
 
       const checkinId = await saveCheckinWithFocus({
         userId: user.id,
@@ -389,9 +474,6 @@ export default function GentleSupportScreen() {
 
   if (done && dailyForecast) {
     const theme = resolveWallpaperTheme(dailyForecast.weather.key, wallpaperTheme);
-    const reminder = pickReminder(`${dailyForecast.checkinId}${dailyForecast.weather.key}`);
-    const weatherEmoji = dailyForecast.weather.icon;
-    const weatherHeadline = `${dailyForecast.weather.label} energy`;
     const anchorHeadingClass =
       theme.text.includes("text-white") || theme.subtleText.includes("text-indigo")
         ? "text-white/80"
@@ -411,7 +493,7 @@ export default function GentleSupportScreen() {
             <div>
               <p className="text-sm uppercase tracking-wide text-cyan-600">Daily Forecast</p>
               <h1 className="text-2xl font-bold text-slate-900">Your Daily Forecast</h1>
-              <p className="text-sm text-slate-600">Keep today&rsquo;s weather + anchors close.</p>
+              <p className="text-sm text-slate-600">Save as wallpaper to keep today&rsquo;s focus close.</p>
             </div>
           </header>
 
@@ -425,26 +507,17 @@ export default function GentleSupportScreen() {
                 }}
               >
                 <div
-                  className="flex h-full flex-col justify-between p-8"
+                  className="relative h-full p-8"
                   style={{
                     backgroundImage: `linear-gradient(135deg, ${theme.gradient[0]}, ${theme.gradient[1]})`,
                   }}
                 >
-                  <div className="text-center">
-                    <span className="text-7xl drop-shadow-sm">{weatherEmoji}</span>
-                    <p className={`mt-3 text-xs font-semibold uppercase tracking-[0.3em] ${theme.subtleText}`}>
-                      today’s vibe
+                  {/* Focus list positioned 40% from bottom */}
+                  <div className={`absolute left-8 right-8 rounded-3xl bg-white/25 p-6 backdrop-blur ${anchorItemText}`} style={{ bottom: '40%' }}>
+                    <p className={`text-xs font-semibold uppercase tracking-wide mb-4 ${anchorHeadingClass}`}>
+                      Today&rsquo;s focus list
                     </p>
-                    <h2 className={`mt-2 text-[2.5rem] font-bold leading-tight ${theme.text}`}>{weatherHeadline}</h2>
-                    <p className={`text-base ${theme.subtleText}`}>{dailyForecast.weather.description}</p>
-                    <p className={`mt-5 text-lg font-semibold leading-snug ${theme.text}`}>{reminder}</p>
-                  </div>
-
-                  <div className={`rounded-3xl bg-white/25 p-5 backdrop-blur ${anchorItemText}`}>
-                    <p className={`text-xs font-semibold uppercase tracking-wide ${anchorHeadingClass}`}>
-                      Today’s focus list
-                    </p>
-                    <ul className="mt-3 space-y-3 text-base font-semibold">
+                    <ul className="space-y-3 text-base font-semibold">
                       {dailyForecast.tasks.map((task) => (
                         <li key={task.id} className="flex items-start gap-2">
                           <span className="text-2xl leading-none">{task.emoji || "•"}</span>
@@ -453,12 +526,6 @@ export default function GentleSupportScreen() {
                       ))}
                     </ul>
                   </div>
-
-                  {dailyForecast.forecastNote && (
-                    <div className={`mt-4 rounded-3xl bg-white/20 p-4 text-sm ${anchorItemText}`}>
-                      {dailyForecast.forecastNote}
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
@@ -559,6 +626,10 @@ export default function GentleSupportScreen() {
               <p className="text-sm uppercase tracking-wide text-slate-500">Internal weather</p>
               <p className="text-xl font-semibold text-slate-900">{weather?.label}</p>
               <p className="text-sm text-slate-600">{weather?.description}</p>
+              <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-cyan-600">
+                {weatherSupport.headline}
+              </p>
+              <p className="text-sm text-slate-600">{weatherSupport.message}</p>
             </div>
           </div>
           {forecastNote && (
@@ -566,18 +637,13 @@ export default function GentleSupportScreen() {
               {forecastNote}
             </p>
           )}
-          <CheckinDatePicker
-            value={checkinDate}
-            onChange={setCheckinDate}
-            description="Set the date you want this plan to cover."
-          />
         </section>
 
         <section className="space-y-4">
           {activeFocusItems.map((item) => {
             const slug = item.barrier?.barrierTypeSlug;
             const friendlyBarrier = slug ? barrierBySlug[slug] : null;
-            const tip = slug ? tipsBySlug[slug] : null;
+            const barrierSupport = getBarrierSupport(slug);
             const anchorSummary = anchorLabel(item.anchorType, item.anchorValue);
             const categoryEmoji = getCategoryEmoji(item.categories[0]);
             return (
@@ -612,14 +678,7 @@ export default function GentleSupportScreen() {
                     <Sparkles className="h-4 w-4" />
                     Gentle support
                   </div>
-                  {loadingTips ? (
-                    <p className="text-sm text-slate-500">Finding a tip...</p>
-                  ) : (
-                    <p className="text-sm leading-relaxed">
-                      {tip?.message ||
-                        "Offer yourself one small kindness. You can pause, breathe, and return when it feels lighter."}
-                    </p>
-                  )}
+                  <p className="text-sm leading-relaxed">{barrierSupport.action}</p>
                 </div>
               </div>
             );

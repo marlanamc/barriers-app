@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database, Json } from './database.types';
+import { isValidDateString } from './date-utils';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key';
@@ -169,12 +170,18 @@ function sortBarrierTypes(barriers: BarrierType[]): BarrierType[] {
 }
 
 const localBarrierSeeds: Array<Pick<BarrierType, 'slug' | 'label' | 'description' | 'icon'>> = [
-  { slug: 'low-energy', label: 'Low energy', description: 'Body feels heavy or sleepy', icon: '💤' },
-  { slug: 'overwhelmed', label: 'Overwhelmed', description: 'Too many tabs open', icon: '🌪' },
-  { slug: 'decision-fatigue', label: 'Decision fatigue', description: 'Hard to pick a next step', icon: '🤔' },
-  { slug: 'waiting-on-someone', label: 'Waiting on someone', description: 'Blocked on an external reply', icon: '📬' },
-  { slug: 'perfection-loop', label: 'Perfection loop', description: 'Feels like it has to be perfect', icon: '✨' },
-  { slug: 'no-motivation', label: 'Low motivation', description: 'Mind says "why bother?"', icon: '🪫' },
+  { slug: 'low-energy', label: 'Low energy', description: 'Body feels heavy or drained', icon: '🪫' },
+  { slug: 'no-motivation', label: 'Low motivation', description: 'Hard to convince yourself to start', icon: '😴' },
+  { slug: 'decision-fatigue', label: 'Decision fatigue', description: 'Too many choices to pick from', icon: '💭' },
+  { slug: 'stuck-frozen', label: 'Stuck / frozen', description: 'Brain feels frozen or paralyzed', icon: '🧊' },
+  { slug: 'cant-focus', label: "Can't focus", description: 'Mind keeps drifting away', icon: '🎯' },
+  { slug: 'overwhelm', label: 'Overwhelmed', description: 'Too many tabs open at once', icon: '🌀' },
+  { slug: 'no-time', label: 'No time', description: 'Schedule already feels too full', icon: '⏰' },
+  { slug: 'perfection-loop', label: 'Perfection loop', description: 'Feels like it has to be perfect', icon: '🔄' },
+  { slug: 'keep-avoiding-it', label: 'Keep avoiding it', description: 'Keeps sliding to tomorrow', icon: '🗓' },
+  { slug: 'shame-guilt', label: 'Shame or guilt', description: 'Heavy feelings after delaying it', icon: '💔' },
+  { slug: 'waiting-on-someone', label: 'Waiting on someone', description: 'Need a reply or approval first', icon: '💬' },
+  { slug: 'feeling-alone', label: 'Feeling alone', description: 'Wish someone could sit with you', icon: '🧍' },
 ];
 
 function buildFallbackBarrierTypes(): BarrierType[] {
@@ -236,9 +243,16 @@ export async function saveCheckinWithFocus(payload: SaveCheckinPayload): Promise
       throw new Error(`Focus item ${index + 1} description exceeds maximum length of 500 characters`);
     }
     
-    // Validate anchor value length
-    if (item.anchorValue && item.anchorValue.trim().length > 200) {
-      throw new Error(`Focus item ${index + 1} anchor value exceeds maximum length of 200 characters`);
+    // Clean and validate anchor value
+    let anchorValue: string | null = null;
+    if (item.anchorValue && item.anchorType) {
+      const cleaned = item.anchorValue.trim();
+      if (cleaned.length > 0) {
+        if (cleaned.length > 200) {
+          throw new Error(`Focus item ${index + 1} anchor value exceeds maximum length of 200 characters`);
+        }
+        anchorValue = cleaned;
+      }
     }
     
     // Validate custom barrier length
@@ -258,7 +272,7 @@ export async function saveCheckinWithFocus(payload: SaveCheckinPayload): Promise
       sortOrder: item.sortOrder ?? index,
       plannedItemId: item.plannedItemId ?? null,
       anchorType: item.anchorType ?? null,
-      anchorValue: item.anchorValue?.trim() || null,
+      anchorValue: anchorValue,
       barrier: item.barrier
         ? {
             barrierTypeId: item.barrier.barrierTypeId ?? null,
@@ -269,18 +283,37 @@ export async function saveCheckinWithFocus(payload: SaveCheckinPayload): Promise
     };
   });
 
-  const { data, error } = await supabase.rpc('create_checkin_with_focus', {
+  const normalizedCheckinDate =
+    payload.checkinDate && isValidDateString(payload.checkinDate) ? payload.checkinDate : null;
+
+  if (payload.checkinDate && !normalizedCheckinDate) {
+    console.warn('Invalid check-in date provided, defaulting to today.', payload.checkinDate);
+  }
+
+  const rpcParams = {
     p_user_id: payload.userId,
     p_internal_weather: payload.internalWeather.key,
     p_weather_icon: payload.internalWeather.icon ?? null,
     p_forecast_note: payload.forecastNote?.trim() || null,
     p_focus_items: focusItemsJson,
-    p_checkin_date: payload.checkinDate ?? undefined,
-  });
+    p_checkin_date: normalizedCheckinDate,
+  };
+
+  const { data, error } = await supabase.rpc('create_checkin_with_focus', rpcParams);
 
   if (error) {
-    console.error('Error saving check-in', error);
-    throw error;
+    console.error('Error saving check-in');
+    console.error('Error object:', error);
+    console.error('Error message:', error.message);
+    console.error('Error details:', error.details);
+    console.error('Error hint:', error.hint);
+    console.error('Error code:', error.code);
+    console.error('RPC params:', JSON.stringify(rpcParams, null, 2));
+    console.error('Focus items:', JSON.stringify(focusItemsJson, null, 2));
+    
+    // Create a more helpful error message
+    const errorMessage = error.message || error.details || error.hint || 'Something went wrong while saving.';
+    throw new Error(errorMessage);
   }
 
   if (!data || typeof data !== 'string') {

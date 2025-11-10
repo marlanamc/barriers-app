@@ -12,6 +12,8 @@ import { getCategoryEmoji } from "@/lib/categories";
 const whileSuggestions = [
   "while watching TV",
   "while listening to music",
+  "while listening to a podcast",
+  "while listening to an audiobook",
   "while waiting for laundry",
   "while talking to a friend",
 ];

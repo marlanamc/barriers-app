@@ -137,3 +137,11 @@ html {
 .dark .gradient-lavender-aqua {
   background: linear-gradient(135deg, #3d2e5a 0%, #1e4a5a 100%);
 }
+
+.gradient-energy-panel {
+  background: linear-gradient(to bottom, #F0FDF4, #DCFCE7);
+}
+
+.dark .gradient-energy-panel {
+  background: linear-gradient(to bottom, #1e4a3a, #2a5a4a);
+}

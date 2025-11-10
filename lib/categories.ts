@@ -7,7 +7,7 @@ export const CATEGORY_OPTIONS: CategoryOption[] = [
   { label: 'Admin', emoji: '📋' },
   { label: 'Community', emoji: '🤝' },
   { label: 'Creative', emoji: '🎨' },
-  { label: 'Errands', emoji: '🧺' },
+  { label: 'Errands', emoji: '🛍️' },
   { label: 'Finances', emoji: '💰' },
   { label: 'Fun', emoji: '🎉' },
   { label: 'Health', emoji: '💪' },
