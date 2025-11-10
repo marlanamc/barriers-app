@@ -70,7 +70,7 @@ export type CheckinWithRelations = Checkin & {
 
 const focusItemsSelect = `*, focus_barriers(*, barrier_types(*))`;
 const checkinSelect = `*, focus_items(${focusItemsSelect})`;
-const plannedItemsSelect = `*, barrier_types:barrier_type_id(*)`;
+const plannedItemsSelect = `*`;
 
 const LEGACY_NAME_FIELDS = [
   'label',
@@ -455,7 +455,31 @@ export async function getPlannedItems(userId: string): Promise<PlannedItemWithBa
     return [];
   }
 
-  return data as PlannedItemWithBarrier[];
+  if (!data || data.length === 0) {
+    return [];
+  }
+
+  // Fetch barrier types separately and join manually
+  const barrierTypeIds = [...new Set((data as PlannedItem[]).map(item => item.barrier_type_id).filter(Boolean) as string[])];
+  const barrierTypesMap = new Map<string, BarrierType>();
+
+  if (barrierTypeIds.length > 0) {
+    const { data: barrierTypes, error: barrierError } = await supabase
+      .from('barrier_types')
+      .select('*')
+      .in('id', barrierTypeIds);
+
+    if (!barrierError && barrierTypes) {
+      barrierTypes.forEach(bt => {
+        barrierTypesMap.set(bt.id, bt as BarrierType);
+      });
+    }
+  }
+
+  return (data as PlannedItem[]).map(item => ({
+    ...item,
+    barrier_types: item.barrier_type_id ? (barrierTypesMap.get(item.barrier_type_id) ?? null) : null,
+  })) as PlannedItemWithBarrier[];
 }
 
 /**
@@ -477,7 +501,31 @@ export async function getPlannedItemsForDate(userId: string, date: string): Prom
     return [];
   }
 
-  return data as PlannedItemWithBarrier[];
+  if (!data || data.length === 0) {
+    return [];
+  }
+
+  // Fetch barrier types separately and join manually
+  const barrierTypeIds = [...new Set((data as PlannedItem[]).map(item => item.barrier_type_id).filter(Boolean) as string[])];
+  const barrierTypesMap = new Map<string, BarrierType>();
+
+  if (barrierTypeIds.length > 0) {
+    const { data: barrierTypes, error: barrierError } = await supabase
+      .from('barrier_types')
+      .select('*')
+      .in('id', barrierTypeIds);
+
+    if (!barrierError && barrierTypes) {
+      barrierTypes.forEach(bt => {
+        barrierTypesMap.set(bt.id, bt as BarrierType);
+      });
+    }
+  }
+
+  return (data as PlannedItem[]).map(item => ({
+    ...item,
+    barrier_types: item.barrier_type_id ? (barrierTypesMap.get(item.barrier_type_id) ?? null) : null,
+  })) as PlannedItemWithBarrier[];
 }
 
 /**
