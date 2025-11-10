@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { CheckInProvider } from "@/lib/checkin-context";
 import { PlanningProvider } from "@/lib/planning-context";
+import { ThemeProvider } from "@/lib/theme-context";
 
 export const metadata: Metadata = {
   title: "ADHD Barrier Tracker",
@@ -46,11 +47,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${inter.className} bg-app-gradient text-slate-900`}>
-        <CheckInProvider>
-          <PlanningProvider>{children}</PlanningProvider>
-        </CheckInProvider>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${inter.className} bg-app-gradient text-slate-900 dark:text-slate-100`}>
+        <ThemeProvider>
+          <CheckInProvider>
+            <PlanningProvider>{children}</PlanningProvider>
+          </CheckInProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

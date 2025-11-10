@@ -59,7 +59,28 @@ export default function PlanAheadSavePage() {
         });
       });
 
-      await Promise.all(savePromises);
+      // Use allSettled to handle partial failures
+      const results = await Promise.allSettled(savePromises);
+      const failures = results.filter((r) => r.status === 'rejected');
+      
+      if (failures.length > 0) {
+        const failureCount = failures.length;
+        const totalCount = plannedItems.length;
+        
+        if (failureCount === totalCount) {
+          // All failed
+          const firstError = failures[0];
+          const errorMessage = firstError.status === 'rejected' && firstError.reason instanceof Error
+            ? firstError.reason.message
+            : 'Failed to save planned items';
+          throw new Error(errorMessage);
+        } else {
+          // Partial failure
+          throw new Error(
+            `Saved ${totalCount - failureCount} of ${totalCount} items. Some items failed to save.`
+          );
+        }
+      }
 
       // Reset the planning context
       resetPlanning();
@@ -68,7 +89,8 @@ export default function PlanAheadSavePage() {
       router.push('/?planned=success');
     } catch (err) {
       console.error('Error saving planned items:', err);
-      setError('Failed to save planned items. Please try again.');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save planned items. Please try again.';
+      setError(errorMessage);
     } finally {
       setSaving(false);
     }

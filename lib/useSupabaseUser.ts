@@ -37,8 +37,24 @@ export function useSupabaseUser(options: UseSupabaseUserOptions = defaultOptions
         return;
       }
 
-      const testEmail = process.env.NEXT_PUBLIC_TEST_EMAIL || 'test@example.com';
-      const testPassword = process.env.NEXT_PUBLIC_TEST_PASSWORD || 'test123456';
+      // Only auto-create test users in development mode for security
+      if (process.env.NODE_ENV === 'production') {
+        console.warn('Test user auto-creation is disabled in production');
+        setLoading(false);
+        return;
+      }
+
+      // SECURITY: Use environment variables for test credentials, never hardcode
+      // In production, these should not be set, preventing auto-creation
+      const testEmail = process.env.NEXT_PUBLIC_TEST_EMAIL;
+      const testPassword = process.env.NEXT_PUBLIC_TEST_PASSWORD;
+      
+      // If test credentials are not configured, skip auto-creation
+      if (!testEmail || !testPassword) {
+        console.warn('Test credentials not configured. Skipping auto-creation.');
+        setLoading(false);
+        return;
+      }
 
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
         email: testEmail,

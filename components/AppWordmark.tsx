@@ -14,9 +14,9 @@ export function AppWordmark({ className }: AppWordmarkProps) {
         className
       )}
     >
-      <span className="text-slate-900">ADHD</span>
-      <span className="text-pink-500">Barrier</span>
-      <span className="text-slate-900">Tracker</span>
+      <span className="text-slate-700 dark:text-slate-300">ADHD</span>
+      <span className="text-pink-500 dark:text-pink-400">Barrier</span>
+      <span className="text-slate-700 dark:text-slate-300">Tracker</span>
     </span>
   );
 }

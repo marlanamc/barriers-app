@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import clsx from "clsx";
+import { getTodayLocalDateString } from "@/lib/date-utils";
 
 interface CheckinDatePickerProps {
   value: string;
@@ -11,12 +12,6 @@ interface CheckinDatePickerProps {
   className?: string;
 }
 
-function getTodayIso() {
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  return now.toISOString().split("T")[0];
-}
-
 export function CheckinDatePicker({
   value,
   onChange,
@@ -24,7 +19,7 @@ export function CheckinDatePicker({
   description,
   className,
 }: CheckinDatePickerProps) {
-  const today = useMemo(() => getTodayIso(), []);
+  const today = useMemo(() => getTodayLocalDateString(), []);
 
   return (
     <div className={clsx("space-y-2", className)}>

@@ -98,7 +98,7 @@ export default function BarrierScreen() {
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div>
-            <p className="text-sm uppercase tracking-wide text-cyan-600">Step 3</p>
+            <p className="text-sm uppercase tracking-wide text-cyan-600">Barriers</p>
             <h1 className="text-2xl font-bold text-slate-900">What feels hard?</h1>
             <p className="text-sm text-slate-600">Match each focus with a barrier or short note.</p>
           </div>

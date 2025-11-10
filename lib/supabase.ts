@@ -202,28 +202,78 @@ function buildDefaultTips(barrierTypes: BarrierType[]): BarrierTipMessage[] {
 }
 
 export async function saveCheckinWithFocus(payload: SaveCheckinPayload): Promise<string> {
-  const focusItemsJson: Json = payload.focusItems.map((item, index) => ({
-    id: item.id,
-    description: item.description,
-    categories: item.categories,
-    sortOrder: item.sortOrder ?? index,
-    plannedItemId: item.plannedItemId ?? null,
-    anchorType: item.anchorType ?? null,
-    anchorValue: item.anchorValue ?? null,
-    barrier: item.barrier
-      ? {
-          barrierTypeId: item.barrier.barrierTypeId ?? null,
-          barrierTypeSlug: item.barrier.barrierTypeSlug ?? null,
-          custom: item.barrier.custom ?? null,
-        }
-      : null,
-  }));
+  // SECURITY: Client-side validation before sending to database
+  // This provides immediate feedback and reduces server load
+  
+  // Validate user ID format (UUID)
+  if (!payload.userId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(payload.userId)) {
+    throw new Error('Invalid user ID format');
+  }
+  
+  // Validate internal weather
+  if (!payload.internalWeather?.key || typeof payload.internalWeather.key !== 'string') {
+    throw new Error('Internal weather is required');
+  }
+  
+  // Validate forecast note length
+  if (payload.forecastNote && payload.forecastNote.length > 1000) {
+    throw new Error('Forecast note exceeds maximum length of 1000 characters');
+  }
+  
+  // Validate focus items count
+  if (payload.focusItems.length > 5) {
+    throw new Error('Maximum of 5 focus items allowed');
+  }
+  
+  // Validate and sanitize focus items
+  const focusItemsJson: Json = payload.focusItems.map((item, index) => {
+    // Validate description
+    const description = item.description?.trim() || '';
+    if (!description) {
+      throw new Error(`Focus item ${index + 1} description is required`);
+    }
+    if (description.length > 500) {
+      throw new Error(`Focus item ${index + 1} description exceeds maximum length of 500 characters`);
+    }
+    
+    // Validate anchor value length
+    if (item.anchorValue && item.anchorValue.trim().length > 200) {
+      throw new Error(`Focus item ${index + 1} anchor value exceeds maximum length of 200 characters`);
+    }
+    
+    // Validate custom barrier length
+    if (item.barrier?.custom && item.barrier.custom.trim().length > 200) {
+      throw new Error(`Focus item ${index + 1} custom barrier exceeds maximum length of 200 characters`);
+    }
+    
+    // Validate categories array
+    const categories = Array.isArray(item.categories) 
+      ? item.categories.filter(cat => cat && typeof cat === 'string').slice(0, 10)
+      : [];
+    
+    return {
+      id: item.id,
+      description: description,
+      categories: categories,
+      sortOrder: item.sortOrder ?? index,
+      plannedItemId: item.plannedItemId ?? null,
+      anchorType: item.anchorType ?? null,
+      anchorValue: item.anchorValue?.trim() || null,
+      barrier: item.barrier
+        ? {
+            barrierTypeId: item.barrier.barrierTypeId ?? null,
+            barrierTypeSlug: item.barrier.barrierTypeSlug ?? null,
+            custom: item.barrier.custom?.trim() || null,
+          }
+        : null,
+    };
+  });
 
   const { data, error } = await supabase.rpc('create_checkin_with_focus', {
     p_user_id: payload.userId,
     p_internal_weather: payload.internalWeather.key,
     p_weather_icon: payload.internalWeather.icon ?? null,
-    p_forecast_note: payload.forecastNote ?? null,
+    p_forecast_note: payload.forecastNote?.trim() || null,
     p_focus_items: focusItemsJson,
     p_checkin_date: payload.checkinDate ?? undefined,
   });
@@ -370,12 +420,13 @@ export async function getCheckinsForRange(userId: string, startDate: string, end
 }
 
 export async function getCheckinByDate(userId: string, date: string) {
+  // With the unique constraint (user_id, checkin_date), there's only one checkin per user per date
+  // No need to order by created_at since the constraint guarantees uniqueness
   const { data, error } = await supabase
     .from('checkins')
     .select(checkinSelect)
     .eq('user_id', userId)
     .eq('checkin_date', date)
-    .order('created_at', { ascending: false })
     .maybeSingle();
 
   if (error && error.code !== 'PGRST116') {
@@ -441,6 +492,49 @@ export async function createPlannedItem(plannedItem: PlannedItemInsert): Promise
 }
 
 /**
+ * Helper function to fetch and join barrier types for planned items
+ * This reduces code duplication and ensures consistent behavior
+ */
+async function enrichPlannedItemsWithBarriers(
+  plannedItems: PlannedItem[]
+): Promise<PlannedItemWithBarrier[]> {
+  if (!plannedItems || plannedItems.length === 0) {
+    return [];
+  }
+
+  // Fetch barrier types separately and join manually
+  const barrierTypeIds = [...new Set(plannedItems.map(item => item.barrier_type_id).filter(Boolean) as string[])];
+  const barrierTypesMap = new Map<string, BarrierType>();
+
+  if (barrierTypeIds.length > 0) {
+    const { data: barrierTypes, error: barrierError } = await supabase
+      .from('barrier_types')
+      .select('*')
+      .in('id', barrierTypeIds);
+
+    if (barrierError) {
+      console.warn('Error fetching barrier types for planned items:', barrierError);
+    } else if (barrierTypes) {
+      barrierTypes.forEach(bt => {
+        barrierTypesMap.set(bt.id, bt as BarrierType);
+      });
+      
+      // Warn if some barrier types weren't found
+      const foundIds = new Set(barrierTypes.map(bt => bt.id));
+      const missingIds = barrierTypeIds.filter(id => !foundIds.has(id));
+      if (missingIds.length > 0) {
+        console.warn(`Some barrier types not found for planned items: ${missingIds.join(', ')}`);
+      }
+    }
+  }
+
+  return plannedItems.map(item => ({
+    ...item,
+    barrier_types: item.barrier_type_id ? (barrierTypesMap.get(item.barrier_type_id) ?? null) : null,
+  })) as PlannedItemWithBarrier[];
+}
+
+/**
  * Get all planned items for a user
  */
 export async function getPlannedItems(userId: string): Promise<PlannedItemWithBarrier[]> {
@@ -459,27 +553,7 @@ export async function getPlannedItems(userId: string): Promise<PlannedItemWithBa
     return [];
   }
 
-  // Fetch barrier types separately and join manually
-  const barrierTypeIds = [...new Set((data as PlannedItem[]).map(item => item.barrier_type_id).filter(Boolean) as string[])];
-  const barrierTypesMap = new Map<string, BarrierType>();
-
-  if (barrierTypeIds.length > 0) {
-    const { data: barrierTypes, error: barrierError } = await supabase
-      .from('barrier_types')
-      .select('*')
-      .in('id', barrierTypeIds);
-
-    if (!barrierError && barrierTypes) {
-      barrierTypes.forEach(bt => {
-        barrierTypesMap.set(bt.id, bt as BarrierType);
-      });
-    }
-  }
-
-  return (data as PlannedItem[]).map(item => ({
-    ...item,
-    barrier_types: item.barrier_type_id ? (barrierTypesMap.get(item.barrier_type_id) ?? null) : null,
-  })) as PlannedItemWithBarrier[];
+  return enrichPlannedItemsWithBarriers(data as PlannedItem[]);
 }
 
 /**
@@ -505,27 +579,7 @@ export async function getPlannedItemsForDate(userId: string, date: string): Prom
     return [];
   }
 
-  // Fetch barrier types separately and join manually
-  const barrierTypeIds = [...new Set((data as PlannedItem[]).map(item => item.barrier_type_id).filter(Boolean) as string[])];
-  const barrierTypesMap = new Map<string, BarrierType>();
-
-  if (barrierTypeIds.length > 0) {
-    const { data: barrierTypes, error: barrierError } = await supabase
-      .from('barrier_types')
-      .select('*')
-      .in('id', barrierTypeIds);
-
-    if (!barrierError && barrierTypes) {
-      barrierTypes.forEach(bt => {
-        barrierTypesMap.set(bt.id, bt as BarrierType);
-      });
-    }
-  }
-
-  return (data as PlannedItem[]).map(item => ({
-    ...item,
-    barrier_types: item.barrier_type_id ? (barrierTypesMap.get(item.barrier_type_id) ?? null) : null,
-  })) as PlannedItemWithBarrier[];
+  return enrichPlannedItemsWithBarriers(data as PlannedItem[]);
 }
 
 /**

@@ -1,8 +1,9 @@
 'use client';
 
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { getTodayLocalDateString } from './date-utils';
 
-const TODAY_ISO = new Date().toISOString().split('T')[0];
+const TODAY_ISO = getTodayLocalDateString();
 
 export interface WeatherSelection {
   key: string;
@@ -50,7 +51,10 @@ interface CheckInContextValue {
   setBarrierForFocusItem: (id: string, barrier: BarrierSelectionState | null) => void;
   setAnchorForFocusItem: (id: string, anchor: TaskAnchorState | null) => void;
   loadPlannedItems: (items: FocusItemState[]) => void;
+  loadFocusItemsFromCheckin: (items: FocusItemState[]) => void;
   resetCheckIn: () => void;
+  validationError: string | null;
+  clearValidationError: () => void;
 }
 
 const MAX_FOCUS_ITEMS = 5;
@@ -62,18 +66,53 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
   const [forecastNote, setForecastNote] = useState('');
   const [checkinDate, setCheckinDate] = useState<string>(TODAY_ISO);
   const [focusItems, setFocusItems] = useState<FocusItemState[]>([]);
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  const clearValidationError = useCallback(() => {
+    setValidationError(null);
+  }, []);
 
   const addFocusItem = useCallback((description: string, categories: string[]) => {
-    if (!description.trim()) return;
+    const trimmedDescription = description.trim();
+    
+    // Clear any previous validation errors
+    setValidationError(null);
+    
+    // Validate: must have description
+    if (!trimmedDescription) {
+      setValidationError('Focus item description cannot be empty');
+      return;
+    }
+    
+    // Validate: max length
+    if (trimmedDescription.length > 500) {
+      setValidationError('Focus item description is too long (maximum 500 characters)');
+      return;
+    }
 
     setFocusItems((prev) => {
       const activeCount = prev.filter((item) => !item.completed).length;
-      if (activeCount >= MAX_FOCUS_ITEMS) return prev;
+      if (activeCount >= MAX_FOCUS_ITEMS) {
+        setValidationError(`Maximum of ${MAX_FOCUS_ITEMS} focus items reached`);
+        return prev;
+      }
+      
+      // Check for duplicates (same description, case-insensitive, ignoring whitespace)
+      const normalizedDescription = trimmedDescription.toLowerCase().replace(/\s+/g, ' ');
+      const isDuplicate = prev.some(
+        (item) => !item.completed && 
+        item.description.toLowerCase().replace(/\s+/g, ' ') === normalizedDescription
+      );
+      if (isDuplicate) {
+        setValidationError('A focus item with this description already exists');
+        return prev;
+      }
+      
       const id = crypto.randomUUID();
       const next: FocusItemState = {
         id,
-        description: description.trim(),
-        categories,
+        description: trimmedDescription,
+        categories: categories || [],
         sortOrder: prev.length,
         plannedItemId: null,
         barrier: null,
@@ -86,15 +125,49 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const updateFocusItem = useCallback((id: string, updates: Partial<Omit<FocusItemState, 'id'>>) => {
+    setValidationError(null);
+    
     setFocusItems((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              ...updates,
-            }
-          : item
-      )
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        
+        // Validate description if being updated
+        if (updates.description !== undefined) {
+          const trimmedDescription = updates.description.trim();
+          if (!trimmedDescription) {
+            setValidationError('Focus item description cannot be empty');
+            return item; // Don't update if empty
+          }
+          if (trimmedDescription.length > 500) {
+            setValidationError('Focus item description is too long (maximum 500 characters)');
+            return item; // Don't update if too long
+          }
+          
+          // Check for duplicates (excluding current item)
+          const normalizedDescription = trimmedDescription.toLowerCase().replace(/\s+/g, ' ');
+          const isDuplicate = prev.some(
+            (other) => 
+              other.id !== id && 
+              !other.completed && 
+              other.description.toLowerCase().replace(/\s+/g, ' ') === normalizedDescription
+          );
+          if (isDuplicate) {
+            setValidationError('A focus item with this description already exists');
+            return item; // Don't update if duplicate
+          }
+          
+          return {
+            ...item,
+            ...updates,
+            description: trimmedDescription,
+          };
+        }
+        
+        return {
+          ...item,
+          ...updates,
+        };
+      })
     );
   }, []);
 
@@ -134,26 +207,65 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const loadPlannedItems = useCallback((items: FocusItemState[]) => {
-    setFocusItems(items.map((item, index) => ({
-      ...item,
-      sortOrder: item.sortOrder ?? index,
-      completed: item.completed ?? false,
-      plannedItemId: item.plannedItemId ?? null,
-      barrier: item.barrier
-        ? {
-            barrierTypeId: item.barrier.barrierTypeId ?? null,
-            barrierTypeSlug: item.barrier.barrierTypeSlug ?? null,
-            custom: item.barrier.custom ?? null,
-          }
-        : null,
-    })));
+    // Only load if we don't already have focus items (don't overwrite existing checkin data)
+    setFocusItems((prev) => {
+      if (prev.length > 0) return prev; // Don't overwrite existing items
+      
+      // Limit to MAX_FOCUS_ITEMS and filter out invalid items
+      const validItems = items
+        .filter((item) => item.description && item.description.trim().length > 0)
+        .slice(0, MAX_FOCUS_ITEMS)
+        .map((item, index) => ({
+          ...item,
+          sortOrder: item.sortOrder ?? index,
+          completed: item.completed ?? false,
+          plannedItemId: item.plannedItemId ?? null,
+          barrier: item.barrier
+            ? {
+                barrierTypeId: item.barrier.barrierTypeId ?? null,
+                barrierTypeSlug: item.barrier.barrierTypeSlug ?? null,
+                custom: item.barrier.custom ?? null,
+              }
+            : null,
+        }));
+      
+      return validItems;
+    });
+  }, []);
+
+  const loadFocusItemsFromCheckin = useCallback((items: FocusItemState[]) => {
+    // Only load if we don't already have focus items (don't overwrite user's current work)
+    setFocusItems((prev) => {
+      if (prev.length > 0) return prev; // Don't overwrite existing items
+      
+      // Limit to MAX_FOCUS_ITEMS and filter out invalid items
+      const validItems = items
+        .filter((item) => item.description && item.description.trim().length > 0)
+        .slice(0, MAX_FOCUS_ITEMS)
+        .map((item, index) => ({
+          ...item,
+          sortOrder: item.sortOrder ?? index,
+          completed: item.completed ?? false,
+          plannedItemId: item.plannedItemId ?? null,
+          barrier: item.barrier
+            ? {
+                barrierTypeId: item.barrier.barrierTypeId ?? null,
+                barrierTypeSlug: item.barrier.barrierTypeSlug ?? null,
+                custom: item.barrier.custom ?? null,
+              }
+            : null,
+        }));
+      
+      return validItems;
+    });
   }, []);
 
   const resetCheckIn = useCallback(() => {
     setWeather(null);
     setForecastNote('');
-    setCheckinDate(TODAY_ISO);
+    setCheckinDate(getTodayLocalDateString());
     setFocusItems([]);
+    setValidationError(null);
   }, []);
 
   const value = useMemo(
@@ -171,9 +283,12 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
       setBarrierForFocusItem,
       setAnchorForFocusItem,
       loadPlannedItems,
+      loadFocusItemsFromCheckin,
       resetCheckIn,
+      validationError,
+      clearValidationError,
     }),
-    [weather, forecastNote, checkinDate, focusItems, addFocusItem, updateFocusItem, removeFocusItem, setBarrierForFocusItem, setAnchorForFocusItem, loadPlannedItems, resetCheckIn]
+    [weather, forecastNote, checkinDate, focusItems, addFocusItem, updateFocusItem, removeFocusItem, setBarrierForFocusItem, setAnchorForFocusItem, loadPlannedItems, loadFocusItemsFromCheckin, resetCheckIn, validationError, clearValidationError]
   );
 
   return <CheckInContext.Provider value={value}>{children}</CheckInContext.Provider>;

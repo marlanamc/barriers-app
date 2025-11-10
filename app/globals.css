@@ -7,22 +7,30 @@
   --foreground: #0f172a;
 }
 
+.dark {
+  --app-gradient: linear-gradient(135deg, #1e1b3d 0%, #1e293b 40%, #0f172a 100%);
+  --foreground: #f1f5f9;
+}
+
 body {
   color: var(--foreground);
   background: var(--app-gradient);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 html {
   background: var(--app-gradient);
   min-height: 100%;
+  transition: background-color 0.3s ease;
 }
 
 .bg-app-gradient {
   background-image: var(--app-gradient);
   min-height: 100vh;
+  transition: background-image 0.3s ease;
 }
 
 @layer utilities {
@@ -45,24 +53,48 @@ html {
   background: linear-gradient(135deg, #fbe7ff 0%, #ffd6f5 100%);
 }
 
+.dark .gradient-pink {
+  background: linear-gradient(135deg, #4a1e4a 0%, #5a2a4a 100%);
+}
+
 .gradient-purple {
   background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+}
+
+.dark .gradient-purple {
+  background: linear-gradient(135deg, #3d2e5a 0%, #4a3a6a 100%);
 }
 
 .gradient-blue {
   background: linear-gradient(135deg, #dff6ff 0%, #c7f0ff 100%);
 }
 
+.dark .gradient-blue {
+  background: linear-gradient(135deg, #1e3a4a 0%, #2a4a5a 100%);
+}
+
 .gradient-green {
   background: linear-gradient(135deg, #d1fae5 0%, #bbf7d0 100%);
+}
+
+.dark .gradient-green {
+  background: linear-gradient(135deg, #1e4a3a 0%, #2a5a4a 100%);
 }
 
 .gradient-yellow {
   background: linear-gradient(135deg, #fef9c3 0%, #fde68a 100%);
 }
 
+.dark .gradient-yellow {
+  background: linear-gradient(135deg, #4a3a1e 0%, #5a4a2a 100%);
+}
+
 .gradient-peach {
   background: linear-gradient(135deg, #ffe5ec 0%, #ffd8e2 100%);
+}
+
+.dark .gradient-peach {
+  background: linear-gradient(135deg, #4a2a2a 0%, #5a3a3a 100%);
 }
 
 /* Card-specific gradients matching the exact First Aid Kit style */
@@ -70,18 +102,38 @@ html {
   background: linear-gradient(135deg, #fbe7ff 0%, #ede9fe 100%);
 }
 
+.dark .gradient-pink-purple {
+  background: linear-gradient(135deg, #4a1e4a 0%, #3d2e5a 100%);
+}
+
 .gradient-yellow-green {
   background: linear-gradient(135deg, #fef9c3 0%, #d1fae5 100%);
+}
+
+.dark .gradient-yellow-green {
+  background: linear-gradient(135deg, #4a3a1e 0%, #1e4a3a 100%);
 }
 
 .gradient-green-blue {
   background: linear-gradient(135deg, #ccfbf1 0%, #dbeafe 100%);
 }
 
+.dark .gradient-green-blue {
+  background: linear-gradient(135deg, #1e4a3a 0%, #1e3a4a 100%);
+}
+
 .gradient-blue-purple {
   background: linear-gradient(135deg, #dbeafe 0%, #ede9fe 100%);
 }
 
+.dark .gradient-blue-purple {
+  background: linear-gradient(135deg, #1e3a4a 0%, #3d2e5a 100%);
+}
+
 .gradient-lavender-aqua {
   background: linear-gradient(135deg, #f5f3ff 0%, #a5f3fc 100%);
+}
+
+.dark .gradient-lavender-aqua {
+  background: linear-gradient(135deg, #3d2e5a 0%, #1e4a5a 100%);
 }

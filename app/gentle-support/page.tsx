@@ -150,8 +150,8 @@ function pickReminder(seed: string) {
 
 export default function GentleSupportScreen() {
   const router = useRouter();
-  const { weather, forecastNote, focusItems, resetCheckIn, checkinDate, setCheckinDate } = useCheckIn();
-  const activeFocusItems = focusItems.filter((item) => !item.completed);
+  const { weather, forecastNote, focusItems, checkinDate, setCheckinDate } = useCheckIn();
+  const activeFocusItems = useMemo(() => focusItems.filter((item) => !item.completed), [focusItems]);
   const { user, loading: authLoading, error: authError } = useSupabaseUser();
   const forecastRef = useRef<HTMLDivElement>(null);
   const [barrierTypes, setBarrierTypes] = useState<BarrierType[]>([]);
@@ -227,18 +227,20 @@ export default function GentleSupportScreen() {
     }, {});
   }, [barrierTypes]);
 
+  const canSave = useMemo(() => {
+    return Boolean(user) && !saving && activeFocusItems.every((item) => {
+      const barrier = item.barrier;
+      const hasBarrier = Boolean(
+        barrier && (barrier.barrierTypeSlug || barrier.custom?.trim())
+      );
+      const hasAnchor = Boolean(item.anchorType && item.anchorValue?.trim());
+      return hasBarrier && hasAnchor;
+    });
+  }, [user, saving, activeFocusItems]);
+
   if (!dailyForecast && (!weather || !activeFocusItems.length)) {
     return null;
   }
-
-  const canSave = Boolean(user) && !saving && activeFocusItems.every((item) => {
-    const barrier = item.barrier;
-    const hasBarrier = Boolean(
-      barrier && (barrier.barrierTypeSlug || barrier.custom?.trim())
-    );
-    const hasAnchor = Boolean(item.anchorType && item.anchorValue?.trim());
-    return hasBarrier && hasAnchor;
-  });
 
   async function captureForecastCanvas() {
     if (!forecastRef.current) return null;
@@ -253,7 +255,7 @@ export default function GentleSupportScreen() {
   }
 
   async function handleSaveImage() {
-    if (!dailyForecast) return;
+    if (!dailyForecast || !dailyForecast.checkinId) return;
     setExportingImage(true);
     try {
       const canvas = await captureForecastCanvas();
@@ -261,19 +263,24 @@ export default function GentleSupportScreen() {
       const dataUrl = canvas.toDataURL("image/png");
       const link = document.createElement("a");
       link.href = dataUrl;
-      link.download = `daily-forecast-${dailyForecast.checkinId.slice(0, 8)}.png`;
+      const checkinIdPrefix = dailyForecast.checkinId.slice(0, 8) || 'forecast';
+      link.download = `daily-forecast-${checkinIdPrefix}.png`;
       link.click();
       setExportMessage("Saved to downloads.");
-    } catch (error) {
-      console.error(error);
-      setExportMessage("Unable to save image.");
+    } catch (error: unknown) {
+      console.error('Error saving image:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unable to save image.';
+      setExportMessage(errorMessage);
     } finally {
       setExportingImage(false);
     }
   }
 
   async function handleShareImage() {
-    if (!dailyForecast) return;
+    if (!dailyForecast || !dailyForecast.checkinId) {
+      await handleSaveImage();
+      return;
+    }
 
     if (typeof navigator === "undefined") {
       await handleSaveImage();
@@ -296,7 +303,8 @@ export default function GentleSupportScreen() {
       if (!canvas) throw new Error("Unable to capture forecast.");
       const blob = await canvasToBlob(canvas);
       if (!blob) throw new Error("Unable to build share image.");
-      const fileName = `daily-forecast-${dailyForecast.checkinId.slice(0, 8)}.png`;
+      const checkinIdPrefix = dailyForecast.checkinId.slice(0, 8) || 'forecast';
+      const fileName = `daily-forecast-${checkinIdPrefix}.png`;
       const file = new File([blob], fileName, { type: "image/png" });
 
       if (typeof nav.canShare === "function" && !nav.canShare({ files: [file] })) {
@@ -310,8 +318,13 @@ export default function GentleSupportScreen() {
         text: "Keeping today's focus gentle.",
       });
       setExportMessage("Shared!");
-    } catch (error: any) {
-      if (error?.name !== "AbortError") {
+    } catch (error: unknown) {
+      // AbortError is thrown when user cancels share dialog - don't show error
+      if (error instanceof Error && error.name !== "AbortError") {
+        console.error(error);
+        setExportMessage("Share unavailable.");
+      } else if (!(error instanceof Error)) {
+        // Handle non-Error objects
         console.error(error);
         setExportMessage("Share unavailable.");
       }
@@ -363,10 +376,12 @@ export default function GentleSupportScreen() {
       });
       setWallpaperTheme("auto");
       setDone(true);
-      resetCheckIn();
-    } catch (error: any) {
+      // Note: resetCheckIn() removed - don't clear state until navigation completes
+      // The 'done' state prevents re-entry, and state will reset on next check-in start
+    } catch (error: unknown) {
       console.error(error);
-      setSaveError(error.message || "Something went wrong while saving.");
+      const errorMessage = error instanceof Error ? error.message : "Something went wrong while saving.";
+      setSaveError(errorMessage);
     } finally {
       setSaving(false);
     }
@@ -531,7 +546,7 @@ export default function GentleSupportScreen() {
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div>
-            <p className="text-sm uppercase tracking-wide text-cyan-600">Step 4</p>
+            <p className="text-sm uppercase tracking-wide text-cyan-600">Support</p>
             <h1 className="text-2xl font-bold text-slate-900">Gentle support</h1>
             <p className="text-sm text-slate-600">Soft reminders matched to each barrier.</p>
           </div>

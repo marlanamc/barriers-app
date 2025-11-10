@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import type { RecurrenceType } from './recurrence';
+import { formatDateToLocalString } from './date-utils';
 
 export interface BarrierSelectionState {
   barrierTypeId?: string | null;
@@ -53,7 +54,7 @@ const PlanningContext = createContext<PlanningContextValue | undefined>(undefine
 const getTomorrowISO = () => {
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  return tomorrow.toISOString().split('T')[0];
+  return formatDateToLocalString(tomorrow);
 };
 
 export function PlanningProvider({ children }: { children: React.ReactNode }) {

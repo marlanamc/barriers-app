@@ -3,6 +3,8 @@
  * Determines if a recurring item applies to a given date
  */
 
+import { formatDateToLocalString } from './date-utils';
+
 export type RecurrenceType = 'once' | 'daily' | 'weekly' | 'monthly';
 
 export interface PlannedItemRecurrence {
@@ -22,9 +24,22 @@ export function appliesToDate(
   date: string,
   recurrence: PlannedItemRecurrence
 ): boolean {
+  // Validate inputs
+  if (!date || !recurrence?.startDate || !recurrence?.recurrenceType) {
+    return false;
+  }
+
   const targetDate = new Date(date + 'T00:00:00'); // Parse as local date
   const start = new Date(recurrence.startDate + 'T00:00:00');
   const end = recurrence.endDate ? new Date(recurrence.endDate + 'T00:00:00') : null;
+
+  // Validate dates
+  if (isNaN(targetDate.getTime()) || isNaN(start.getTime())) {
+    return false;
+  }
+  if (end && isNaN(end.getTime())) {
+    return false;
+  }
 
   // Check if date is within range
   if (targetDate < start) return false;
@@ -47,7 +62,20 @@ export function appliesToDate(
 
     case 'monthly':
       // Occurs on the same day of month
-      return targetDate.getDate() === start.getDate();
+      // Handle edge case: if start date is 31st and target month has fewer days,
+      // it should still match (e.g., Jan 31 -> Feb 28/29)
+      const startDay = start.getDate();
+      const targetDay = targetDate.getDate();
+      
+      // If start is last day of month (28-31), match last day of target month
+      const lastDayOfStartMonth = new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate();
+      const lastDayOfTargetMonth = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0).getDate();
+      
+      if (startDay === lastDayOfStartMonth && targetDay === lastDayOfTargetMonth) {
+        return true;
+      }
+      
+      return targetDay === startDay;
 
     default:
       return false;
@@ -86,7 +114,7 @@ export function getApplicableDates(
   let iterations = 0;
 
   while (current <= end && iterations < maxResults) {
-    const dateStr = current.toISOString().split('T')[0];
+    const dateStr = formatDateToLocalString(current);
     if (appliesToDate(dateStr, recurrence)) {
       dates.push(dateStr);
     }
@@ -146,7 +174,9 @@ export function getRecurrenceDescription(recurrence: PlannedItemRecurrence): str
  * Format ISO date string to readable format
  */
 function formatDate(isoDate: string): string {
+  if (!isoDate) return 'Invalid date';
   const date = new Date(isoDate + 'T00:00:00');
+  if (isNaN(date.getTime())) return 'Invalid date';
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 

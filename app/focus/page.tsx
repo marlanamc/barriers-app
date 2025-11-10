@@ -63,6 +63,8 @@ export default function FocusScreen() {
     updateFocusItem,
     setBarrierForFocusItem,
     setAnchorForFocusItem,
+    validationError,
+    clearValidationError,
   } = useCheckIn();
   const [text, setText] = useState("");
   const [tags, setTags] = useState<string[]>([]);
@@ -86,22 +88,33 @@ export default function FocusScreen() {
   const handleAdd = () => {
     if (!text.trim()) return;
     addFocusItem(text, tags);
-    setText("");
-    setTags([]);
+    // Only clear if no validation error occurred
+    if (!validationError) {
+      setText("");
+      setTags([]);
+    }
   };
 
-  const activeFocusItems = focusItems.filter((item) => !item.completed);
-  const completedFocusItems = focusItems.filter((item) => item.completed);
-  const activeCount = activeFocusItems.length;
-  const barriersComplete =
-    Boolean(weather) &&
-    activeFocusItems.length > 0 &&
-    activeFocusItems.every((item) => {
-      const barrier = item.barrier;
-      const hasBarrier = Boolean(barrier && (barrier.barrierTypeSlug || barrier.custom?.trim()));
-      const hasAnchor = Boolean(item.anchorType && item.anchorValue?.trim());
-      return hasBarrier && hasAnchor;
-    });
+  // Clear validation error when user starts typing
+  useEffect(() => {
+    if (validationError && text.trim()) {
+      clearValidationError();
+    }
+  }, [text, validationError, clearValidationError]);
+
+  const activeFocusItems = useMemo(() => focusItems.filter((item) => !item.completed), [focusItems]);
+  const completedFocusItems = useMemo(() => focusItems.filter((item) => item.completed), [focusItems]);
+  const activeCount = useMemo(() => activeFocusItems.length, [activeFocusItems.length]);
+  const barriersComplete = useMemo(() => {
+    return Boolean(weather) &&
+      activeFocusItems.length > 0 &&
+      activeFocusItems.every((item) => {
+        const barrier = item.barrier;
+        const hasBarrier = Boolean(barrier && (barrier.barrierTypeSlug || barrier.custom?.trim()));
+        const hasAnchor = Boolean(item.anchorType && item.anchorValue?.trim());
+        return hasBarrier && hasAnchor;
+      });
+  }, [weather, activeFocusItems]);
 
   return (
     <main className="min-h-screen px-4 pb-16 pt-6">
@@ -110,11 +123,12 @@ export default function FocusScreen() {
           <Link
             href="/"
             className="rounded-full border border-white/40 bg-white/70 p-2 text-slate-600 transition hover:-translate-y-0.5"
+            aria-label="Go back to home"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div>
-            <p className="text-sm uppercase tracking-wide text-cyan-600">Steps 2 &amp; 3</p>
+            <p className="text-sm uppercase tracking-wide text-cyan-600">Focus level</p>
             <h1 className="text-2xl font-bold text-slate-900">What matters &amp; what feels hard?</h1>
             <p className="text-sm text-slate-600">Add today&rsquo;s focus points, then pair each with a barrier + anchor.</p>
             {!weather && (
@@ -136,9 +150,26 @@ export default function FocusScreen() {
                 rows={2}
                 value={text}
                 onChange={(event) => setText(event.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    handleAdd();
+                  }
+                }}
                 placeholder="Send the email, stretch, clear the kitchen table..."
-                className="mt-2 w-full rounded-2xl border border-white/40 bg-white/80 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-100"
+                className={`mt-2 w-full rounded-2xl border px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 ${
+                  validationError 
+                    ? 'border-rose-300 bg-rose-50/50 focus:border-rose-400 focus:ring-rose-100' 
+                    : 'border-white/40 bg-white/80 focus:border-cyan-300 focus:ring-cyan-100'
+                }`}
+                aria-invalid={!!validationError}
+                aria-describedby={validationError ? "focus-error" : undefined}
               />
+              {validationError && (
+                <p id="focus-error" className="mt-2 text-sm text-rose-600" role="alert">
+                  {validationError}
+                </p>
+              )}
             </div>
 
             <div>
