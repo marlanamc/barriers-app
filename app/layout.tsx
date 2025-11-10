@@ -5,6 +5,7 @@ import { CheckInProvider } from "@/lib/checkin-context";
 import { PlanningProvider } from "@/lib/planning-context";
 import { ThemeProvider } from "@/lib/theme-context";
 import { AuthProvider } from "@/components/AuthProvider";
+import { ThemeColorUpdater } from "@/components/ThemeColorUpdater";
 
 export const metadata: Metadata = {
   title: "ADHD Barrier Tracker",
@@ -34,7 +35,12 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#a855f7",
+  // Light mode: soft purple from gradient start (#f5f3ff)
+  // Dark mode: dark purple from gradient start (#1e1b3d)
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f5f3ff" },
+    { media: "(prefers-color-scheme: dark)", color: "#1e1b3d" },
+  ],
 };
 
 const inter = Inter({
@@ -51,6 +57,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} bg-app-gradient text-slate-900 dark:text-slate-100`}>
         <ThemeProvider>
+          <ThemeColorUpdater />
           <AuthProvider>
             <CheckInProvider>
               <PlanningProvider>{children}</PlanningProvider>
