@@ -1,11 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ArrowLeft, ArrowRight, Pencil, Trash2, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { usePlanning } from "@/lib/planning-context";
 import type { RecurrenceType } from "@/lib/recurrence";
+import { getPlannedItems, deletePlannedItem, type PlannedItemWithBarrier } from "@/lib/supabase";
+import { useSupabaseUser } from "@/lib/useSupabaseUser";
+import { getRecurrenceDescription } from "@/lib/recurrence";
+import { getCategoryEmoji } from "@/lib/categories";
 
 const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -21,8 +25,11 @@ export default function PlanAheadPage() {
     recurrenceDays,
     setRecurrenceDays,
   } = usePlanning();
-
+  const { user } = useSupabaseUser();
   const [hasEndDate, setHasEndDate] = useState(false);
+  const [existingPlannedItems, setExistingPlannedItems] = useState<PlannedItemWithBarrier[]>([]);
+  const [loadingPlannedItems, setLoadingPlannedItems] = useState(true);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
   const handleNext = () => {
     // Validate based on recurrence type
@@ -49,6 +56,38 @@ export default function PlanAheadPage() {
     }
   };
 
+  // Load existing planned items
+  useEffect(() => {
+    if (!user?.id) return;
+    
+    const loadPlannedItems = async () => {
+      try {
+        const items = await getPlannedItems(user.id);
+        setExistingPlannedItems(items);
+      } catch (err) {
+        console.error('Error loading planned items:', err);
+      } finally {
+        setLoadingPlannedItems(false);
+      }
+    };
+    
+    loadPlannedItems();
+  }, [user?.id]);
+
+  const handleDeletePlannedItem = async (itemId: string) => {
+    if (!confirm('Are you sure you want to delete this planned item?')) return;
+    
+    try {
+      const success = await deletePlannedItem(itemId);
+      if (success) {
+        setExistingPlannedItems((prev) => prev.filter((item) => item.id !== itemId));
+      }
+    } catch (err) {
+      console.error('Error deleting planned item:', err);
+      alert('Failed to delete planned item. Please try again.');
+    }
+  };
+
   return (
     <main className="min-h-screen px-4 pb-16 pt-6">
       <div className="mx-auto max-w-3xl space-y-6">
@@ -66,7 +105,69 @@ export default function PlanAheadPage() {
           </div>
         </header>
 
+        {/* Existing Planned Items */}
+        {!loadingPlannedItems && existingPlannedItems.length > 0 && (
+          <section className="space-y-4 rounded-3xl border border-white/20 bg-white/80 p-6 backdrop-blur">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-900">Your Planned Items</h2>
+            </div>
+            <ul className="space-y-3">
+              {existingPlannedItems.map((item) => {
+                const recurrenceDesc = getRecurrenceDescription({
+                  recurrenceType: item.recurrence_type as RecurrenceType,
+                  startDate: item.start_date,
+                  endDate: item.end_date || null,
+                  recurrenceDays: item.recurrence_days || null,
+                });
+                const categoryEmoji = getCategoryEmoji(item.categories?.[0]);
+                
+                return (
+                  <li
+                    key={item.id}
+                    className="flex items-start gap-3 rounded-2xl border border-white/40 bg-white/70 p-4"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        {categoryEmoji && <span className="text-xl">{categoryEmoji}</span>}
+                        <p className="font-semibold text-slate-900">{item.description}</p>
+                      </div>
+                      <p className="mt-1 text-sm text-slate-600">{recurrenceDesc}</p>
+                      {item.categories && item.categories.length > 0 && (
+                        <p className="mt-1 text-xs uppercase tracking-wide text-slate-400">
+                          {item.categories.join(" • ")}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => router.push(`/plan-ahead/edit/${item.id}`)}
+                        className="rounded-full border border-transparent p-2 text-slate-400 transition hover:border-emerald-200 hover:text-emerald-600"
+                        aria-label="Edit planned item"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeletePlannedItem(item.id)}
+                        className="rounded-full border border-transparent p-2 text-slate-400 transition hover:border-rose-200 hover:text-rose-600"
+                        aria-label="Delete planned item"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
+        {/* Create New Planned Item Section */}
         <section className="space-y-6 rounded-3xl border border-white/20 bg-white/80 p-6 backdrop-blur">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-slate-900">Create New Planned Item</h2>
+          </div>
           {/* Recurrence Type Selection */}
           <div className="space-y-3">
             <label className="text-sm font-semibold text-slate-700">Schedule type</label>

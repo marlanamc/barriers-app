@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, CheckCircle2, Circle, Plus, Trash2 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useCheckIn, MAX_FOCUS_ITEMS, type TaskAnchorType } from "@/lib/checkin-context";
 import { CATEGORY_OPTIONS, getCategoryEmoji } from "@/lib/categories";
@@ -271,6 +271,8 @@ function buildFocusPlaceholderText(date = new Date(), suggestionCount = 3): stri
 
 export default function FocusScreen() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editItemId = searchParams.get('edit');
   const {
     weather,
     forecastNote,
@@ -297,6 +299,9 @@ export default function FocusScreen() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedFocusItems, setSavedFocusItems] = useState<typeof focusItems>([]);
   const [loadedSavedItems, setLoadedSavedItems] = useState(false);
+  const [editingItemId, setEditingItemId] = useState<string | null>(editItemId || null);
+  const [previousFocusItemsLength, setPreviousFocusItemsLength] = useState(focusItems.length);
+  const [hasClearedOnMount, setHasClearedOnMount] = useState(false);
   
   useEffect(() => {
     const checkMobile = () => {
@@ -313,10 +318,16 @@ export default function FocusScreen() {
     getBarrierTypes().then(setBarrierTypes);
   }, []);
 
-  // Load saved focus items from database (separate from draft items)
-  // Only load if we don't have draft items (to avoid confusion)
+  // Load saved focus items from database ONLY if we're editing a specific item via URL
+  // When adding a new item, don't load/show saved items - user should focus on one item at a time
   useEffect(() => {
-    if (!user?.id || loadedSavedItems || focusItems.length > 0) return;
+    if (!user?.id || loadedSavedItems) return;
+    
+    // Only load saved items if we're editing a specific item via URL parameter
+    if (!editItemId) {
+      setLoadedSavedItems(true);
+      return;
+    }
     
     const loadSavedItems = async () => {
       try {
@@ -348,7 +359,14 @@ export default function FocusScreen() {
             };
           });
           
-          setSavedFocusItems(savedItems);
+          // If we're editing a specific item and it's in saved items, load it into draft
+          const itemToEdit = savedItems.find((item) => item.id === editItemId);
+          if (itemToEdit) {
+            loadFocusItemsFromCheckin([itemToEdit]);
+            setText(itemToEdit.description);
+            setTags(itemToEdit.categories || []);
+            setEditingItemId(editItemId);
+          }
         }
       } catch (err) {
         console.error('Error loading saved focus items:', err);
@@ -358,7 +376,7 @@ export default function FocusScreen() {
     };
     
     loadSavedItems();
-  }, [user?.id, checkinDate, loadedSavedItems, focusItems.length]);
+  }, [user?.id, checkinDate, loadedSavedItems, editItemId, loadFocusItemsFromCheckin]);
 
   const barrierBySlug = useMemo(() => createBarrierSlugMap(barrierTypes), [barrierTypes]);
   const barrierGroups = useMemo(
@@ -372,13 +390,45 @@ export default function FocusScreen() {
 
   const handleAdd = () => {
     if (!text.trim()) return;
-    addFocusItem(text, tags);
-    // Only clear if no validation error occurred
-    if (!validationError) {
-      setText("");
-      setTags([]);
+    
+    if (editingItemId) {
+      // Update existing item's description and categories
+      const itemToUpdate = focusItems.find((item) => item.id === editingItemId);
+      if (itemToUpdate) {
+        updateFocusItem(editingItemId, {
+          description: text.trim(),
+          categories: tags,
+        });
+        // Clear form but keep editingItemId so user can continue with barriers/anchors
+        setText("");
+        setTags([]);
+        return;
+      }
+    } else {
+      // Add new item
+      addFocusItem(text, tags);
+      // Only clear if no validation error occurred
+      if (!validationError) {
+        setText("");
+        setTags([]);
+        // The useEffect below will detect the new item and set editingItemId
+      }
     }
   };
+  
+  // When a new item is added (not editing), set it as the editing item
+  useEffect(() => {
+    if (!editingItemId && focusItems.length > previousFocusItemsLength) {
+      // A new item was added
+      const newItems = focusItems.filter((item) => !item.completed);
+      if (newItems.length > 0) {
+        // Get the most recently added item (highest sortOrder)
+        const newestItem = newItems.sort((a, b) => b.sortOrder - a.sortOrder)[0];
+        setEditingItemId(newestItem.id);
+      }
+    }
+    setPreviousFocusItemsLength(focusItems.length);
+  }, [focusItems.length, previousFocusItemsLength, editingItemId, focusItems]);
 
   // Clear validation error when user starts typing
   useEffect(() => {
@@ -392,6 +442,39 @@ export default function FocusScreen() {
   const activeCount = useMemo(() => activeFocusItems.length, [activeFocusItems.length]);
   const savedActiveItems = useMemo(() => savedFocusItems.filter((item) => !item.completed), [savedFocusItems]);
   
+  // Clear focus items when entering "add mode" (no edit parameter) - only once on mount
+  // This ensures saved items from homepage don't show when adding a new item
+  useEffect(() => {
+    if (!editItemId && !hasClearedOnMount && focusItems.length > 0) {
+      // User is adding a new item, clear any existing items from context
+      // They'll be saved items from homepage - user should focus on one item at a time
+      clearFocusItems();
+      setHasClearedOnMount(true);
+    }
+  }, [editItemId, hasClearedOnMount, focusItems.length, clearFocusItems]);
+  
+  // When editing a specific item, filter to show only that item
+  const itemsToShow = useMemo(() => {
+    if (editingItemId) {
+      return focusItems.filter((item) => item.id === editingItemId);
+    }
+    // When adding a new item, show only the items being added in this session
+    return focusItems;
+  }, [focusItems, editingItemId]);
+  
+  const itemsToShowActive = useMemo(() => itemsToShow.filter((item) => !item.completed), [itemsToShow]);
+  
+  // Load item data when editing (for items already in focusItems)
+  useEffect(() => {
+    if (editingItemId && focusItems.length > 0) {
+      const itemToEdit = focusItems.find((item) => item.id === editingItemId);
+      if (itemToEdit && (!text || text !== itemToEdit.description)) {
+        setText(itemToEdit.description);
+        setTags(itemToEdit.categories || []);
+      }
+    }
+  }, [editingItemId, focusItems, text]);
+  
   // Function to load saved items into draft for editing
   const handleEditSavedItems = () => {
     // Load saved items into the draft context
@@ -400,6 +483,7 @@ export default function FocusScreen() {
     setSavedFocusItems([]);
   };
   const barriersComplete = useMemo(() => {
+    // Check all active focus items, not just the ones being shown
     return Boolean(weather) && activeFocusItems.length > 0 && activeFocusItems.every((item) => hasBarrierSelection(item.barrier));
   }, [weather, activeFocusItems]);
 
@@ -488,73 +572,25 @@ export default function FocusScreen() {
             <button
               type="button"
               onClick={handleAdd}
-              disabled={!text.trim() || activeCount >= MAX_FOCUS_ITEMS}
+              disabled={!text.trim() || (!editingItemId && activeCount >= MAX_FOCUS_ITEMS)}
               className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-cyan-200 bg-white/80 px-4 py-3 font-semibold text-cyan-700 transition hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900/70 dark:text-cyan-200 dark:hover:bg-slate-800"
             >
               <Plus className="h-5 w-5" />
-              Add focus
-              <span className="text-sm text-cyan-500 dark:text-cyan-400">{activeCount}/{MAX_FOCUS_ITEMS}</span>
+              {editingItemId ? "Update focus" : "Add focus"}
+              {!editingItemId && <span className="text-sm text-cyan-500 dark:text-cyan-400">{activeCount}/{MAX_FOCUS_ITEMS}</span>}
             </button>
           </div>
         </section>
 
-        {/* Show saved focus items separately from draft items */}
-        {savedActiveItems.length > 0 && focusItems.length === 0 && (
-          <section className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50/50 p-5 dark:border-slate-700 dark:bg-slate-800/50">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Saved focus items</h2>
-              <button
-                type="button"
-                onClick={handleEditSavedItems}
-                className="flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
-              >
-                <Pencil className="h-4 w-4" />
-                Edit
-              </button>
-            </div>
-            <ul className="space-y-2">
-              {savedActiveItems
-                .slice()
-                .sort((a, b) => a.sortOrder - b.sortOrder)
-                .map((item) => {
-                  const anchorDisplayValue = anchorValueForDisplay(item.anchorType, item.anchorValue);
-                  const anchorType = item.anchorType && anchorDisplayValue ? item.anchorType : null;
-                  return (
-                    <li
-                      key={item.id}
-                      className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-                    >
-                      <div className="flex-1 space-y-1">
-                        <p className="flex flex-wrap items-center gap-2 text-sm font-semibold leading-tight text-slate-900 dark:text-slate-100">
-                          <span className="text-lg leading-none">{getCategoryEmoji(item.categories[0]) || "•"}</span>
-                          <span>{item.description}</span>
-                        </p>
-                        {anchorType && anchorDisplayValue && (
-                          <p className="text-xs font-semibold text-cyan-700 dark:text-cyan-400">
-                            {anchorType} {anchorDisplayValue}
-                          </p>
-                        )}
-                        {item.categories.length > 0 && (
-                          <p className="text-[0.65rem] uppercase tracking-wide text-slate-400 dark:text-slate-300">
-                            {item.categories.join(" • ")}
-                          </p>
-                        )}
-                      </div>
-                    </li>
-                  );
-                })}
-            </ul>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              These items are saved. Click "Edit" to modify them or add new ones below.
-            </p>
-          </section>
-        )}
+        {/* Don't show saved items on focus page - user should focus on one item at a time */}
+        {/* Saved items are managed from the homepage where each has its own edit button */}
 
-        {focusItems.length > 0 && (
+        {/* Show focus items - only show the item being edited/added, not all items */}
+        {itemsToShow.length > 0 && (
           <section className="space-y-4">
-            {activeFocusItems.length > 0 ? (
+            {itemsToShowActive.length > 0 ? (
               <div className="space-y-4">
-                {activeFocusItems
+                {itemsToShowActive
                   .slice()
                   .sort((a, b) => a.sortOrder - b.sortOrder)
                   .map((item) => {
@@ -659,7 +695,15 @@ export default function FocusScreen() {
                           </div>
                           <button
                             type="button"
-                            onClick={() => removeFocusItem(item.id)}
+                            onClick={() => {
+                              removeFocusItem(item.id);
+                              // If deleting the item being edited, clear editing state
+                              if (editingItemId === item.id) {
+                                setEditingItemId(null);
+                                setText("");
+                                setTags([]);
+                              }
+                            }}
                             className="rounded-full border border-transparent p-1 text-slate-400 transition hover:border-rose-200 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400"
                             aria-label="Delete focus"
                           >
@@ -864,11 +908,13 @@ export default function FocusScreen() {
               </p>
             )}
 
-            {completedFocusItems.length > 0 && (
+            {itemsToShow.filter((item) => item.completed).length > 0 && (
               <div className="space-y-2 border-t border-white/40 pt-4 dark:border-white/10">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Completed</p>
                 <div className="space-y-2">
-                  {completedFocusItems.map((item) => (
+                  {itemsToShow
+                    .filter((item) => item.completed)
+                    .map((item) => (
                     <div
                       key={item.id}
                       className="flex items-center gap-3 rounded-3xl border border-dashed border-emerald-200 bg-emerald-50/60 px-4 py-3 dark:border-emerald-500/40 dark:bg-emerald-500/10"
@@ -886,7 +932,15 @@ export default function FocusScreen() {
                       </p>
                       <button
                         type="button"
-                        onClick={() => removeFocusItem(item.id)}
+                        onClick={() => {
+                          removeFocusItem(item.id);
+                          // If deleting the item being edited, clear editing state
+                          if (editingItemId === item.id) {
+                            setEditingItemId(null);
+                            setText("");
+                            setTags([]);
+                          }
+                        }}
                         className="rounded-full border border-transparent p-1 text-slate-400 transition hover:border-rose-200 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400"
                         aria-label="Delete completed focus"
                       >
@@ -932,12 +986,12 @@ export default function FocusScreen() {
               // Clear localStorage after successful save (database is now source of truth)
               clearLocalStorageForDate(date);
               
-              // Clear draft focus items from context (they're now saved in database)
-              clearFocusItems();
-              // Reset loaded flag so saved items will reload when user returns to this page
-              setLoadedSavedItems(false);
+              // Clear editing state
+              setEditingItemId(null);
               
               // Navigate to gentle support page
+              // Don't clear focus items - gentle-support page needs them in context
+              // They're already saved to database, so they'll persist if user navigates away
               router.push("/gentle-support");
             } catch (err) {
               console.error('Error saving check-in:', err);

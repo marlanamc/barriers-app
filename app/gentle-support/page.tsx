@@ -415,6 +415,17 @@ export default function GentleSupportScreen() {
     return () => window.clearTimeout(timer);
   }, [showSuccess]);
 
+  // Redirect to home after showing the forecast image
+  useEffect(() => {
+    if (done && dailyForecast) {
+      // Show the image for 3 seconds, then redirect to home
+      const timer = setTimeout(() => {
+        router.push("/");
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [done, dailyForecast, router]);
+
   useEffect(() => {
     // Detect device type and set appropriate dimensions
     const detectDevice = () => {
@@ -711,7 +722,7 @@ export default function GentleSupportScreen() {
         <div className="mx-auto max-w-3xl space-y-6">
           <header className="flex items-center gap-4">
             <Link
-              href="/calendar"
+              href="/"
               className="rounded-full border border-white/40 bg-white/70 p-2 text-slate-600 transition hover:-translate-y-0.5"
             >
               <ArrowLeft className="h-5 w-5" />

@@ -92,6 +92,8 @@ See `database/schema.sql` for the complete database schema.
 ## Documentation
 
 - **[SETUP.md](SETUP.md)** - Complete setup instructions
-- **[NEXT_STEPS.md](NEXT_STEPS.md)** - Development roadmap and build guide
+- **[TODO.md](TODO.md)** - Testing and improvement tasks
+- **[VERCEL_DEPLOY.md](VERCEL_DEPLOY.md)** - Deployment instructions
 - **[database/README.md](database/README.md)** - Database schema documentation
 - **[database/schema.sql](database/schema.sql)** - SQL migration script
+- **[database/migrations/README.md](database/migrations/README.md)** - Migration instructions

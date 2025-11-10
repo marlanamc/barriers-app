@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, CalendarDays, CalendarPlus, CheckCircle2, Circle, GripVertical, LineChart, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { ArrowRight, CalendarDays, CalendarPlus, CheckCircle2, Circle, GripVertical, LineChart, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { InternalWeatherSelector, internalWeatherOptions } from "@/components/InternalWeatherSelector";
 import { AppWordmark } from "@/components/AppWordmark";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -353,12 +353,11 @@ export default function HomePage() {
             });
 
             loadFocusItemsFromCheckin(restoredFocusItems);
-            // If checkin has focus items, don't load planned items
-            setLoadedPlanned(true);
-          } else {
-            // No checkin focus items, so load planned items
-            loadPlannedItemsIfNeeded(user.id, today, cancelled);
           }
+          
+          // IMPORTANT: If a check-in exists (even with 0 items), don't load planned items
+          // A check-in with 0 items means the user explicitly chose to have no focus items today
+          setLoadedPlanned(true);
         } else {
           // No checkin exists, load planned items
           loadPlannedItemsIfNeeded(user.id, today, cancelled);
@@ -710,15 +709,84 @@ export default function HomePage() {
                         </p>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      onMouseDown={(e) => e.stopPropagation()}
-                      onClick={() => removeFocusItem(item.id)}
-                      className="rounded-full border border-transparent p-1 text-slate-400 transition hover:border-rose-200 hover:text-rose-600 dark:hover:border-rose-600 dark:hover:text-rose-400"
-                      aria-label="Delete focus"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={() => router.push(`/focus?edit=${item.id}`)}
+                        className="rounded-full border border-transparent p-1 text-slate-400 transition hover:border-cyan-200 hover:text-cyan-600 dark:hover:border-cyan-600 dark:hover:text-cyan-400"
+                        aria-label="Edit focus"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={async () => {
+                          console.log('🗑️ Delete button clicked');
+                          console.log('Item to delete:', { id: item.id, description: item.description, plannedItemId: item.plannedItemId });
+                          console.log('Current focusItems count:', focusItems.length);
+                          console.log('User:', user?.id, 'Weather:', weather?.key);
+                          
+                          // Get remaining items before removing
+                          const remainingItems = focusItems
+                            .filter((i) => i.id !== item.id && !i.completed)
+                            .map((i) => ({
+                              id: i.id,
+                              description: i.description,
+                              categories: i.categories,
+                              sortOrder: i.sortOrder,
+                              plannedItemId: i.plannedItemId ?? null,
+                              anchorType: i.anchorType || null,
+                              anchorValue: i.anchorValue || null,
+                              barrier: i.barrier || null,
+                            }));
+                          
+                          console.log('Remaining items after deletion:', remainingItems.length, remainingItems);
+                          
+                          // Remove from context
+                          removeFocusItem(item.id);
+                          console.log('✅ Item removed from context');
+                          
+                          // Save the deletion to the database
+                          if (user && weather) {
+                            try {
+                              const checkinDate = getTodayLocalDateString();
+                              console.log('💾 Saving deletion to database...', { 
+                                userId: user.id, 
+                                checkinDate, 
+                                remainingItemsCount: remainingItems.length,
+                                itemHadPlannedId: !!item.plannedItemId
+                              });
+                              
+                              await saveCheckinWithFocus({
+                                userId: user.id,
+                                internalWeather: weather,
+                                forecastNote: forecastNote || undefined,
+                                focusItems: remainingItems,
+                                checkinDate,
+                              });
+                              
+                              console.log('✅ Deletion saved successfully to database');
+                              
+                              // Clear localStorage to prevent stale data from reloading
+                              clearLocalStorageForDate(checkinDate);
+                              console.log('✅ localStorage cleared');
+                            } catch (err) {
+                              console.error('❌ Error saving deletion:', err);
+                              // Note: Item is already removed from context, but save failed
+                              // User can refresh to see the item again if needed
+                            }
+                          } else {
+                            console.warn('⚠️ Cannot save deletion - missing user or weather', { hasUser: !!user, hasWeather: !!weather });
+                          }
+                        }}
+                        className="rounded-full border border-transparent p-1 text-slate-400 transition hover:border-rose-200 hover:text-rose-600 dark:hover:border-rose-600 dark:hover:text-rose-400"
+                        aria-label="Delete focus"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </li>
                 );
               })}
@@ -757,7 +825,43 @@ export default function HomePage() {
                         </div>
                         <button
                           type="button"
-                          onClick={() => removeFocusItem(item.id)}
+                          onClick={async () => {
+                            // Get remaining items before removing
+                            const remainingItems = focusItems
+                              .filter((i) => i.id !== item.id && !i.completed)
+                              .map((i) => ({
+                                id: i.id,
+                                description: i.description,
+                                categories: i.categories,
+                                sortOrder: i.sortOrder,
+                                plannedItemId: i.plannedItemId ?? null,
+                                anchorType: i.anchorType || null,
+                                anchorValue: i.anchorValue || null,
+                                barrier: i.barrier || null,
+                              }));
+                            
+                            // Remove from context
+                            removeFocusItem(item.id);
+                            
+                            // Save the deletion to the database
+                            if (user && weather) {
+                              try {
+                                const checkinDate = getTodayLocalDateString();
+                                await saveCheckinWithFocus({
+                                  userId: user.id,
+                                  internalWeather: weather,
+                                  forecastNote: forecastNote || undefined,
+                                  focusItems: remainingItems,
+                                  checkinDate,
+                                });
+                                
+                                // Clear localStorage to prevent stale data from reloading
+                                clearLocalStorageForDate(checkinDate);
+                              } catch (err) {
+                                console.error('Error saving deletion:', err);
+                              }
+                            }
+                          }}
                           className="rounded-full border border-transparent p-1 text-slate-400 transition hover:border-rose-200 hover:text-rose-600 dark:hover:border-rose-600 dark:hover:text-rose-400"
                           aria-label="Delete completed focus"
                         >
@@ -770,24 +874,32 @@ export default function HomePage() {
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={() => router.push("/focus")}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white/70 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white dark:border-slate-600/50 dark:bg-slate-700/40 dark:text-slate-100 dark:hover:bg-slate-700"
-          >
-            Open focus & supports
-          </button>
+          {activeFocusItems.length >= MAX_FOCUS_ITEMS ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 text-center text-sm text-amber-800 dark:border-amber-700/50 dark:bg-amber-900/20 dark:text-amber-200">
+              <p className="font-medium">You already have enough on your hands</p>
+              <p className="mt-1 text-xs">Focus on your current things or remove some for another day</p>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => router.push("/focus")}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white/70 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white dark:border-slate-600/50 dark:bg-slate-700/40 dark:text-slate-100 dark:hover:bg-slate-700"
+            >
+              <Plus className="h-4 w-4" />
+              Add Focus
+            </button>
+          )}
         </>
       ) : (
         <div className="rounded-2xl border border-dashed border-white/40 bg-white/70 p-4 text-center text-sm text-slate-600 dark:border-slate-700/40 dark:bg-slate-800/50 dark:text-slate-400">
-          <p>Nothing added yet. Drop today&rsquo;s focus when you&rsquo;re ready.</p>
+          <p>No items yet. Add focus item when you&rsquo;re ready.</p>
           <button
             type="button"
             onClick={() => router.push("/focus")}
             className="mt-3 inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white dark:border-slate-600/60 dark:bg-slate-700/40 dark:text-slate-100"
           >
             <Plus className="h-4 w-4" />
-            Add focus
+            Add Focus
           </button>
         </div>
       )}
