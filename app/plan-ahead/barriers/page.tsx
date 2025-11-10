@@ -237,6 +237,7 @@ export default function PlanAheadBarriersPage() {
             {selectedAnchorType && (
               <p className="text-sm text-slate-600">
                 {buildAnchorPhrase(
+                  currentItem.description,
                   selectedAnchorType,
                   selectedAnchorType === "at"
                     ? anchorTime

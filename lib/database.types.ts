@@ -6,7 +6,7 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
-export interface Database {
+export type Database = {
   public: {
     Tables: {
       barrier_types: {
@@ -37,6 +37,12 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
+      };
+      barriers_content: {
+        Row: Record<string, Json | undefined>;
+        Insert: Record<string, Json | undefined>;
+        Update: Record<string, Json | undefined>;
         Relationships: [];
       };
       tips: {
@@ -168,6 +174,57 @@ export interface Database {
         };
         Relationships: [];
       };
+      planned_items: {
+        Row: {
+          id: string;
+          user_id: string;
+          description: string;
+          categories: string[];
+          recurrence_type: 'once' | 'daily' | 'weekly' | 'monthly';
+          start_date: string;
+          end_date: string | null;
+          recurrence_days: number[] | null;
+          barrier_type_id: string | null;
+          custom_barrier: string | null;
+          anchor_type: 'at' | 'while' | 'before' | 'after' | null;
+          anchor_value: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          description: string;
+          categories?: string[];
+          recurrence_type: 'once' | 'daily' | 'weekly' | 'monthly';
+          start_date: string;
+          end_date?: string | null;
+          recurrence_days?: number[] | null;
+          barrier_type_id?: string | null;
+          custom_barrier?: string | null;
+          anchor_type?: 'at' | 'while' | 'before' | 'after' | null;
+          anchor_value?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          description?: string;
+          categories?: string[];
+          recurrence_type?: 'once' | 'daily' | 'weekly' | 'monthly';
+          start_date?: string;
+          end_date?: string | null;
+          recurrence_days?: number[] | null;
+          barrier_type_id?: string | null;
+          custom_barrier?: string | null;
+          anchor_type?: 'at' | 'while' | 'before' | 'after' | null;
+          anchor_value?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       user_calendar_entries: {
         Row: {
           id: string;
@@ -214,6 +271,7 @@ export interface Database {
           first_logged: string | null;
           last_logged: string | null;
         };
+        Relationships: [];
       };
     };
     Functions: {
@@ -232,4 +290,4 @@ export interface Database {
     Enums: {};
     CompositeTypes: {};
   };
-}
+};

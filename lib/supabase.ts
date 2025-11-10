@@ -208,14 +208,13 @@ export async function saveCheckinWithFocus(payload: SaveCheckinPayload): Promise
     barrier: item.barrier || null,
   }));
 
-  // @ts-expect-error - Supabase RPC type inference issue
   const { data, error } = await supabase.rpc('create_checkin_with_focus', {
     p_user_id: payload.userId,
     p_internal_weather: payload.internalWeather.key,
     p_weather_icon: payload.internalWeather.icon ?? null,
     p_forecast_note: payload.forecastNote ?? null,
     p_focus_items: focusItemsJson,
-    p_checkin_date: payload.checkinDate ?? null,
+    p_checkin_date: payload.checkinDate ?? undefined,
   });
 
   if (error) {
@@ -356,7 +355,7 @@ export async function getCheckinsForRange(userId: string, startDate: string, end
     return [] as CheckinWithRelations[];
   }
 
-  return (data ?? []) as CheckinWithRelations[];
+  return (data ?? []) as unknown as CheckinWithRelations[];
 }
 
 export async function getCheckinByDate(userId: string, date: string) {
@@ -373,7 +372,7 @@ export async function getCheckinByDate(userId: string, date: string) {
     return null;
   }
 
-  return data ? (data as CheckinWithRelations) : null;
+  return data ? (data as unknown as CheckinWithRelations) : null;
 }
 
 export async function getInternalWeatherStats(userId: string) {
