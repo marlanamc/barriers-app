@@ -230,12 +230,21 @@ export default function PlanAheadBarriersPage() {
             </div>
 
             {selectedAnchorType === "at" && (
-              <input
-                type="time"
-                value={anchorTime}
-                onChange={(e) => setAnchorTime(e.target.value)}
-                className="w-full rounded-2xl border border-white/40 bg-white/80 px-4 py-3 text-slate-900 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-100"
-              />
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Pick a time
+                </label>
+                <input
+                  type="time"
+                  value={anchorTime}
+                  onChange={(e) => setAnchorTime(e.target.value)}
+                  className="w-full rounded-2xl border-2 border-emerald-200 bg-white px-4 py-3 text-lg font-medium text-slate-900 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                  placeholder="Select time"
+                />
+                <p className="text-xs text-slate-500">
+                  Tap to choose a time
+                </p>
+              </div>
             )}
 
             {selectedAnchorType && selectedAnchorType !== "at" && (

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Check, Loader2, Sparkles } from "lucide-react";
+import { ArrowLeft, CalendarDays, CalendarPlus, Check, LineChart, Loader2, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import html2canvas from "html2canvas";
@@ -510,8 +510,8 @@ export default function GentleSupportScreen() {
                     backgroundImage: `linear-gradient(135deg, ${theme.gradient[0]}, ${theme.gradient[1]})`,
                   }}
                 >
-                  {/* Focus list positioned 40% from bottom */}
-                  <div className={`absolute left-8 right-8 rounded-3xl bg-white/25 p-6 backdrop-blur ${anchorItemText}`} style={{ bottom: '40%' }}>
+                  {/* Focus list positioned lower for iOS wallpaper - starting at ~30% from top */}
+                  <div className={`absolute left-8 right-8 rounded-3xl bg-white/25 p-6 backdrop-blur ${anchorItemText}`} style={{ top: '30%' }}>
                     <p className={`text-xs font-semibold uppercase tracking-wide mb-4 ${anchorHeadingClass}`}>
                       Today&rsquo;s focus list
                     </p>

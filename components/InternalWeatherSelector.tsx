@@ -42,6 +42,7 @@ export function InternalWeatherSelector({ selectedKey, onSelect, suppressAutoSel
   const itemWidth = 120; // Fixed width for each emoji item
   const gapWidth = 8; // gap-2 = 8px
   const totalItemWidth = itemWidth + gapWidth; // Total width including gap
+  const scrollIdleDelay = 140; // How long to wait before snapping after scrolling stops
 
   // Initialize scroll position to middle set
   useEffect(() => {
@@ -64,6 +65,27 @@ export function InternalWeatherSelector({ selectedKey, onSelect, suppressAutoSel
     const scrollContainer = scrollRef.current;
     if (!scrollContainer) return;
 
+    const snapToNearestItem = () => {
+      const container = scrollRef.current;
+      if (!container || isScrollingRef.current) {
+        return;
+      }
+
+      const containerWidth = container.offsetWidth;
+      const scrollLeft = container.scrollLeft;
+      const snapIndex = Math.round((scrollLeft + containerWidth / 2) / totalItemWidth);
+      const targetScroll = snapIndex * totalItemWidth - containerWidth / 2 + itemWidth / 2;
+
+      if (Math.abs(targetScroll - scrollLeft) < 0.5) {
+        return;
+      }
+
+      container.scrollTo({
+        left: targetScroll,
+        behavior: 'smooth',
+      });
+    };
+
     const handleScroll = () => {
       // Mark that user is actively scrolling
       isUserScrollingRef.current = true;
@@ -77,7 +99,8 @@ export function InternalWeatherSelector({ selectedKey, onSelect, suppressAutoSel
       // Mark scrolling as stopped after a delay
       scrollTimeoutRef.current = setTimeout(() => {
         isUserScrollingRef.current = false;
-      }, 150);
+        snapToNearestItem();
+      }, scrollIdleDelay);
 
       // Cancel any pending RAF
       if (rafRef.current) {
@@ -142,7 +165,7 @@ export function InternalWeatherSelector({ selectedKey, onSelect, suppressAutoSel
         clearTimeout(scrollTimeoutRef.current);
       }
     };
-  }, [loopedOptions.length, totalItemWidth]);
+  }, [loopedOptions.length, totalItemWidth, itemWidth, scrollIdleDelay]);
 
   // Keep the carousel aligned with externally selected weather (e.g., when restoring saved check-ins)
   useEffect(() => {

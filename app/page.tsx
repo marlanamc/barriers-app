@@ -11,7 +11,7 @@ import { UserMenu } from "@/components/UserMenu";
 import { useCheckIn, MAX_FOCUS_ITEMS, type FocusItemState, type WeatherSelection } from "@/lib/checkin-context";
 import { useSupabaseUser } from "@/lib/useSupabaseUser";
 import { getCategoryEmoji } from "@/lib/categories";
-import { getPlannedItemsForDate, getCheckinByDate } from "@/lib/supabase";
+import { getPlannedItemsForDate, getCheckinByDate, saveCheckinWithFocus } from "@/lib/supabase";
 import { appliesToDate } from "@/lib/recurrence";
 import { getTodayLocalDateString } from "@/lib/date-utils";
 import { anchorValueForDisplay } from "@/lib/anchors";
@@ -87,6 +87,8 @@ export default function HomePage() {
   const [suppressAutoSelectWeather, setSuppressAutoSelectWeather] = useState(false);
   const [shouldScrollToWeather, setShouldScrollToWeather] = useState(false);
   const [isEditingWeather, setIsEditingWeather] = useState(false);
+  const [savingEnergy, setSavingEnergy] = useState(false);
+  const [saveEnergyError, setSaveEnergyError] = useState<string | null>(null);
   const weatherSectionRef = useRef<HTMLDivElement>(null);
   const lastLoadedDateRef = useRef<string | null>(null);
 
@@ -324,6 +326,46 @@ export default function HomePage() {
     }
   };
 
+  const handleSetEnergy = async () => {
+    if (!user || !weather) return;
+    
+    setSavingEnergy(true);
+    setSaveEnergyError(null);
+
+    try {
+      const checkinDate = getTodayLocalDateString();
+      const activeItems = focusItems.filter((item) => !item.completed);
+      
+      await saveCheckinWithFocus({
+        userId: user.id,
+        internalWeather: weather,
+        forecastNote: forecastNote || null,
+        focusItems: activeItems.map((item) => ({
+          id: item.id,
+          description: item.description,
+          categories: item.categories,
+          sortOrder: item.sortOrder,
+          plannedItemId: item.plannedItemId ?? null,
+          anchorType: item.anchorType || null,
+          anchorValue: item.anchorValue || null,
+          barrier: item.barrier || null,
+        })),
+        checkinDate,
+      });
+
+      // Close the weather section after saving
+      setIsEditingWeather(false);
+      setSuppressAutoSelectWeather(false);
+      setShouldScrollToWeather(false);
+    } catch (err) {
+      console.error('Error saving energy:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save energy level';
+      setSaveEnergyError(errorMessage);
+    } finally {
+      setSavingEnergy(false);
+    }
+  };
+
   if (loading) {
     return (
       <main className="min-h-screen flex items-center justify-center px-4">
@@ -368,14 +410,26 @@ export default function HomePage() {
         </p>
       )}
 
+      {saveEnergyError && (
+        <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:bg-rose-900/30 dark:text-rose-300">
+          {saveEnergyError}
+        </p>
+      )}
+
       <button
         type="button"
-        onClick={() => router.push("/focus")}
-        disabled={!weather}
+        onClick={handleSetEnergy}
+        disabled={!weather || savingEnergy}
         className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-6 py-4 text-lg font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-700 dark:hover:bg-slate-600"
       >
-        Next: What Matters Today
-        <ArrowRight className="h-5 w-5" />
+        {savingEnergy ? (
+          <>
+            <span className="animate-spin">⏳</span>
+            Setting Energy...
+          </>
+        ) : (
+          "Set Energy"
+        )}
       </button>
     </section>
   );

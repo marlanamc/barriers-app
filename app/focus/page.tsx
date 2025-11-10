@@ -642,17 +642,26 @@ export default function FocusScreen() {
                           </div>
 
                           {anchorSelected === "at" && (
-                            <input
-                              type="time"
-                              value={anchorValue}
-                              onChange={(event) =>
-                                setAnchorForFocusItem(item.id, {
-                                  anchorType: "at",
-                                  anchorValue: event.target.value,
-                                })
-                              }
-                              className="w-full rounded-2xl border border-white/80 bg-white/90 px-4 py-3 text-slate-900 focus:border-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 dark:focus:border-cyan-500 dark:focus:ring-cyan-900/40"
-                            />
+                            <div className="space-y-2">
+                              <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                Pick a time
+                              </label>
+                              <input
+                                type="time"
+                                value={anchorValue}
+                                onChange={(event) =>
+                                  setAnchorForFocusItem(item.id, {
+                                    anchorType: "at",
+                                    anchorValue: event.target.value,
+                                  })
+                                }
+                                className="w-full rounded-2xl border-2 border-cyan-200 bg-white px-4 py-3 text-lg font-medium text-slate-900 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-100 dark:border-cyan-600 dark:bg-slate-900/70 dark:text-slate-100 dark:focus:border-cyan-500 dark:focus:ring-cyan-900/40"
+                                placeholder="Select time"
+                              />
+                              <p className="text-xs text-slate-500 dark:text-slate-400">
+                                Tap to choose a time
+                              </p>
+                            </div>
                           )}
 
                           {contextualType && (

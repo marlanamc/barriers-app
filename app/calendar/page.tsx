@@ -162,60 +162,73 @@ export default function CalendarPage() {
   return (
     <main className="min-h-screen px-4 pb-16 pt-6">
       <div className="mx-auto max-w-5xl space-y-6">
-        <header className="flex items-center gap-4">
+        {/* Header Section */}
+        <header className="flex items-start gap-4">
           <Link
             href="/"
-            className="rounded-full border border-white/40 bg-white/70 p-2 text-slate-600 transition hover:-translate-y-0.5"
+            className="mt-1 rounded-full border border-white/40 bg-white/70 p-2 text-slate-600 transition hover:-translate-y-0.5 active:scale-95"
             aria-label="Go back to home"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <p className="text-sm uppercase tracking-wide text-cyan-600">Calendar</p>
             <h1 className="text-2xl font-bold text-slate-900">Calendar</h1>
-            <p className="text-sm text-slate-600">Tap a day to revisit your focus + barriers.</p>
+            <p className="mt-1 text-sm text-slate-600">Tap a day to revisit your focus + barriers.</p>
           </div>
           <Link
             href="/"
-            className="rounded-2xl border border-white/40 bg-white/70 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:-translate-y-0.5 hover:bg-white"
+            className="mt-1 rounded-2xl border border-white/40 bg-white/70 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:-translate-y-0.5 hover:bg-white active:scale-95"
           >
             Home
           </Link>
         </header>
 
-        <section className="rounded-3xl border border-white/20 bg-white/80 p-6 shadow-sm">
-          <div className="mb-4 flex items-center justify-between">
+        {/* Calendar Card */}
+        <section className="rounded-3xl border border-white/20 bg-white/80 p-4 sm:p-6 shadow-sm">
+          {/* Month Navigation */}
+          <div className="mb-6 flex items-center justify-between">
             <button
               type="button"
               onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}
-              className="rounded-full border border-white/40 bg-white/70 p-2 text-slate-600 transition hover:bg-white"
+              className="rounded-full border border-white/40 bg-white/70 p-2.5 text-slate-600 transition hover:bg-white active:scale-95 [touch-action:manipulation]"
               aria-label="Previous month"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
-            <div className="text-center">
-              <p className="text-lg font-semibold text-slate-900">
+            <div className="flex-1 text-center px-4">
+              <p className="text-lg sm:text-xl font-semibold text-slate-900">
                 {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
               </p>
-              {weather && <p className="text-xs text-slate-500">Today feels {weather.label.toLowerCase()}</p>}
             </div>
             <button
               type="button"
               onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))}
-              className="rounded-full border border-white/40 bg-white/70 p-2 text-slate-600 transition hover:bg-white"
+              className="rounded-full border border-white/40 bg-white/70 p-2.5 text-slate-600 transition hover:bg-white active:scale-95 [touch-action:manipulation]"
               aria-label="Next month"
             >
               <ChevronRight className="h-5 w-5" />
             </button>
           </div>
 
-          <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold text-slate-500">
+          {/* Status Message */}
+          {weather && (
+            <div className="mb-4 text-center">
+              <p className="text-sm text-slate-600">Today feels <span className="font-medium text-slate-700">{weather.label.toLowerCase()}</span></p>
+            </div>
+          )}
+
+          {/* Days of Week Header */}
+          <div className="mb-3 grid grid-cols-7 gap-1.5 sm:gap-2">
             {dayNames.map((day) => (
-              <div key={day}>{day}</div>
+              <div key={day} className="text-center text-xs font-semibold text-slate-500 py-1">
+                {day}
+              </div>
             ))}
           </div>
 
-          <div className="mt-3 grid grid-cols-7 gap-2">
+          {/* Calendar Grid */}
+          <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
             {days.map((date, index) => {
               if (!date) {
                 return <div key={`empty-${index}`} className="aspect-square" />;
@@ -230,21 +243,27 @@ export default function CalendarPage() {
                   key={iso}
                   type="button"
                   onClick={() => openModal(date)}
-                  className={`aspect-square rounded-2xl border px-2 py-2 text-left transition ${
+                  className={`aspect-square rounded-xl sm:rounded-2xl border px-1.5 sm:px-2 py-1.5 sm:py-2 text-left transition [touch-action:manipulation] ${
                     entry
-                      ? "border-cyan-200 bg-white shadow-sm hover:-translate-y-0.5"
+                      ? "border-cyan-200 bg-white shadow-sm hover:-translate-y-0.5 active:scale-95"
                       : "border-white/40 bg-white/60"
-                  } ${isToday ? "ring-2 ring-cyan-200" : ""} disabled:cursor-not-allowed disabled:opacity-60`}
+                  } ${isToday ? "ring-2 ring-cyan-200 ring-offset-1" : ""} disabled:cursor-not-allowed disabled:opacity-60`}
                   disabled={!entry}
                   aria-label={entry ? `View check-in for ${date.toLocaleDateString()}` : `No check-in for ${date.toLocaleDateString()}`}
                   aria-pressed={selectedDate === iso}
                 >
-                  <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
-                    <span>{date.getDate()}</span>
-                    {entry && entry.weather_icon && <span className="text-base">{entry.weather_icon}</span>}
+                  <div className="flex items-start justify-between gap-1">
+                    <span className="text-xs sm:text-sm font-semibold text-slate-600 leading-none">
+                      {date.getDate()}
+                    </span>
+                    {entry && entry.weather_icon && (
+                      <span className="text-sm sm:text-base leading-none flex-shrink-0" aria-hidden="true">
+                        {entry.weather_icon}
+                      </span>
+                    )}
                   </div>
                   {entry && (
-                    <p className="mt-2 line-clamp-2 text-xs text-slate-500">
+                    <p className="mt-1.5 sm:mt-2 line-clamp-2 text-[10px] sm:text-xs text-slate-500 leading-tight">
                       {entry.internal_weather}
                     </p>
                   )}
