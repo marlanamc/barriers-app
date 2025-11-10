@@ -8,6 +8,7 @@ import { useCheckIn, type TaskAnchorType } from "@/lib/checkin-context";
 import { getBarrierTypes, type BarrierType } from "@/lib/supabase";
 import { buildAnchorPhrase, cleanAnchorInput } from "@/lib/anchors";
 import { getCategoryEmoji } from "@/lib/categories";
+import { hasBarrierSelection } from "@/lib/barrier-helpers";
 
 const whileSuggestions = [
   "while watching TV",
@@ -73,16 +74,15 @@ export default function BarrierScreen() {
     getBarrierTypes().then(setBarrierTypes);
   }, []);
 
-  const canProceed = useMemo(() =>
-    activeFocusItems.length > 0 && activeFocusItems.every((item) => {
-      const barrier = item.barrier;
-      const hasBarrier = Boolean(
-        barrier && (barrier.barrierTypeSlug || barrier.custom?.trim())
-      );
-      const hasAnchor = Boolean(item.anchorType && item.anchorValue?.trim());
-      return hasBarrier && hasAnchor;
-    }),
-  [activeFocusItems]
+  const canProceed = useMemo(
+    () =>
+      activeFocusItems.length > 0 &&
+      activeFocusItems.every((item) => {
+        const hasBarrier = hasBarrierSelection(item.barrier);
+        const hasAnchor = Boolean(item.anchorType && item.anchorValue?.trim());
+        return hasBarrier && hasAnchor;
+      }),
+    [activeFocusItems]
   );
 
   if (!activeFocusItems.length) {

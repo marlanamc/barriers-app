@@ -31,6 +31,10 @@ export function InternalWeatherSelector({ selectedKey, onSelect, suppressAutoSel
   const isScrollingRef = useRef(false);
   const isInitializingRef = useRef(true);
   const pendingSyncIndexRef = useRef<number | null>(null);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const lastScrollTimeRef = useRef<number>(0);
+  const isUserScrollingRef = useRef(false);
 
   // Create looped array (3 copies for infinite scroll effect)
   const loopedOptions = [...internalWeatherOptions, ...internalWeatherOptions, ...internalWeatherOptions];
@@ -52,7 +56,7 @@ export function InternalWeatherSelector({ selectedKey, onSelect, suppressAutoSel
     // Mark initialization as complete after a short delay to allow scroll events to settle
     setTimeout(() => {
       isInitializingRef.current = false;
-    }, 100);
+    }, 300);
   }, [startIndex, totalItemWidth, itemWidth]);
 
   // Update selected option based on scroll position
@@ -61,44 +65,84 @@ export function InternalWeatherSelector({ selectedKey, onSelect, suppressAutoSel
     if (!scrollContainer) return;
 
     const handleScroll = () => {
-      if (isScrollingRef.current) return;
+      // Mark that user is actively scrolling
+      isUserScrollingRef.current = true;
+      lastScrollTimeRef.current = Date.now();
+      
+      // Clear any pending timeout
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+      
+      // Mark scrolling as stopped after a delay
+      scrollTimeoutRef.current = setTimeout(() => {
+        isUserScrollingRef.current = false;
+      }, 150);
 
-      // Don't call onUserInteract during initialization to prevent premature auto-selection
-      if (!isInitializingRef.current && typeof onUserInteract === 'function') {
-        onUserInteract();
+      // Cancel any pending RAF
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
       }
 
-      const containerWidth = scrollContainer.offsetWidth;
-      const scrollLeft = scrollContainer.scrollLeft;
-      const centerPosition = scrollLeft + (containerWidth / 2);
-      const currentIndex = Math.round(centerPosition / totalItemWidth);
+      // Use RAF to throttle scroll updates
+      rafRef.current = requestAnimationFrame(() => {
+        if (isScrollingRef.current) return;
 
-      // Calculate the actual weather index (0-4)
-      const weatherIndex = currentIndex % internalWeatherOptions.length;
+        const containerWidth = scrollContainer.offsetWidth;
+        const scrollLeft = scrollContainer.scrollLeft;
+        const centerPosition = scrollLeft + (containerWidth / 2);
+        const currentIndex = Math.round(centerPosition / totalItemWidth);
 
-      // Only update if changed
-      if (weatherIndex !== centerIndex) {
-        setCenterIndex(weatherIndex);
-      }
+        // Calculate the actual weather index (0-4)
+        const weatherIndex = currentIndex % internalWeatherOptions.length;
 
-      // Reset scroll position if we're at the edges (infinite loop effect)
-      const totalItems = loopedOptions.length;
-      if (currentIndex <= internalWeatherOptions.length / 2) {
-        isScrollingRef.current = true;
-        const newScroll = scrollLeft + (internalWeatherOptions.length * totalItemWidth);
-        scrollContainer.scrollLeft = newScroll;
-        setTimeout(() => { isScrollingRef.current = false; }, 50);
-      } else if (currentIndex >= totalItems - (internalWeatherOptions.length / 2)) {
-        isScrollingRef.current = true;
-        const newScroll = scrollLeft - (internalWeatherOptions.length * totalItemWidth);
-        scrollContainer.scrollLeft = newScroll;
-        setTimeout(() => { isScrollingRef.current = false; }, 50);
-      }
+        // Only update if changed
+        setCenterIndex((prevIndex) => {
+          if (weatherIndex !== prevIndex) {
+            return weatherIndex;
+          }
+          return prevIndex;
+        });
+
+        // Reset scroll position if we're at the edges (infinite loop effect)
+        // Use very conservative thresholds to prevent premature resets and shaking
+        const totalItems = loopedOptions.length;
+        const threshold = 1; // Only reset when we're 1 item away from edge (very conservative)
+        
+        // Only do infinite scroll reset if user is not actively scrolling
+        if (!isUserScrollingRef.current) {
+          if (currentIndex <= threshold) {
+            // Near the start, jump forward
+            if (!isScrollingRef.current) {
+              isScrollingRef.current = true;
+              const newScroll = scrollLeft + (internalWeatherOptions.length * totalItemWidth);
+              scrollContainer.scrollLeft = newScroll;
+              setTimeout(() => { isScrollingRef.current = false; }, 150);
+            }
+          } else if (currentIndex >= totalItems - threshold - 1) {
+            // Near the end, jump backward
+            if (!isScrollingRef.current) {
+              isScrollingRef.current = true;
+              const newScroll = scrollLeft - (internalWeatherOptions.length * totalItemWidth);
+              scrollContainer.scrollLeft = newScroll;
+              setTimeout(() => { isScrollingRef.current = false; }, 150);
+            }
+          }
+        }
+      });
     };
 
     scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
-    return () => scrollContainer.removeEventListener('scroll', handleScroll);
-  }, [loopedOptions.length, centerIndex, totalItemWidth]);
+    return () => {
+      scrollContainer.removeEventListener('scroll', handleScroll);
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+      }
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, [loopedOptions.length, totalItemWidth]);
 
   // Keep the carousel aligned with externally selected weather (e.g., when restoring saved check-ins)
   useEffect(() => {
@@ -107,7 +151,7 @@ export function InternalWeatherSelector({ selectedKey, onSelect, suppressAutoSel
     }
 
     const desiredIndex = internalWeatherOptions.findIndex((option) => option.key === selectedKey);
-    if (desiredIndex === -1 || desiredIndex === centerIndex) {
+    if (desiredIndex === -1) {
       return;
     }
 
@@ -131,7 +175,7 @@ export function InternalWeatherSelector({ selectedKey, onSelect, suppressAutoSel
       window.clearTimeout(timer);
       isScrollingRef.current = false;
     };
-  }, [selectedKey, centerIndex, itemWidth, startIndex, totalItemWidth]);
+  }, [selectedKey, itemWidth, startIndex, totalItemWidth]);
 
   // Auto-select the centered option only on initial load (when no selection exists yet)
   useEffect(() => {
@@ -170,8 +214,8 @@ export function InternalWeatherSelector({ selectedKey, onSelect, suppressAutoSel
         {/* Scrollable emoji container */}
         <div
           ref={scrollRef}
-          className="overflow-x-auto snap-x snap-mandatory scrollbar-hide relative z-10"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          className="overflow-x-auto scrollbar-hide relative z-10"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
         >
           <div className="flex items-center gap-2 py-4">
             {loopedOptions.map((option, index) => {
@@ -180,34 +224,54 @@ export function InternalWeatherSelector({ selectedKey, onSelect, suppressAutoSel
               return (
                 <div
                   key={`${option.key}-${index}`}
-                  className="snap-center flex-shrink-0"
+                  className="flex-shrink-0"
                   style={{ width: `${itemWidth}px` }}
                 >
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      
+                      // Prevent selection if user was just scrolling (within last 200ms)
+                      const timeSinceScroll = Date.now() - lastScrollTimeRef.current;
+                      if (isUserScrollingRef.current || timeSinceScroll < 200) {
+                        return;
+                      }
+
+                      // Prevent selection if we're programmatically scrolling
+                      if (isScrollingRef.current) {
+                        return;
+                      }
+
                       if (typeof onUserInteract === 'function') {
                         onUserInteract();
                       }
+                      
                       // Directly select the clicked option
                       onSelect(option);
+                      
                       // Also scroll to center it for visual feedback
                       const scrollContainer = scrollRef.current;
                       if (scrollContainer) {
+                        isScrollingRef.current = true;
                         const containerWidth = scrollContainer.offsetWidth;
                         const targetScroll = (index * totalItemWidth) - (containerWidth / 2) + (itemWidth / 2);
                         scrollContainer.scrollTo({
                           left: targetScroll,
                           behavior: 'smooth'
                         });
+                        setTimeout(() => {
+                          isScrollingRef.current = false;
+                        }, 300);
                       }
                     }}
                     className={clsx(
-                      'w-full flex items-center justify-center transition-all duration-200',
+                      'w-full h-24 flex items-center justify-center transition-all duration-200 select-none active:scale-95',
                       isCenter ? 'scale-110' : 'scale-75 opacity-40'
                     )}
+                    style={{ minHeight: '96px' }}
                   >
-                    <div className={clsx('transition-all duration-200', isCenter ? 'text-6xl' : 'text-4xl')}>
+                    <div className={clsx('transition-all duration-200 pointer-events-none', isCenter ? 'text-6xl' : 'text-4xl')}>
                       {option.icon}
                     </div>
                   </button>

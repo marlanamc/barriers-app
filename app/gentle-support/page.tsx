@@ -10,6 +10,7 @@ import { useSupabaseUser } from "@/lib/useSupabaseUser";
 import { getBarrierTypes, saveCheckinWithFocus, type BarrierType } from "@/lib/supabase";
 import { anchorLabel, buildAnchorPhrase } from "@/lib/anchors";
 import { getCategoryEmoji } from "@/lib/categories";
+import { hasBarrierSelection } from "@/lib/barrier-helpers";
 
 type ForecastTask = {
   id: string;
@@ -311,10 +312,7 @@ export default function GentleSupportScreen() {
   const weatherSupport = getWeatherSupport(weather?.key);
 
   const canSave = useMemo(() => {
-    return Boolean(user) && !saving && activeFocusItems.every((item) => {
-      const barrier = item.barrier;
-      return Boolean(barrier && (barrier.barrierTypeSlug || barrier.custom?.trim()));
-    });
+    return Boolean(user) && !saving && activeFocusItems.every((item) => hasBarrierSelection(item.barrier));
   }, [user, saving, activeFocusItems]);
 
   if (!dailyForecast && (!weather || !activeFocusItems.length)) {
