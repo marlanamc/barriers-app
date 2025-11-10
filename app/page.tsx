@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, CalendarDays, CalendarPlus, CheckCircle2, Circle, LineChart, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { ArrowRight, CalendarDays, CalendarPlus, CheckCircle2, Circle, GripVertical, LineChart, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { InternalWeatherSelector, internalWeatherOptions } from "@/components/InternalWeatherSelector";
 import { AppWordmark } from "@/components/AppWordmark";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -137,6 +137,7 @@ export default function HomePage() {
     loadFocusItemsFromCheckin,
     updateFocusItem,
     removeFocusItem,
+    reorderFocusItems,
     resetCheckIn,
     clearLocalStorageForDate,
   } = useCheckIn();
@@ -151,6 +152,8 @@ export default function HomePage() {
   const [saveEnergyError, setSaveEnergyError] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [justCompleted, setJustCompleted] = useState<string | null>(null);
+  const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
+  const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
   const weatherSectionRef = useRef<HTMLDivElement>(null);
   const lastLoadedDateRef = useRef<string | null>(null);
   
@@ -617,17 +620,60 @@ export default function HomePage() {
               .map((item) => {
                 const anchorDisplayValue = anchorValueForDisplay(item.anchorType, item.anchorValue);
                 const anchorType = item.anchorType && anchorDisplayValue ? item.anchorType : null;
+                const isDragging = draggedItemId === item.id;
+                const isDragOver = dragOverItemId === item.id;
                 return (
                   <li
                     key={item.id}
-                    className={`flex items-start gap-3 rounded-2xl border px-3 py-2 text-sm transition-all duration-300 ${
+                    draggable
+                    onDragStart={(e) => {
+                      setDraggedItemId(item.id);
+                      e.dataTransfer.effectAllowed = 'move';
+                      e.dataTransfer.setData('text/plain', item.id);
+                      // Add visual feedback
+                      if (e.dataTransfer) {
+                        e.dataTransfer.effectAllowed = 'move';
+                      }
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'move';
+                      if (draggedItemId !== item.id) {
+                        setDragOverItemId(item.id);
+                      }
+                    }}
+                    onDragLeave={() => {
+                      setDragOverItemId(null);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const draggedId = e.dataTransfer.getData('text/plain');
+                      if (draggedId && draggedId !== item.id) {
+                        reorderFocusItems(draggedId, item.id);
+                      }
+                      setDraggedItemId(null);
+                      setDragOverItemId(null);
+                    }}
+                    onDragEnd={() => {
+                      setDraggedItemId(null);
+                      setDragOverItemId(null);
+                    }}
+                    className={`flex items-start gap-3 rounded-2xl border px-3 py-2 text-sm transition-all duration-300 cursor-move ${
                       justCompleted === item.id
                         ? 'border-emerald-200 bg-emerald-50/50 dark:border-emerald-700 dark:bg-emerald-900/20 scale-[1.02]'
-                        : 'border-white/40 bg-white/70 dark:border-slate-600 dark:bg-slate-800'
+                        : isDragging
+                        ? 'opacity-50 scale-95 border-cyan-300 dark:border-cyan-500'
+                        : isDragOver
+                        ? 'border-cyan-400 bg-cyan-50/50 dark:border-cyan-500 dark:bg-cyan-900/20 scale-[1.02]'
+                        : 'border-white/40 bg-white/70 dark:border-slate-600 dark:bg-slate-800 hover:border-cyan-200 dark:hover:border-cyan-500'
                     }`}
                   >
+                    <div className="flex items-center text-slate-300 dark:text-slate-500 cursor-move" aria-hidden="true">
+                      <GripVertical className="h-4 w-4" />
+                    </div>
                     <button
                       type="button"
+                      onMouseDown={(e) => e.stopPropagation()}
                       onClick={() => {
                         // Add celebration feedback
                         setJustCompleted(item.id);
@@ -666,6 +712,7 @@ export default function HomePage() {
                     </div>
                     <button
                       type="button"
+                      onMouseDown={(e) => e.stopPropagation()}
                       onClick={() => removeFocusItem(item.id)}
                       className="rounded-full border border-transparent p-1 text-slate-400 transition hover:border-rose-200 hover:text-rose-600 dark:hover:border-rose-600 dark:hover:text-rose-400"
                       aria-label="Delete focus"

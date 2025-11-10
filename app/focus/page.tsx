@@ -6,9 +6,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useCheckIn, MAX_FOCUS_ITEMS, type TaskAnchorType } from "@/lib/checkin-context";
 import { CATEGORY_OPTIONS, getCategoryEmoji } from "@/lib/categories";
-import { getBarrierTypes, type BarrierType } from "@/lib/supabase";
+import { getBarrierTypes, saveCheckinWithFocus, getCheckinByDate, type BarrierType } from "@/lib/supabase";
 import { anchorValueForDisplay, cleanAnchorInput } from "@/lib/anchors";
 import { hasBarrierSelection } from "@/lib/barrier-helpers";
+import { useSupabaseUser } from "@/lib/useSupabaseUser";
+import { getTodayLocalDateString } from "@/lib/date-utils";
+import { Pencil } from "lucide-react";
 
 const whileSuggestions = [
   "while watching TV",
@@ -270,20 +273,30 @@ export default function FocusScreen() {
   const router = useRouter();
   const {
     weather,
+    forecastNote,
     focusItems,
+    checkinDate,
     addFocusItem,
     removeFocusItem,
     updateFocusItem,
     setBarrierForFocusItem,
     setAnchorForFocusItem,
+    loadFocusItemsFromCheckin,
+    clearFocusItems,
     validationError,
     clearValidationError,
+    clearLocalStorageForDate,
   } = useCheckIn();
+  const { user } = useSupabaseUser();
   const [text, setText] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [barrierTypes, setBarrierTypes] = useState<BarrierType[]>([]);
   const [isMobile, setIsMobile] = useState(false);
   const [justCompleted, setJustCompleted] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [savedFocusItems, setSavedFocusItems] = useState<typeof focusItems>([]);
+  const [loadedSavedItems, setLoadedSavedItems] = useState(false);
   
   useEffect(() => {
     const checkMobile = () => {
@@ -299,6 +312,53 @@ export default function FocusScreen() {
   useEffect(() => {
     getBarrierTypes().then(setBarrierTypes);
   }, []);
+
+  // Load saved focus items from database (separate from draft items)
+  // Only load if we don't have draft items (to avoid confusion)
+  useEffect(() => {
+    if (!user?.id || loadedSavedItems || focusItems.length > 0) return;
+    
+    const loadSavedItems = async () => {
+      try {
+        const today = checkinDate || getTodayLocalDateString();
+        const checkin = await getCheckinByDate(user.id, today);
+        
+        if (checkin && checkin.focus_items && checkin.focus_items.length > 0) {
+          const savedItems = checkin.focus_items.map((item) => {
+            const firstBarrier = item.focus_barriers && item.focus_barriers.length > 0 
+              ? item.focus_barriers[0] 
+              : null;
+
+            return {
+              id: item.id,
+              description: item.description,
+              categories: item.categories || [],
+              sortOrder: item.sort_order,
+              plannedItemId: null,
+              barrier: firstBarrier
+                ? {
+                    barrierTypeId: firstBarrier.barrier_type_id ?? null,
+                    barrierTypeSlug: firstBarrier.barrier_types?.slug ?? null,
+                    custom: firstBarrier.custom_barrier ?? null,
+                  }
+                : null,
+              anchorType: (item.anchor_type as typeof focusItems[0]["anchorType"]) ?? null,
+              anchorValue: item.anchor_value ?? null,
+              completed: false,
+            };
+          });
+          
+          setSavedFocusItems(savedItems);
+        }
+      } catch (err) {
+        console.error('Error loading saved focus items:', err);
+      } finally {
+        setLoadedSavedItems(true);
+      }
+    };
+    
+    loadSavedItems();
+  }, [user?.id, checkinDate, loadedSavedItems, focusItems.length]);
 
   const barrierBySlug = useMemo(() => createBarrierSlugMap(barrierTypes), [barrierTypes]);
   const barrierGroups = useMemo(
@@ -330,6 +390,15 @@ export default function FocusScreen() {
   const activeFocusItems = useMemo(() => focusItems.filter((item) => !item.completed), [focusItems]);
   const completedFocusItems = useMemo(() => focusItems.filter((item) => item.completed), [focusItems]);
   const activeCount = useMemo(() => activeFocusItems.length, [activeFocusItems.length]);
+  const savedActiveItems = useMemo(() => savedFocusItems.filter((item) => !item.completed), [savedFocusItems]);
+  
+  // Function to load saved items into draft for editing
+  const handleEditSavedItems = () => {
+    // Load saved items into the draft context
+    loadFocusItemsFromCheckin(savedFocusItems);
+    // Clear saved items display (they're now in draft)
+    setSavedFocusItems([]);
+  };
   const barriersComplete = useMemo(() => {
     return Boolean(weather) && activeFocusItems.length > 0 && activeFocusItems.every((item) => hasBarrierSelection(item.barrier));
   }, [weather, activeFocusItems]);
@@ -428,6 +497,58 @@ export default function FocusScreen() {
             </button>
           </div>
         </section>
+
+        {/* Show saved focus items separately from draft items */}
+        {savedActiveItems.length > 0 && focusItems.length === 0 && (
+          <section className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50/50 p-5 dark:border-slate-700 dark:bg-slate-800/50">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Saved focus items</h2>
+              <button
+                type="button"
+                onClick={handleEditSavedItems}
+                className="flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
+              >
+                <Pencil className="h-4 w-4" />
+                Edit
+              </button>
+            </div>
+            <ul className="space-y-2">
+              {savedActiveItems
+                .slice()
+                .sort((a, b) => a.sortOrder - b.sortOrder)
+                .map((item) => {
+                  const anchorDisplayValue = anchorValueForDisplay(item.anchorType, item.anchorValue);
+                  const anchorType = item.anchorType && anchorDisplayValue ? item.anchorType : null;
+                  return (
+                    <li
+                      key={item.id}
+                      className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+                    >
+                      <div className="flex-1 space-y-1">
+                        <p className="flex flex-wrap items-center gap-2 text-sm font-semibold leading-tight text-slate-900 dark:text-slate-100">
+                          <span className="text-lg leading-none">{getCategoryEmoji(item.categories[0]) || "•"}</span>
+                          <span>{item.description}</span>
+                        </p>
+                        {anchorType && anchorDisplayValue && (
+                          <p className="text-xs font-semibold text-cyan-700 dark:text-cyan-400">
+                            {anchorType} {anchorDisplayValue}
+                          </p>
+                        )}
+                        {item.categories.length > 0 && (
+                          <p className="text-[0.65rem] uppercase tracking-wide text-slate-400 dark:text-slate-300">
+                            {item.categories.join(" • ")}
+                          </p>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+            </ul>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              These items are saved. Click "Edit" to modify them or add new ones below.
+            </p>
+          </section>
+        )}
 
         {focusItems.length > 0 && (
           <section className="space-y-4">
@@ -781,12 +902,61 @@ export default function FocusScreen() {
 
         <button
           type="button"
-          onClick={() => router.push("/gentle-support")}
-          disabled={!barriersComplete}
+          onClick={async () => {
+            if (!barriersComplete || !user || !weather) return;
+            
+            setSaving(true);
+            setSaveError(null);
+            
+            try {
+              const activeItems = focusItems.filter((item) => !item.completed);
+              const date = checkinDate || getTodayLocalDateString();
+              
+              await saveCheckinWithFocus({
+                userId: user.id,
+                internalWeather: weather,
+                forecastNote: forecastNote || undefined,
+                focusItems: activeItems.map((item) => ({
+                  id: item.id,
+                  description: item.description,
+                  categories: item.categories,
+                  sortOrder: item.sortOrder,
+                  plannedItemId: item.plannedItemId ?? null,
+                  anchorType: item.anchorType || null,
+                  anchorValue: item.anchorValue || null,
+                  barrier: item.barrier || null,
+                })),
+                checkinDate: date,
+              });
+              
+              // Clear localStorage after successful save (database is now source of truth)
+              clearLocalStorageForDate(date);
+              
+              // Clear draft focus items from context (they're now saved in database)
+              clearFocusItems();
+              // Reset loaded flag so saved items will reload when user returns to this page
+              setLoadedSavedItems(false);
+              
+              // Navigate to gentle support page
+              router.push("/gentle-support");
+            } catch (err) {
+              console.error('Error saving check-in:', err);
+              const errorMessage = err instanceof Error ? err.message : 'Failed to save check-in';
+              setSaveError(errorMessage);
+            } finally {
+              setSaving(false);
+            }
+          }}
+          disabled={!barriersComplete || saving || !user || !weather}
           className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-6 py-4 text-lg font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-cyan-500 dark:text-slate-900 dark:hover:bg-cyan-400"
         >
-          Next: Gentle Support
+          {saving ? "Saving..." : "Next: Gentle Support"}
         </button>
+        {saveError && (
+          <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600 dark:bg-rose-900/30 dark:text-rose-300">
+            {saveError}
+          </p>
+        )}
         {!barriersComplete && (
           <p className="text-center text-xs text-slate-500 dark:text-slate-400">
             Set today&rsquo;s energy and add what feels hard for every focus to continue.

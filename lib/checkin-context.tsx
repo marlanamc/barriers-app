@@ -46,11 +46,13 @@ interface CheckInContextValue {
   addFocusItem: (description: string, categories: string[]) => void;
   updateFocusItem: (id: string, updates: Partial<Omit<FocusItemState, 'id'>>) => void;
   removeFocusItem: (id: string) => void;
+  reorderFocusItems: (draggedId: string, targetId: string) => void;
   setBarrierForFocusItem: (id: string, barrier: BarrierSelectionState | null) => void;
   setAnchorForFocusItem: (id: string, anchor: TaskAnchorState | null) => void;
   loadPlannedItems: (items: FocusItemState[]) => void;
   loadFocusItemsFromCheckin: (items: FocusItemState[]) => void;
   resetCheckIn: () => void;
+  clearFocusItems: () => void;
   clearLocalStorageForDate: (date: string) => void;
   validationError: string | null;
   clearValidationError: () => void;
@@ -223,6 +225,28 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
+  const reorderFocusItems = useCallback((draggedId: string, targetId: string) => {
+    setFocusItems((prev) => {
+      const items = [...prev];
+      const draggedIndex = items.findIndex((item) => item.id === draggedId);
+      const targetIndex = items.findIndex((item) => item.id === targetId);
+      
+      if (draggedIndex === -1 || targetIndex === -1 || draggedIndex === targetIndex) {
+        return prev;
+      }
+      
+      // Remove dragged item and insert at target position
+      const [draggedItem] = items.splice(draggedIndex, 1);
+      items.splice(targetIndex, 0, draggedItem);
+      
+      // Update sortOrder for all items
+      return items.map((item, index) => ({
+        ...item,
+        sortOrder: index,
+      }));
+    });
+  }, []);
+
   const setBarrierForFocusItem = useCallback((id: string, barrier: BarrierSelectionState | null) => {
     setFocusItems((prev) =>
       prev.map((item) =>
@@ -302,6 +326,10 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
       
       return validItems;
     });
+  }, []);
+
+  const clearFocusItems = useCallback(() => {
+    setFocusItems([]);
   }, []);
 
   const resetCheckIn = useCallback(() => {
@@ -397,16 +425,18 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
       addFocusItem,
       updateFocusItem,
       removeFocusItem,
+      reorderFocusItems,
       setBarrierForFocusItem,
       setAnchorForFocusItem,
       loadPlannedItems,
       loadFocusItemsFromCheckin,
       resetCheckIn,
+      clearFocusItems,
       clearLocalStorageForDate,
       validationError,
       clearValidationError,
     }),
-    [weather, forecastNote, checkinDate, focusItems, addFocusItem, updateFocusItem, removeFocusItem, setBarrierForFocusItem, setAnchorForFocusItem, loadPlannedItems, loadFocusItemsFromCheckin, resetCheckIn, clearLocalStorageForDate, validationError, clearValidationError]
+    [weather, forecastNote, checkinDate, focusItems, addFocusItem, updateFocusItem, removeFocusItem, reorderFocusItems, setBarrierForFocusItem, setAnchorForFocusItem, loadPlannedItems, loadFocusItemsFromCheckin, resetCheckIn, clearFocusItems, clearLocalStorageForDate, validationError, clearValidationError]
   );
 
   return <CheckInContext.Provider value={value}>{children}</CheckInContext.Provider>;
