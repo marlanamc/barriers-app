@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Heart, AlertCircle, Wrench, RefreshCw } from "lucide-react";
+import { AppWordmark } from "@/components/AppWordmark";
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -22,9 +23,7 @@ export default function OnboardingPage() {
     <main className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-100 to-orange-100">
       {/* Header */}
       <header className="px-4 py-4">
-        <h1 className="text-xl font-semibold">
-          <span className="text-gray-900">ADHD</span> <span className="text-pink-500">Barrier</span> <span className="text-gray-900">Tracker</span>
-        </h1>
+        <AppWordmark className="text-xl font-semibold text-gray-900" />
       </header>
 
       {/* Main Content */}

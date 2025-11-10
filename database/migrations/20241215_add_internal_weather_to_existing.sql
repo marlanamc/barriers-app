@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS checkins (
     CONSTRAINT unique_checkin_per_day UNIQUE(user_id, checkin_date)
 );
 
--- Up to three focus items per check-in
+-- Up to five focus items per check-in
 CREATE TABLE IF NOT EXISTS focus_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     checkin_id UUID NOT NULL REFERENCES checkins(id) ON DELETE CASCADE,

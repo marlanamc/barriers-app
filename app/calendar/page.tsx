@@ -3,9 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ChevronLeft, ChevronRight, X } from "lucide-react";
 import Link from "next/link";
-import { useCheckIn } from "@/lib/checkin-context";
+import { useCheckIn, type TaskAnchorType } from "@/lib/checkin-context";
 import { useSupabaseUser } from "@/lib/useSupabaseUser";
 import { getCheckinsForRange, type CheckinWithRelations } from "@/lib/supabase";
+import { anchorLabel } from "@/lib/anchors";
+import { getCategoryEmoji } from "@/lib/categories";
 
 const monthNames = [
   "January",
@@ -217,9 +219,21 @@ export default function CalendarPage() {
               {selectedCheckin.focus_items.map((item) => {
                 const barrier = item.focus_barriers[0];
                 const barrierLabel = barrier?.barrier_types?.label || barrier?.custom_barrier;
+                const anchorType = (item.anchor_type as TaskAnchorType | null) ?? null;
+                const anchor = anchorLabel(anchorType, item.anchor_value);
+                const categoryEmoji = getCategoryEmoji(item.categories?.[0]);
                 return (
                   <div key={item.id} className="rounded-2xl border border-white/40 bg-white px-4 py-3">
-                    <p className="text-sm font-semibold text-slate-900">{item.description}</p>
+                    <p className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                      {categoryEmoji && <span className="text-xl">{categoryEmoji}</span>}
+                      <span>{item.description}</span>
+                    </p>
+                    {anchor && (
+                      <div className="mt-2 rounded-2xl border border-cyan-100 bg-cyan-50/80 px-3 py-2 text-xs text-cyan-800">
+                        <p className="font-semibold uppercase tracking-wide text-[10px] text-cyan-600">Anchor pairing</p>
+                        <p className="mt-0.5 font-medium">{anchor}</p>
+                      </div>
+                    )}
                     {barrierLabel && (
                       <p className="text-xs text-slate-500">
                         {barrier?.barrier_types?.icon && <span className="mr-1">{barrier.barrier_types.icon}</span>}

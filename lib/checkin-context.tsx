@@ -2,6 +2,8 @@
 
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 
+const TODAY_ISO = new Date().toISOString().split('T')[0];
+
 export interface WeatherSelection {
   key: string;
   label: string;
@@ -14,12 +16,21 @@ export interface BarrierSelectionState {
   custom?: string | null;
 }
 
+export type TaskAnchorType = 'at' | 'while' | 'before' | 'after';
+
+export interface TaskAnchorState {
+  anchorType?: TaskAnchorType | null;
+  anchorValue?: string | null;
+}
+
 export interface FocusItemState {
   id: string;
   description: string;
   categories: string[];
   sortOrder: number;
   barrier?: BarrierSelectionState | null;
+  anchorType?: TaskAnchorType | null;
+  anchorValue?: string | null;
 }
 
 interface CheckInContextValue {
@@ -27,21 +38,26 @@ interface CheckInContextValue {
   setWeather: (weather: WeatherSelection | null) => void;
   forecastNote: string;
   setForecastNote: (note: string) => void;
+  checkinDate: string;
+  setCheckinDate: (date: string) => void;
   focusItems: FocusItemState[];
   addFocusItem: (description: string, categories: string[]) => void;
   updateFocusItem: (id: string, updates: Partial<Omit<FocusItemState, 'id'>>) => void;
   removeFocusItem: (id: string) => void;
   setBarrierForFocusItem: (id: string, barrier: BarrierSelectionState | null) => void;
+  setAnchorForFocusItem: (id: string, anchor: TaskAnchorState | null) => void;
+  loadPlannedItems: (items: FocusItemState[]) => void;
   resetCheckIn: () => void;
 }
 
-const MAX_FOCUS_ITEMS = 3;
+const MAX_FOCUS_ITEMS = 5;
 
 const CheckInContext = createContext<CheckInContextValue | undefined>(undefined);
 
 export function CheckInProvider({ children }: { children: React.ReactNode }) {
   const [weather, setWeather] = useState<WeatherSelection | null>(null);
   const [forecastNote, setForecastNote] = useState('');
+  const [checkinDate, setCheckinDate] = useState<string>(TODAY_ISO);
   const [focusItems, setFocusItems] = useState<FocusItemState[]>([]);
 
   const addFocusItem = useCallback((description: string, categories: string[]) => {
@@ -56,6 +72,8 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
         categories,
         sortOrder: prev.length,
         barrier: null,
+        anchorType: null,
+        anchorValue: null,
       };
       return [...prev, next];
     });
@@ -95,9 +113,28 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
+  const setAnchorForFocusItem = useCallback((id: string, anchor: TaskAnchorState | null) => {
+    setFocusItems((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              anchorType: anchor?.anchorType ?? null,
+              anchorValue: anchor?.anchorValue ?? null,
+            }
+          : item
+      )
+    );
+  }, []);
+
+  const loadPlannedItems = useCallback((items: FocusItemState[]) => {
+    setFocusItems(items);
+  }, []);
+
   const resetCheckIn = useCallback(() => {
     setWeather(null);
     setForecastNote('');
+    setCheckinDate(TODAY_ISO);
     setFocusItems([]);
   }, []);
 
@@ -107,14 +144,18 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
       setWeather,
       forecastNote,
       setForecastNote,
+      checkinDate,
+      setCheckinDate,
       focusItems,
       addFocusItem,
       updateFocusItem,
       removeFocusItem,
       setBarrierForFocusItem,
+      setAnchorForFocusItem,
+      loadPlannedItems,
       resetCheckIn,
     }),
-    [weather, forecastNote, focusItems, addFocusItem, updateFocusItem, removeFocusItem, setBarrierForFocusItem, resetCheckIn]
+    [weather, forecastNote, checkinDate, focusItems, addFocusItem, updateFocusItem, removeFocusItem, setBarrierForFocusItem, setAnchorForFocusItem, loadPlannedItems, resetCheckIn]
   );
 
   return <CheckInContext.Provider value={value}>{children}</CheckInContext.Provider>;

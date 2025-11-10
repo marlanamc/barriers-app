@@ -39,7 +39,7 @@ This will create:
 - `barrier_types` - Reference library of common barriers
 - `tips` - Gentle support messages mapped to barrier types
 - `checkins` - Internal weather snapshot per user per day
-- `focus_items` - Up to three focus statements per check-in
+- `focus_items` - Up to five focus statements per check-in
 - `focus_barriers` - Links each focus item to a barrier type or custom description
 - `user_calendar_entries` - Pre-computed calendar view (auto-synced)
 - `user_profiles` - Extended user information
@@ -100,7 +100,7 @@ user_calendar_entries   → Pre-computed calendar aggregations
 barrier_types           → Reference list of common barrier themes
 tips                    → Gentle support messages tied to barrier types
 checkins                → Internal weather snapshots (lavender → aqua flow)
-focus_items             → Up to three focus statements per check-in
+focus_items             → Up to five focus statements per check-in
 focus_barriers          → Barrier metadata + custom notes per focus item
 ```
 

@@ -104,6 +104,8 @@ export interface Database {
           description: string;
           categories: string[];
           sort_order: number;
+          anchor_type: string | null;
+          anchor_value: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -114,6 +116,8 @@ export interface Database {
           description: string;
           categories?: string[];
           sort_order?: number;
+          anchor_type?: string | null;
+          anchor_value?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -124,6 +128,8 @@ export interface Database {
           description?: string;
           categories?: string[];
           sort_order?: number;
+          anchor_type?: string | null;
+          anchor_value?: string | null;
           created_at?: string;
           updated_at?: string;
         };

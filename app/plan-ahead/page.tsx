@@ -1,0 +1,208 @@
+"use client";
+
+import { useState } from "react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { usePlanning } from "@/lib/planning-context";
+import type { RecurrenceType } from "@/lib/recurrence";
+
+const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+export default function PlanAheadPage() {
+  const router = useRouter();
+  const {
+    recurrenceType,
+    setRecurrenceType,
+    startDate,
+    setStartDate,
+    endDate,
+    setEndDate,
+    recurrenceDays,
+    setRecurrenceDays,
+  } = usePlanning();
+
+  const [hasEndDate, setHasEndDate] = useState(false);
+
+  const handleNext = () => {
+    // Validate based on recurrence type
+    if (recurrenceType === 'weekly' && recurrenceDays.length === 0) {
+      alert('Please select at least one day of the week');
+      return;
+    }
+
+    router.push('/plan-ahead/focus');
+  };
+
+  const toggleDay = (dayIndex: number) => {
+    setRecurrenceDays(
+      recurrenceDays.includes(dayIndex)
+        ? recurrenceDays.filter((d) => d !== dayIndex)
+        : [...recurrenceDays, dayIndex].sort((a, b) => a - b)
+    );
+  };
+
+  const handleEndDateToggle = (checked: boolean) => {
+    setHasEndDate(checked);
+    if (!checked) {
+      setEndDate(null);
+    }
+  };
+
+  return (
+    <main className="min-h-screen px-4 pb-16 pt-6">
+      <div className="mx-auto max-w-3xl space-y-6">
+        <header className="flex items-center gap-4">
+          <Link
+            href="/"
+            className="rounded-full border border-white/40 bg-white/70 p-2 text-slate-600 transition hover:-translate-y-0.5"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <div>
+            <p className="text-sm uppercase tracking-wide text-emerald-600">Plan Ahead</p>
+            <h1 className="text-2xl font-bold text-slate-900">When do you want to plan for?</h1>
+            <p className="text-sm text-slate-600">Choose a date or set up a recurring schedule.</p>
+          </div>
+        </header>
+
+        <section className="space-y-6 rounded-3xl border border-white/20 bg-white/80 p-6 backdrop-blur">
+          {/* Recurrence Type Selection */}
+          <div className="space-y-3">
+            <label className="text-sm font-semibold text-slate-700">Schedule type</label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setRecurrenceType('once')}
+                className={`rounded-2xl border px-4 py-3 text-left transition ${
+                  recurrenceType === 'once'
+                    ? 'border-emerald-300 bg-emerald-50 ring-2 ring-emerald-200'
+                    : 'border-white/40 bg-white/70 hover:border-emerald-200'
+                }`}
+              >
+                <p className="font-semibold text-slate-900">One-time</p>
+                <p className="text-sm text-slate-600">For a specific date</p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setRecurrenceType('daily')}
+                className={`rounded-2xl border px-4 py-3 text-left transition ${
+                  recurrenceType === 'daily'
+                    ? 'border-emerald-300 bg-emerald-50 ring-2 ring-emerald-200'
+                    : 'border-white/40 bg-white/70 hover:border-emerald-200'
+                }`}
+              >
+                <p className="font-semibold text-slate-900">Daily</p>
+                <p className="text-sm text-slate-600">Every day</p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setRecurrenceType('weekly')}
+                className={`rounded-2xl border px-4 py-3 text-left transition ${
+                  recurrenceType === 'weekly'
+                    ? 'border-emerald-300 bg-emerald-50 ring-2 ring-emerald-200'
+                    : 'border-white/40 bg-white/70 hover:border-emerald-200'
+                }`}
+              >
+                <p className="font-semibold text-slate-900">Weekly</p>
+                <p className="text-sm text-slate-600">On specific days</p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setRecurrenceType('monthly')}
+                className={`rounded-2xl border px-4 py-3 text-left transition ${
+                  recurrenceType === 'monthly'
+                    ? 'border-emerald-300 bg-emerald-50 ring-2 ring-emerald-200'
+                    : 'border-white/40 bg-white/70 hover:border-emerald-200'
+                }`}
+              >
+                <p className="font-semibold text-slate-900">Monthly</p>
+                <p className="text-sm text-slate-600">Same day each month</p>
+              </button>
+            </div>
+          </div>
+
+          {/* Start Date */}
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-slate-700" htmlFor="start-date">
+              {recurrenceType === 'once' ? 'Date' : 'Start date'}
+            </label>
+            <input
+              id="start-date"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full rounded-2xl border border-white/40 bg-white/80 px-4 py-3 text-slate-900 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+            />
+          </div>
+
+          {/* Day Selection for Weekly */}
+          {recurrenceType === 'weekly' && (
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700">Which days?</label>
+              <div className="flex flex-wrap gap-2">
+                {dayNames.map((day, index) => {
+                  const isSelected = recurrenceDays.includes(index);
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() => toggleDay(index)}
+                      className={`min-w-[60px] rounded-full px-4 py-2 font-medium transition ${
+                        isSelected
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-white/70 text-slate-600 hover:bg-white'
+                      }`}
+                    >
+                      {day}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* End Date Option (for recurring) */}
+          {recurrenceType !== 'once' && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <input
+                  id="has-end-date"
+                  type="checkbox"
+                  checked={hasEndDate}
+                  onChange={(e) => handleEndDateToggle(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                />
+                <label htmlFor="has-end-date" className="text-sm font-semibold text-slate-700">
+                  Set an end date
+                </label>
+              </div>
+
+              {hasEndDate && (
+                <input
+                  type="date"
+                  value={endDate || ''}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  min={startDate}
+                  className="w-full rounded-2xl border border-white/40 bg-white/80 px-4 py-3 text-slate-900 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                />
+              )}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={handleNext}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-6 py-4 text-lg font-semibold text-white transition hover:bg-slate-800"
+          >
+            Next: Add Focus Items
+            <ArrowRight className="h-5 w-5" />
+          </button>
+        </section>
+      </div>
+    </main>
+  );
+}

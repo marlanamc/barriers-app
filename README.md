@@ -5,7 +5,7 @@ A lightweight companion app to [ADHD First Aid](https://adhd-first-aid.vercel.ap
 ## Features
 
 - **Internal Weather Flow** – Start each morning by naming your internal weather with five gentle cards
-- **Focus + Barriers** – Capture up to three focus points, then note the barrier or choose from common barrier types
+- **Focus + Barriers** – Capture up to five focus points, then note the barrier or choose from common barrier types
 - **Gentle Support** – Automatic tips are pulled from the Supabase `tips` table for each focus/barrier pair
 - **Calendar with Icons** – Every check-in drops a weather emoji on the calendar; tap a date to see focus items and forecast notes
 - **Pattern Insights** – Weekly summary card + micro chart highlighting the most common internal weather for the past seven days

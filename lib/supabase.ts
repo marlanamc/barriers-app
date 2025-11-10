@@ -18,6 +18,10 @@ export type InternalWeatherStat = Database['public']['Views']['user_internal_wea
 
 export type CalendarEntry = Database['public']['Tables']['user_calendar_entries']['Row'];
 
+export type PlannedItem = Database['public']['Tables']['planned_items']['Row'];
+export type PlannedItemInsert = Database['public']['Tables']['planned_items']['Insert'];
+export type PlannedItemUpdate = Database['public']['Tables']['planned_items']['Update'];
+
 export interface BarrierTipMessage {
   slug: string;
   message: string;
@@ -29,6 +33,8 @@ export type FocusItemPayload = {
   description: string;
   categories: string[];
   sortOrder: number;
+  anchorType?: 'at' | 'while' | 'before' | 'after' | null;
+  anchorValue?: string | null;
   barrier?: {
     barrierTypeSlug?: string | null;
     custom?: string | null;
@@ -158,6 +164,29 @@ function sortBarrierTypes(barriers: BarrierType[]): BarrierType[] {
   });
 }
 
+const localBarrierSeeds: Array<Pick<BarrierType, 'slug' | 'label' | 'description' | 'icon'>> = [
+  { slug: 'low-energy', label: 'Low energy', description: 'Body feels heavy or sleepy', icon: '💤' },
+  { slug: 'overwhelmed', label: 'Overwhelmed', description: 'Too many tabs open', icon: '🌪' },
+  { slug: 'decision-fatigue', label: 'Decision fatigue', description: 'Hard to pick a next step', icon: '🤔' },
+  { slug: 'waiting-on-someone', label: 'Waiting on someone', description: 'Blocked on an external reply', icon: '📬' },
+  { slug: 'perfection-loop', label: 'Perfection loop', description: 'Feels like it has to be perfect', icon: '✨' },
+  { slug: 'no-motivation', label: 'Low motivation', description: 'Mind says "why bother?"', icon: '🪫' },
+];
+
+function buildFallbackBarrierTypes(): BarrierType[] {
+  const timestamp = new Date('2024-01-01T00:00:00.000Z').toISOString();
+  const list: BarrierType[] = localBarrierSeeds.map((seed, index) => ({
+    id: `local-barrier-${index}`,
+    slug: seed.slug,
+    label: seed.label,
+    description: seed.description,
+    icon: seed.icon,
+    created_at: timestamp,
+    updated_at: timestamp,
+  }));
+  return sortBarrierTypes(list);
+}
+
 function buildDefaultTips(barrierTypes: BarrierType[]): BarrierTipMessage[] {
   return barrierTypes.map((barrier) => ({
     slug: barrier.slug,
@@ -168,12 +197,14 @@ function buildDefaultTips(barrierTypes: BarrierType[]): BarrierTipMessage[] {
   }));
 }
 
-export async function saveCheckinWithFocus(payload: SaveCheckinPayload) {
+export async function saveCheckinWithFocus(payload: SaveCheckinPayload): Promise<string> {
   const focusItemsJson: Json = payload.focusItems.map((item, index) => ({
     id: item.id,
     description: item.description,
     categories: item.categories,
     sortOrder: item.sortOrder ?? index,
+    anchorType: item.anchorType ?? null,
+    anchorValue: item.anchorValue ?? null,
     barrier: item.barrier || null,
   }));
 
@@ -190,6 +221,10 @@ export async function saveCheckinWithFocus(payload: SaveCheckinPayload) {
   if (error) {
     console.error('Error saving check-in', error);
     throw error;
+  }
+
+  if (!data || typeof data !== 'string') {
+    throw new Error('Check-in was saved but no ID was returned.');
   }
 
   return data;
@@ -235,22 +270,34 @@ async function fetchLegacyTips(barrierTypes: BarrierType[]): Promise<BarrierTipM
 }
 
 export async function getBarrierTypes() {
-  const { data, error } = await supabase
-    .from('barrier_types')
-    .select('*')
-    .order('label', { ascending: true });
+  try {
+    const { data, error } = await supabase
+      .from('barrier_types')
+      .select('*')
+      .order('label', { ascending: true });
 
-  if (error) {
-    if (isMissingRelation(error, 'barrier_types')) {
-      console.warn('Falling back to barriers_content for barrier options');
-      const legacy = await fetchLegacyBarrierTypes();
-      return sortBarrierTypes(legacy);
+    if (error) {
+      if (isMissingRelation(error, 'barrier_types')) {
+        console.warn('Falling back to barriers_content for barrier options');
+        const legacy = await fetchLegacyBarrierTypes();
+        if (legacy.length) {
+          return sortBarrierTypes(legacy);
+        }
+      } else {
+        console.error('Error fetching barrier types', error);
+      }
+      return buildFallbackBarrierTypes();
     }
-    console.error('Error fetching barrier types', error);
-    return [] as BarrierType[];
-  }
 
-  return sortBarrierTypes((data ?? []) as BarrierType[]);
+    const normalized = sortBarrierTypes((data ?? []) as BarrierType[]);
+    if (!normalized.length) {
+      return buildFallbackBarrierTypes();
+    }
+    return normalized;
+  } catch (error) {
+    console.error('Unexpected error fetching barrier types', error);
+    return buildFallbackBarrierTypes();
+  }
 }
 
 export async function getTipsForBarrierTypes(barrierTypes: BarrierType[]): Promise<BarrierTipMessage[]> {
@@ -270,8 +317,8 @@ export async function getTipsForBarrierTypes(barrierTypes: BarrierType[]): Promi
         console.warn('Tips table missing; using gentle_advice from barriers_content');
         return fetchLegacyTips(barrierTypes);
       }
-      console.error('Error fetching tips', error);
-      return [];
+      console.warn('Error fetching tips; falling back to defaults', error);
+      return buildDefaultTips(barrierTypes);
     }
 
     const mapped = (data as Database['public']['Tables']['tips']['Row'][] || [])
@@ -359,4 +406,105 @@ export async function getCalendarEntries(userId: string, startDate: string, endD
   }
 
   return data;
+}
+
+// ==========================================
+// PLANNED ITEMS CRUD FUNCTIONS
+// ==========================================
+
+/**
+ * Create a new planned item (one-time or recurring)
+ */
+export async function createPlannedItem(plannedItem: PlannedItemInsert): Promise<PlannedItem | null> {
+  const { data, error } = await supabase
+    .from('planned_items')
+    .insert(plannedItem)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating planned item:', error);
+    throw error;
+  }
+
+  return data as PlannedItem;
+}
+
+/**
+ * Get all planned items for a user
+ */
+export async function getPlannedItems(userId: string): Promise<PlannedItem[]> {
+  const { data, error } = await supabase
+    .from('planned_items')
+    .select('*')
+    .eq('user_id', userId)
+    .order('start_date', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching planned items:', error);
+    return [];
+  }
+
+  return data as PlannedItem[];
+}
+
+/**
+ * Get planned items that may apply to a specific date
+ * This returns all items where the date falls within the recurrence range
+ * Actual filtering by recurrence pattern happens in the client using recurrence.ts
+ */
+export async function getPlannedItemsForDate(userId: string, date: string): Promise<PlannedItem[]> {
+  const { data, error } = await supabase
+    .from('planned_items')
+    .select('*')
+    .eq('user_id', userId)
+    .lte('start_date', date)
+    .or(`end_date.is.null,end_date.gte.${date}`)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching planned items for date:', error);
+    return [];
+  }
+
+  return data as PlannedItem[];
+}
+
+/**
+ * Update a planned item
+ */
+export async function updatePlannedItem(
+  itemId: string,
+  updates: PlannedItemUpdate
+): Promise<PlannedItem | null> {
+  const { data, error } = await supabase
+    .from('planned_items')
+    .update(updates)
+    .eq('id', itemId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating planned item:', error);
+    throw error;
+  }
+
+  return data as PlannedItem;
+}
+
+/**
+ * Delete a planned item
+ */
+export async function deletePlannedItem(itemId: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('planned_items')
+    .delete()
+    .eq('id', itemId);
+
+  if (error) {
+    console.error('Error deleting planned item:', error);
+    return false;
+  }
+
+  return true;
 }

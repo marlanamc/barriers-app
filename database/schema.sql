@@ -63,16 +63,18 @@ CREATE TABLE IF NOT EXISTS checkins (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Up to three focus items per check-in
-CREATE TABLE IF NOT EXISTS focus_items (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    checkin_id UUID NOT NULL REFERENCES checkins(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    description TEXT NOT NULL,
-    categories TEXT[] NOT NULL DEFAULT '{}',
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+-- Up to five focus items per check-in
+create table if not exists focus_items (
+    id uuid primary key default gen_random_uuid(),
+    checkin_id uuid not null references checkins(id) on delete cascade,
+    user_id uuid not null references auth.users(id) on delete cascade,
+    description text not null,
+    categories text[] not null default '{}',
+    sort_order integer not null default 0,
+    anchor_type text check (anchor_type in ('at', 'while', 'before', 'after')),
+    anchor_value text,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
 );
 
 -- Optional barriers tied to each focus item
@@ -271,6 +273,8 @@ DECLARE
     barrier_type_identifier UUID;
     description TEXT;
     sort_position INTEGER;
+    anchor_selection TEXT;
+    anchor_text TEXT;
 BEGIN
     INSERT INTO checkins (user_id, checkin_date, internal_weather, weather_icon, forecast_note)
     VALUES (
@@ -294,6 +298,16 @@ BEGIN
         END IF;
 
         sort_position := COALESCE((focus_record->>'sortOrder')::INT, 0);
+        anchor_selection := lower(trim(COALESCE(focus_record->>'anchorType', '')));
+        anchor_text := NULLIF(trim(COALESCE(focus_record->>'anchorValue', '')), '');
+
+        IF anchor_selection NOT IN ('at', 'while', 'before', 'after') THEN
+            anchor_selection := NULL;
+        END IF;
+
+        IF anchor_selection IS NULL THEN
+            anchor_text := NULL;
+        END IF;
 
         SELECT COALESCE(
             ARRAY(
@@ -305,8 +319,24 @@ BEGIN
             ARRAY[]::TEXT[]
         ) INTO formatted_categories;
 
-        INSERT INTO focus_items (checkin_id, user_id, description, categories, sort_order)
-        VALUES (new_checkin_id, p_user_id, description, formatted_categories, sort_position)
+        INSERT INTO focus_items (
+            checkin_id,
+            user_id,
+            description,
+            categories,
+            sort_order,
+            anchor_type,
+            anchor_value
+        )
+        VALUES (
+            new_checkin_id,
+            p_user_id,
+            description,
+            formatted_categories,
+            sort_position,
+            anchor_selection,
+            anchor_text
+        )
         RETURNING id INTO new_focus_item_id;
 
         barrier_record := focus_record->'barrier';
