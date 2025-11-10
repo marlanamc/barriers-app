@@ -126,9 +126,13 @@ export default function BarrierScreen() {
 
             const handleAnchorType = (type: TaskAnchorType) => {
               if (type === anchorSelected) return;
+              // Set current time as default when "at" is selected
+              const defaultValue = type === "at" 
+                ? new Date().toTimeString().slice(0, 5) // HH:MM format
+                : "";
               setAnchorForFocusItem(item.id, {
                 anchorType: type,
-                anchorValue: "",
+                anchorValue: defaultValue,
               });
             };
 

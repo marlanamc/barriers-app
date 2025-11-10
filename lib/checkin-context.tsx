@@ -51,11 +51,55 @@ interface CheckInContextValue {
   loadPlannedItems: (items: FocusItemState[]) => void;
   loadFocusItemsFromCheckin: (items: FocusItemState[]) => void;
   resetCheckIn: () => void;
+  clearLocalStorageForDate: (date: string) => void;
   validationError: string | null;
   clearValidationError: () => void;
 }
 
 const MAX_FOCUS_ITEMS = 5;
+
+const STORAGE_KEY_PREFIX = 'checkin_';
+
+function getStorageKey(date: string): string {
+  return `${STORAGE_KEY_PREFIX}${date}`;
+}
+
+interface StoredCheckInData {
+  weather: WeatherSelection | null;
+  forecastNote: string;
+  focusItems: FocusItemState[];
+  date: string;
+}
+
+function saveToLocalStorage(date: string, data: StoredCheckInData): void {
+  try {
+    const key = getStorageKey(date);
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (error) {
+    console.warn('Failed to save check-in to localStorage:', error);
+  }
+}
+
+function loadFromLocalStorage(date: string): StoredCheckInData | null {
+  try {
+    const key = getStorageKey(date);
+    const stored = localStorage.getItem(key);
+    if (!stored) return null;
+    return JSON.parse(stored) as StoredCheckInData;
+  } catch (error) {
+    console.warn('Failed to load check-in from localStorage:', error);
+    return null;
+  }
+}
+
+function clearLocalStorage(date: string): void {
+  try {
+    const key = getStorageKey(date);
+    localStorage.removeItem(key);
+  } catch (error) {
+    console.warn('Failed to clear check-in from localStorage:', error);
+  }
+}
 
 const CheckInContext = createContext<CheckInContextValue | undefined>(undefined);
 
@@ -66,6 +110,7 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
   const [focusItems, setFocusItems] = useState<FocusItemState[]>([]);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [lastResetDate, setLastResetDate] = useState(() => getTodayLocalDateString());
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const clearValidationError = useCallback(() => {
     setValidationError(null);
@@ -261,13 +306,59 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
 
   const resetCheckIn = useCallback(() => {
     const today = getTodayLocalDateString();
+    // Clear localStorage for the old date
+    if (checkinDate !== today) {
+      clearLocalStorage(checkinDate);
+    }
     setWeather(null);
     setForecastNote('');
     setCheckinDate(today);
     setFocusItems([]);
     setValidationError(null);
     setLastResetDate(today);
-  }, []);
+    // Clear localStorage for new date too
+    clearLocalStorage(today);
+  }, [checkinDate]);
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    if (isInitialized) return;
+    
+    const today = getTodayLocalDateString();
+    const stored = loadFromLocalStorage(today);
+    
+    if (stored && stored.date === today) {
+      // Only restore if we don't already have data (don't overwrite database-loaded data)
+      if (!weather && focusItems.length === 0) {
+        setWeather(stored.weather);
+        setForecastNote(stored.forecastNote || '');
+        setFocusItems(stored.focusItems || []);
+      }
+    }
+    
+    setIsInitialized(true);
+  }, [isInitialized, weather, focusItems.length]);
+
+  // Auto-save to localStorage whenever check-in data changes
+  useEffect(() => {
+    if (!isInitialized) return; // Don't save during initial load
+    
+    const today = getTodayLocalDateString();
+    // Only save if we're working on today's check-in
+    if (checkinDate !== today) return;
+    
+    // Debounce saves to avoid excessive localStorage writes
+    const timeoutId = setTimeout(() => {
+      saveToLocalStorage(today, {
+        weather,
+        forecastNote,
+        focusItems,
+        date: today,
+      });
+    }, 500); // Wait 500ms after last change before saving
+    
+    return () => clearTimeout(timeoutId);
+  }, [weather, forecastNote, focusItems, checkinDate, isInitialized]);
 
   useEffect(() => {
     const checkForDateChange = () => {
@@ -290,6 +381,10 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
     };
   }, [resetCheckIn]);
 
+  const clearLocalStorageForDate = useCallback((date: string) => {
+    clearLocalStorage(date);
+  }, []);
+
   const value = useMemo(
     () => ({
       weather,
@@ -307,10 +402,11 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
       loadPlannedItems,
       loadFocusItemsFromCheckin,
       resetCheckIn,
+      clearLocalStorageForDate,
       validationError,
       clearValidationError,
     }),
-    [weather, forecastNote, checkinDate, focusItems, addFocusItem, updateFocusItem, removeFocusItem, setBarrierForFocusItem, setAnchorForFocusItem, loadPlannedItems, loadFocusItemsFromCheckin, resetCheckIn, validationError, clearValidationError]
+    [weather, forecastNote, checkinDate, focusItems, addFocusItem, updateFocusItem, removeFocusItem, setBarrierForFocusItem, setAnchorForFocusItem, loadPlannedItems, loadFocusItemsFromCheckin, resetCheckIn, clearLocalStorageForDate, validationError, clearValidationError]
   );
 
   return <CheckInContext.Provider value={value}>{children}</CheckInContext.Provider>;

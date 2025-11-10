@@ -283,6 +283,7 @@ export default function FocusScreen() {
   const [tags, setTags] = useState<string[]>([]);
   const [barrierTypes, setBarrierTypes] = useState<BarrierType[]>([]);
   const [isMobile, setIsMobile] = useState(false);
+  const [justCompleted, setJustCompleted] = useState<string | null>(null);
   
   useEffect(() => {
     const checkMobile = () => {
@@ -345,7 +346,7 @@ export default function FocusScreen() {
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div>
-            <p className="text-sm uppercase tracking-wide text-cyan-600 dark:text-cyan-300">Focus level</p>
+            <p className="text-sm uppercase tracking-wide text-cyan-600 dark:text-cyan-400">Focus level</p>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white">What matters &amp; what feels hard?</h1>
             <p className="text-sm text-slate-600 dark:text-slate-300">
               Add today&rsquo;s focus points, then note what feels hard (anchors optional).
@@ -423,7 +424,7 @@ export default function FocusScreen() {
             >
               <Plus className="h-5 w-5" />
               Add focus
-              <span className="text-sm text-cyan-500 dark:text-cyan-300">{activeCount}/{MAX_FOCUS_ITEMS}</span>
+              <span className="text-sm text-cyan-500 dark:text-cyan-400">{activeCount}/{MAX_FOCUS_ITEMS}</span>
             </button>
           </div>
         </section>
@@ -486,16 +487,34 @@ export default function FocusScreen() {
                     return (
                       <div
                         key={item.id}
-                        className="space-y-4 rounded-3xl border border-white/30 bg-white/80 p-5 shadow-sm dark:border-white/5 dark:bg-slate-900/70"
+                        className={`space-y-4 rounded-3xl border p-5 shadow-sm transition-all duration-300 ${
+                          justCompleted === item.id
+                            ? 'border-emerald-200 bg-emerald-50/50 dark:border-emerald-700 dark:bg-emerald-900/20 scale-[1.02]'
+                            : 'border-white/30 bg-white/80 dark:border-slate-700 dark:bg-slate-800'
+                        }`}
                       >
                         <div className="flex items-start gap-3">
                           <button
                             type="button"
-                            onClick={() => updateFocusItem(item.id, { completed: true })}
-                            className="rounded-full border border-transparent p-1 text-slate-400 transition hover:border-cyan-200 hover:text-cyan-600 dark:text-slate-500 dark:hover:border-cyan-500/40 dark:hover:text-cyan-300"
+                            onClick={() => {
+                              // Add celebration feedback
+                              setJustCompleted(item.id);
+                              updateFocusItem(item.id, { completed: true });
+                              // Clear the celebration state after animation
+                              setTimeout(() => setJustCompleted(null), 600);
+                            }}
+                            className={`rounded-full border border-transparent p-1 transition-all duration-300 ${
+                              justCompleted === item.id
+                                ? 'scale-125 text-emerald-500 border-emerald-200 dark:border-emerald-700'
+                                : 'text-slate-400 hover:border-cyan-200 hover:text-cyan-600 dark:text-slate-400 dark:hover:border-cyan-500 dark:hover:text-cyan-300'
+                            }`}
                             aria-label="Mark focus as done"
                           >
-                            <Circle className="h-5 w-5" />
+                            {justCompleted === item.id ? (
+                              <CheckCircle2 className="h-5 w-5" />
+                            ) : (
+                              <Circle className="h-5 w-5" />
+                            )}
                           </button>
                           <div className="flex-1">
                             <p className="text-base font-semibold text-slate-900 dark:text-white flex items-center gap-2">
@@ -520,7 +539,7 @@ export default function FocusScreen() {
                           <button
                             type="button"
                             onClick={() => removeFocusItem(item.id)}
-                            className="rounded-full border border-transparent p-1 text-slate-400 transition hover:border-rose-200 hover:text-rose-600 dark:text-slate-500 dark:hover:text-rose-400"
+                            className="rounded-full border border-transparent p-1 text-slate-400 transition hover:border-rose-200 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400"
                             aria-label="Delete focus"
                           >
                             <Trash2 className="h-5 w-5" />
@@ -543,7 +562,7 @@ export default function FocusScreen() {
                                       {group.title}
                                     </p>
                                     {group.description && (
-                                      <p className="text-[11px] text-slate-400 dark:text-slate-500">{group.description}</p>
+                                      <p className="text-[11px] text-slate-400 dark:text-slate-400">{group.description}</p>
                                     )}
                                   </div>
                                   <div className="mt-2 space-y-2">
@@ -573,7 +592,7 @@ export default function FocusScreen() {
                                               )}
                                             </div>
                                             {active && (
-                                              <CheckCircle2 className="h-4 w-4 text-cyan-500 dark:text-cyan-300" aria-hidden="true" />
+                                              <CheckCircle2 className="h-4 w-4 text-cyan-500 dark:text-cyan-400" aria-hidden="true" />
                                             )}
                                           </div>
                                         </button>
@@ -618,17 +637,20 @@ export default function FocusScreen() {
                                 <button
                                   type="button"
                                   key={type}
-                                  onClick={() =>
-                                    setAnchorForFocusItem(
-                                      item.id,
-                                      active
-                                        ? null
-                                        : {
-                                            anchorType: type,
-                                            anchorValue: "",
-                                          }
-                                    )
-                                  }
+                                  onClick={() => {
+                                    if (active) {
+                                      setAnchorForFocusItem(item.id, null);
+                                    } else {
+                                      // Set current time as default when "at" is selected
+                                      const defaultValue = type === "at" 
+                                        ? new Date().toTimeString().slice(0, 5) // HH:MM format
+                                        : "";
+                                      setAnchorForFocusItem(item.id, {
+                                        anchorType: type,
+                                        anchorValue: defaultValue,
+                                      });
+                                    }
+                                  }}
                                   className={`rounded-full px-4 py-1.5 font-semibold transition ${
                                     active
                                       ? "bg-cyan-600 text-white shadow dark:bg-cyan-500 dark:text-slate-900"
@@ -706,7 +728,7 @@ export default function FocusScreen() {
                           {anchorSummaryType && anchorDisplayValue && (
                             <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
                               <span>{item.description}</span>{" "}
-                              <span className="text-cyan-700 dark:text-cyan-300">{anchorSummaryType}</span>{" "}
+                              <span className="text-cyan-700 dark:text-cyan-400">{anchorSummaryType}</span>{" "}
                               <span>{anchorDisplayValue}</span>
                             </p>
                           )}
@@ -744,7 +766,7 @@ export default function FocusScreen() {
                       <button
                         type="button"
                         onClick={() => removeFocusItem(item.id)}
-                        className="rounded-full border border-transparent p-1 text-slate-400 transition hover:border-rose-200 hover:text-rose-600 dark:text-slate-500 dark:hover:text-rose-400"
+                        className="rounded-full border border-transparent p-1 text-slate-400 transition hover:border-rose-200 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400"
                         aria-label="Delete completed focus"
                       >
                         <Trash2 className="h-5 w-5" />

@@ -35,34 +35,93 @@ const weatherThemes: Record<
   string,
   {
     gradient: [string, string];
+    darkGradient?: [string, string]; // Optional darker gradient for dark mode
     textColor: string;
+    darkTextColor?: string; // Text color for dark mode
     subtleTextColor: string;
+    darkSubtleTextColor?: string; // Subtle text color for dark mode
   }
 > = {
+  sparky: {
+    gradient: ["#FF6B6B", "#FFE66D"],
+    darkGradient: ["#CC5555", "#CCB855"], // Darker, more muted for dark mode
+    textColor: "text-slate-900",
+    darkTextColor: "text-white",
+    subtleTextColor: "text-slate-700",
+    darkSubtleTextColor: "text-slate-100",
+  },
+  steady: {
+    gradient: ["#FFD580", "#FFF9E3"],
+    darkGradient: ["#CCAA66", "#CCCCB3"], // Darker, more muted for dark mode
+    textColor: "text-slate-900",
+    darkTextColor: "text-slate-900", // Still readable on lighter gradient
+    subtleTextColor: "text-slate-700",
+    darkSubtleTextColor: "text-slate-700",
+  },
+  flowing: {
+    gradient: ["#4ECDC4", "#95E1D3"],
+    darkGradient: ["#3E9C94", "#75B1A3"], // Darker, more muted for dark mode
+    textColor: "text-slate-900",
+    darkTextColor: "text-white",
+    subtleTextColor: "text-slate-700",
+    darkSubtleTextColor: "text-slate-100",
+  },
+  foggy: {
+    gradient: ["#9CBED7", "#D1E2EA"],
+    darkGradient: ["#7C9EB7", "#B1C2DA"], // Darker, more muted for dark mode
+    textColor: "text-slate-900",
+    darkTextColor: "text-white",
+    subtleTextColor: "text-slate-700",
+    darkSubtleTextColor: "text-slate-100",
+  },
+  resting: {
+    gradient: ["#B6B6D8", "#E0D5F2"],
+    darkGradient: ["#9696B8", "#C0B5D2"], // Darker, more muted for dark mode
+    textColor: "text-slate-900",
+    darkTextColor: "text-white",
+    subtleTextColor: "text-slate-700",
+    darkSubtleTextColor: "text-slate-100",
+  },
+  // Legacy support for old weather keys
   clear: {
     gradient: ["#FFD580", "#FFF9E3"],
+    darkGradient: ["#CCAA66", "#CCCCB3"],
     textColor: "text-slate-900",
+    darkTextColor: "text-slate-900",
     subtleTextColor: "text-slate-700",
+    darkSubtleTextColor: "text-slate-700",
   },
   cloudy: {
     gradient: ["#CDE3F5", "#F2F2F2"],
+    darkGradient: ["#ADC3D5", "#D2D2D2"],
     textColor: "text-slate-900",
+    darkTextColor: "text-slate-900",
     subtleTextColor: "text-slate-600",
+    darkSubtleTextColor: "text-slate-600",
   },
   rainy: {
     gradient: ["#9CBED7", "#D1E2EA"],
+    darkGradient: ["#7C9EB7", "#B1C2DA"],
     textColor: "text-slate-900",
+    darkTextColor: "text-white",
     subtleTextColor: "text-slate-700",
+    darkSubtleTextColor: "text-slate-100",
   },
   stormy: {
     gradient: ["#B38DCB", "#5D7AA2"],
+    darkGradient: ["#936DAB", "#4D5A82"], // Slightly darker for dark mode
     textColor: "text-white",
+    darkTextColor: "text-white",
     subtleTextColor: "text-indigo-100",
+    darkSubtleTextColor: "text-indigo-200",
   },
   quiet: {
     gradient: ["#B6B6D8", "#E0D5F2"],
+    darkGradient: ["#9696B8", "#C0B5D2"],
     textColor: "text-slate-900",
+    darkTextColor: "text-white",
     subtleTextColor: "text-slate-700",
+    darkSubtleTextColor: "text-slate-100",
   },
 };
 
@@ -79,6 +138,7 @@ export default function HomePage() {
     updateFocusItem,
     removeFocusItem,
     resetCheckIn,
+    clearLocalStorageForDate,
   } = useCheckIn();
   const { user, loading, error } = useSupabaseUser();
   const [loadedPlanned, setLoadedPlanned] = useState(false);
@@ -89,8 +149,27 @@ export default function HomePage() {
   const [isEditingWeather, setIsEditingWeather] = useState(false);
   const [savingEnergy, setSavingEnergy] = useState(false);
   const [saveEnergyError, setSaveEnergyError] = useState<string | null>(null);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [justCompleted, setJustCompleted] = useState<string | null>(null);
   const weatherSectionRef = useRef<HTMLDivElement>(null);
   const lastLoadedDateRef = useRef<string | null>(null);
+  
+  // Detect dark mode
+  useEffect(() => {
+    const checkDarkMode = () => {
+      setIsDarkMode(document.documentElement.classList.contains('dark') || 
+                   window.matchMedia('(prefers-color-scheme: dark)').matches);
+    };
+    checkDarkMode();
+    const observer = new MutationObserver(checkDarkMode);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    mediaQuery.addEventListener('change', checkDarkMode);
+    return () => {
+      observer.disconnect();
+      mediaQuery.removeEventListener('change', checkDarkMode);
+    };
+  }, []);
 
   const greeting = useMemo(() => getGreeting(), []);
   const todayLabel = useMemo(() => getTodayLabel(), []);
@@ -178,11 +257,25 @@ export default function HomePage() {
   }, [resetCheckIn]); // Only depend on stable resetCheckIn
 
   // Load today's checkin first (it takes priority as saved data), then load planned items if no checkin exists
+  // Only load if we don't already have check-in data set (once set, it stays stable for the day)
   useEffect(() => {
     if (!user?.id || loadedCheckin) return;
 
     const cancelled = { current: false };
     const today = getTodayLocalDateString();
+
+    // If we already have check-in data (weather or focus items), don't reload from database
+    // This ensures once the check-in is set, it stays stable for the day - users can still change it manually
+    if (weather || focusItems.length > 0) {
+      setLoadedCheckin(true);
+      setLastLoadedDate(today);
+      lastLoadedDateRef.current = today;
+      // Still load planned items if we don't have focus items yet (user might have only set weather)
+      if (!focusItems.length) {
+        loadPlannedItemsIfNeeded(user.id, today, cancelled);
+      }
+      return;
+    }
 
     // Set loadedCheckin immediately to prevent duplicate loads
     setLoadedCheckin(true);
@@ -200,6 +293,10 @@ export default function HomePage() {
           loadPlannedItemsIfNeeded(user.id, currentDate, cancelled);
           return;
         }
+        
+        // Only load if we still don't have check-in data (user might have set it while loading)
+        // Use a function to get current state to avoid stale closure
+        if (cancelled.current) return;
         
         if (checkin) {
           // Restore weather if it exists
@@ -275,7 +372,7 @@ export default function HomePage() {
     return () => {
       cancelled.current = true;
     };
-  }, [user?.id, loadedCheckin, loadPlannedItems, loadFocusItemsFromCheckin, loadPlannedItemsIfNeeded]); // setWeather and setForecastNote are stable from useState
+  }, [user?.id, loadedCheckin, loadPlannedItems, loadFocusItemsFromCheckin, loadPlannedItemsIfNeeded, weather, focusItems.length]); // Include weather and focusItems to check if already set
 
   // Scroll to weather section when it appears after reset
   useEffect(() => {
@@ -353,6 +450,9 @@ export default function HomePage() {
         checkinDate,
       });
 
+      // Clear localStorage after successful save (database is now source of truth)
+      clearLocalStorageForDate(checkinDate);
+
       // Close the weather section after saving
       setIsEditingWeather(false);
       setSuppressAutoSelectWeather(false);
@@ -378,9 +478,9 @@ export default function HomePage() {
     <section ref={weatherSectionRef} className="space-y-4 rounded-3xl border border-white/20 bg-white/70 p-6 backdrop-blur dark:border-slate-700/30 dark:bg-slate-800/70">
       <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{todayLabel}</h2>
       <div>
-        <p className="text-sm font-medium uppercase tracking-wide text-cyan-600 dark:text-cyan-400">Energy level</p>
-        <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100">What kind of day does it feel like inside?</h3>
-        <p className="text-slate-600 dark:text-slate-400">Tap the card that feels the closest match.</p>
+        <p className="text-sm font-medium uppercase tracking-wide text-cyan-600 dark:text-cyan-400">Energy type</p>
+        <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100">What kind of energy do you have right now?</h3>
+        <p className="text-slate-600 dark:text-slate-400">Scroll to find yours—it selects automatically.</p>
       </div>
 
       <InternalWeatherSelector
@@ -434,46 +534,76 @@ export default function HomePage() {
     </section>
   );
 
-  const renderFocusSummary = () => (
-    <section className="space-y-3 rounded-3xl border border-white/30 bg-pink-50 p-5 shadow-sm dark:border-slate-700/30 dark:bg-slate-800/80">
+  const renderFocusSummary = () => {
+    const theme = weather?.key && weatherThemes[weather.key] ? weatherThemes[weather.key] : null;
+    
+    // Create lighter version of gradient by mixing with white (70% white, 30% original)
+    const lightenColor = (hex: string, amount: number = 0.7): string => {
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      const newR = Math.round(r + (255 - r) * amount);
+      const newG = Math.round(g + (255 - g) * amount);
+      const newB = Math.round(b + (255 - b) * amount);
+      return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
+    };
+    
+    // Use dark gradient if available and in dark mode
+    const activeGradient = theme && isDarkMode && theme.darkGradient 
+      ? theme.darkGradient 
+      : theme?.gradient;
+    
+    const cardBackground = activeGradient
+      ? `linear-gradient(135deg, ${lightenColor(activeGradient[0], 0.7)} 0%, ${lightenColor(activeGradient[1], 0.7)} 100%)`
+      : 'linear-gradient(135deg, #fef3f2 0%, #fef7f6 100%)'; // Default light pink fallback
+    
+    // Get gradient for the energy type badge
+    const badgeGradient = theme && isDarkMode && theme.darkGradient
+      ? theme.darkGradient
+      : theme?.gradient;
+    
+    return (
+    <section 
+      className="space-y-3 rounded-3xl border border-white/30 p-5 shadow-sm dark:border-slate-700/30 dark:bg-slate-800/80"
+      style={{ background: cardBackground }}
+    >
       {showCompactWeather && weather && (
         <>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{todayLabel}</h2>
-          {(() => {
-            const theme = weather?.key && weatherThemes[weather.key] ? weatherThemes[weather.key] : null;
-            return (
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-900">{todayLabel}</h2>
+          {theme && badgeGradient && (
               <div 
-                className={`rounded-2xl border border-white/40 px-4 py-3 text-sm shadow-sm dark:border-slate-600/40 ${theme?.textColor || 'text-slate-900 dark:text-slate-100'}`}
+                className={`rounded-2xl border border-white/40 px-4 py-3 text-sm shadow-sm dark:border-slate-600/40 ${isDarkMode ? (theme.darkTextColor || 'text-white') : (theme.textColor || 'text-slate-900')}`}
                 style={{
-                  background: theme
-                    ? `linear-gradient(135deg, ${theme.gradient[0]} 0%, ${theme.gradient[1]} 100%)`
-                    : 'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%)'
+                  background: `linear-gradient(135deg, ${badgeGradient[0]} 0%, ${badgeGradient[1]} 100%)`
                 }}
               >
                 <div className="flex items-center justify-between gap-x-3 gap-y-1">
-                  <p className={`flex flex-wrap items-center gap-2 text-base font-semibold ${theme?.textColor || 'text-slate-900'}`}>
+                  <p className={`flex flex-wrap items-center gap-2 text-base font-semibold ${isDarkMode ? (theme.darkTextColor || 'text-white') : (theme.textColor || 'text-slate-900')}`}>
                     <span className="text-2xl leading-none">{weather.icon}</span>
                     <span>{weather.label}</span>
-                    <span className={`text-sm font-normal ${theme?.subtleTextColor || 'text-slate-500 dark:text-slate-300'}`}>{weather.description}</span>
+                    <span className={`text-sm font-normal ${isDarkMode ? (theme.darkSubtleTextColor || 'text-slate-100') : (theme.subtleTextColor || 'text-slate-500')}`}>{weather.description}</span>
                   </p>
                   <button
                     type="button"
                     onClick={handleAdjustWeather}
-                    className={`flex-shrink-0 rounded-full border border-slate-200 bg-white/60 p-2 transition hover:bg-white dark:border-slate-600 dark:bg-slate-700/60 dark:hover:bg-slate-700 ${theme?.textColor === 'text-white' ? 'text-white border-white/40 bg-white/20 hover:bg-white/30' : 'text-slate-600 dark:text-slate-200'}`}
-                    aria-label="Change weather"
+                    className={`flex-shrink-0 rounded-full border border-slate-200 bg-white/60 p-2 transition hover:bg-white dark:border-slate-600 dark:bg-slate-700/60 dark:hover:bg-slate-700 ${
+                      isDarkMode 
+                        ? (theme?.darkTextColor === 'text-white' ? 'text-white border-white/40 bg-white/20 hover:bg-white/30' : 'text-slate-200')
+                        : (theme?.textColor === 'text-white' ? 'text-white border-white/40 bg-white/20 hover:bg-white/30' : 'text-slate-600')
+                    }`}
+                    aria-label="Change energy type"
                   >
                     <RotateCcw className="h-4 w-4" />
                   </button>
                 </div>
               </div>
-            );
-          })()}
+          )}
         </>
       )}
 
-      <div className="flex items-center justify-between border-t border-dashed border-slate-200 pt-3 text-[0.75rem] font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-600 dark:text-slate-400">
-        <span>What matters today</span>
-        <span>
+      <div className="flex items-center justify-between border-t border-dashed border-slate-200 pt-3 text-[0.75rem] font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-600 dark:text-slate-700">
+        <span className="dark:text-slate-900">What matters today</span>
+        <span className="dark:text-slate-900">
           {activeFocusItems.length}/{MAX_FOCUS_ITEMS}
         </span>
       </div>
@@ -490,15 +620,33 @@ export default function HomePage() {
                 return (
                   <li
                     key={item.id}
-                    className="flex items-start gap-3 rounded-2xl border border-white/40 bg-white/70 px-3 py-2 text-sm dark:border-slate-600/40 dark:bg-slate-700/50"
+                    className={`flex items-start gap-3 rounded-2xl border px-3 py-2 text-sm transition-all duration-300 ${
+                      justCompleted === item.id
+                        ? 'border-emerald-200 bg-emerald-50/50 dark:border-emerald-700 dark:bg-emerald-900/20 scale-[1.02]'
+                        : 'border-white/40 bg-white/70 dark:border-slate-600 dark:bg-slate-800'
+                    }`}
                   >
                     <button
                       type="button"
-                      onClick={() => updateFocusItem(item.id, { completed: true })}
-                      className="rounded-full border border-transparent p-1 text-slate-400 transition hover:border-cyan-200 hover:text-cyan-600 dark:hover:border-cyan-500 dark:hover:text-cyan-300"
+                      onClick={() => {
+                        // Add celebration feedback
+                        setJustCompleted(item.id);
+                        updateFocusItem(item.id, { completed: true });
+                        // Clear the celebration state after animation
+                        setTimeout(() => setJustCompleted(null), 600);
+                      }}
+                      className={`rounded-full border border-transparent p-1 transition-all duration-300 ${
+                        justCompleted === item.id
+                          ? 'scale-125 text-emerald-500 border-emerald-200 dark:border-emerald-700'
+                          : 'text-slate-400 hover:border-cyan-200 hover:text-cyan-600 dark:text-slate-400 dark:hover:border-cyan-500 dark:hover:text-cyan-300'
+                      }`}
                       aria-label="Mark focus as done"
                     >
-                      <Circle className="h-4 w-4" />
+                      {justCompleted === item.id ? (
+                        <CheckCircle2 className="h-4 w-4" />
+                      ) : (
+                        <Circle className="h-4 w-4" />
+                      )}
                     </button>
                     <div className="flex-1 space-y-1">
                       <p className="flex flex-wrap items-center gap-2 text-sm font-semibold leading-tight text-slate-900 dark:text-slate-100">
@@ -506,12 +654,12 @@ export default function HomePage() {
                         <span>{item.description}</span>
                       </p>
                       {anchorType && anchorDisplayValue && (
-                        <p className="text-xs font-semibold text-cyan-700 dark:text-cyan-300">
+                        <p className="text-xs font-semibold text-cyan-700 dark:text-cyan-400">
                           {anchorType} {anchorDisplayValue}
                         </p>
                       )}
                       {item.categories.length > 0 && (
-                        <p className="text-[0.65rem] uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                        <p className="text-[0.65rem] uppercase tracking-wide text-slate-400 dark:text-slate-300">
                           {item.categories.join(" • ")}
                         </p>
                       )}
@@ -597,7 +745,8 @@ export default function HomePage() {
         </div>
       )}
     </section>
-  );
+    );
+  };
 
   return (
     <main className="min-h-screen px-4 pb-16 pt-6">

@@ -34,40 +34,115 @@ const weatherThemes: Record<
   string,
   {
     gradient: [string, string];
+    darkGradient?: [string, string]; // Optional darker gradient for dark mode
     accent: string;
+    darkAccent?: string; // Accent color for dark mode
     text: string;
+    darkText?: string; // Text color for dark mode
     subtleText: string;
+    darkSubtleText?: string; // Subtle text color for dark mode
   }
 > = {
+  sparky: {
+    gradient: ["#FF6B6B", "#FFE66D"],
+    darkGradient: ["#CC5555", "#CCB855"], // Darker, more muted for dark mode
+    accent: "text-orange-900",
+    darkAccent: "text-orange-200",
+    text: "text-slate-900",
+    darkText: "text-white",
+    subtleText: "text-slate-700",
+    darkSubtleText: "text-slate-100",
+  },
+  steady: {
+    gradient: ["#FFD580", "#FFF9E3"],
+    darkGradient: ["#CCAA66", "#CCCCB3"], // Darker, more muted for dark mode
+    accent: "text-amber-800",
+    darkAccent: "text-amber-300",
+    text: "text-slate-900",
+    darkText: "text-slate-900", // Still readable on lighter gradient
+    subtleText: "text-slate-700",
+    darkSubtleText: "text-slate-700",
+  },
+  flowing: {
+    gradient: ["#4ECDC4", "#95E1D3"],
+    darkGradient: ["#3E9C94", "#75B1A3"], // Darker, more muted for dark mode
+    accent: "text-teal-900",
+    darkAccent: "text-teal-200",
+    text: "text-slate-900",
+    darkText: "text-white",
+    subtleText: "text-slate-700",
+    darkSubtleText: "text-slate-100",
+  },
+  foggy: {
+    gradient: ["#9CBED7", "#D1E2EA"],
+    darkGradient: ["#7C9EB7", "#B1C2DA"], // Darker, more muted for dark mode
+    accent: "text-slate-800",
+    darkAccent: "text-slate-200",
+    text: "text-slate-900",
+    darkText: "text-white",
+    subtleText: "text-slate-700",
+    darkSubtleText: "text-slate-100",
+  },
+  resting: {
+    gradient: ["#B6B6D8", "#E0D5F2"],
+    darkGradient: ["#9696B8", "#C0B5D2"], // Darker, more muted for dark mode
+    accent: "text-slate-800",
+    darkAccent: "text-slate-200",
+    text: "text-slate-900",
+    darkText: "text-white",
+    subtleText: "text-slate-700",
+    darkSubtleText: "text-slate-100",
+  },
+  // Legacy support for old weather keys
   clear: {
     gradient: ["#FFD580", "#FFF9E3"],
+    darkGradient: ["#CCAA66", "#CCCCB3"],
     accent: "text-amber-800",
+    darkAccent: "text-amber-300",
     text: "text-slate-900",
+    darkText: "text-slate-900",
     subtleText: "text-slate-700",
+    darkSubtleText: "text-slate-700",
   },
   cloudy: {
     gradient: ["#CDE3F5", "#F2F2F2"],
+    darkGradient: ["#ADC3D5", "#D2D2D2"],
     accent: "text-slate-700",
+    darkAccent: "text-slate-300",
     text: "text-slate-900",
+    darkText: "text-slate-900",
     subtleText: "text-slate-600",
+    darkSubtleText: "text-slate-600",
   },
   rainy: {
     gradient: ["#9CBED7", "#D1E2EA"],
+    darkGradient: ["#7C9EB7", "#B1C2DA"],
     accent: "text-slate-800",
+    darkAccent: "text-slate-200",
     text: "text-slate-900",
+    darkText: "text-white",
     subtleText: "text-slate-700",
+    darkSubtleText: "text-slate-100",
   },
   stormy: {
     gradient: ["#B38DCB", "#5D7AA2"],
+    darkGradient: ["#936DAB", "#4D5A82"], // Slightly darker for dark mode
     accent: "text-indigo-50",
+    darkAccent: "text-indigo-200",
     text: "text-white",
+    darkText: "text-white",
     subtleText: "text-indigo-100",
+    darkSubtleText: "text-indigo-200",
   },
   quiet: {
     gradient: ["#B6B6D8", "#E0D5F2"],
+    darkGradient: ["#9696B8", "#C0B5D2"],
     accent: "text-slate-800",
+    darkAccent: "text-slate-200",
     text: "text-slate-900",
+    darkText: "text-white",
     subtleText: "text-slate-700",
+    darkSubtleText: "text-slate-100",
   },
 };
 
@@ -77,6 +152,27 @@ type WeatherSupport = {
 };
 
 const weatherSupportMessages: Record<string, WeatherSupport> = {
+  sparky: {
+    headline: "Channel the spark",
+    message: "Your energy is high but scattered. Pick one thing and let the rest wait—focus that spark.",
+  },
+  steady: {
+    headline: "Shine with intention",
+    message: "Use this steady energy on one meaningful move, then let yourself coast.",
+  },
+  flowing: {
+    headline: "Move at your pace",
+    message: "You're moving, just slowly. Lower the bar, add softness, and rest between small bursts.",
+  },
+  foggy: {
+    headline: "One gentle thing",
+    message: "Pick a single tiny task and keep it simple—foggy brains crave easy wins.",
+  },
+  resting: {
+    headline: "Rest is productive",
+    message: "Tend to essentials only. Your system needs recovery—honor that need.",
+  },
+  // Legacy support for old weather keys
   clear: {
     headline: "Shine with intention",
     message: "Use this steady energy on one meaningful move, then let yourself coast.",
@@ -239,7 +335,7 @@ function resolveWallpaperTheme(weatherKey: string | null, theme: WallpaperThemeK
 }
 
 const wallpaperThemeOptions: Array<{ key: WallpaperThemeKey; label: string }> = [
-  { key: "auto", label: "Match weather" },
+              { key: "auto", label: "Match energy" },
   { key: "sunset", label: "Sunset Bloom" },
   { key: "forest", label: "Emerald Mist" },
   { key: "dusk", label: "Purple Dreams" },
@@ -259,18 +355,24 @@ function getBarrierKitUrl(kitSlug?: string | null) {
 
 export default function GentleSupportScreen() {
   const router = useRouter();
-  const { weather, forecastNote, focusItems, checkinDate } = useCheckIn();
+  const { weather, forecastNote, focusItems, checkinDate, clearLocalStorageForDate } = useCheckIn();
   const activeFocusItems = useMemo(() => focusItems.filter((item) => !item.completed), [focusItems]);
   const { user, loading: authLoading, error: authError } = useSupabaseUser();
   const forecastRef = useRef<HTMLDivElement>(null);
   const [barrierTypes, setBarrierTypes] = useState<BarrierType[]>([]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [showSuccess, setShowSuccess] = useState(false);
   const [done, setDone] = useState(false);
   const [dailyForecast, setDailyForecast] = useState<DailyForecastData | null>(null);
   const [exportingImage, setExportingImage] = useState(false);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
   const [wallpaperTheme, setWallpaperTheme] = useState<WallpaperThemeKey>("auto");
+  const [deviceDimensions, setDeviceDimensions] = useState<{ width: number; height: number; aspectRatio: string }>({
+    width: 390,
+    height: 844,
+    aspectRatio: "9 / 19.5",
+  });
 
   useEffect(() => {
     if (done || dailyForecast) return;
@@ -303,6 +405,87 @@ export default function GentleSupportScreen() {
     return () => window.clearTimeout(timer);
   }, [exportMessage]);
 
+  // Transition from success message to forecast after 1.5 seconds
+  useEffect(() => {
+    if (!showSuccess) return;
+    const timer = window.setTimeout(() => {
+      setShowSuccess(false);
+      setDone(true);
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [showSuccess]);
+
+  useEffect(() => {
+    // Detect device type and set appropriate dimensions
+    const detectDevice = () => {
+      if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+        return;
+      }
+
+      const userAgent = navigator.userAgent.toLowerCase();
+      const isIOS = /iphone|ipad|ipod/.test(userAgent);
+      const isAndroid = /android/.test(userAgent);
+      
+      // Get screen dimensions
+      const screenWidth = window.screen.width;
+      const screenHeight = window.screen.height;
+      
+      // Common device dimensions (in logical pixels)
+      // iPhone models typically have taller aspect ratios
+      let width = 390;
+      let height = 844;
+      let aspectRatio = "9 / 19.5"; // Taller than standard 9:16
+
+      if (isIOS) {
+        // iPhone models - use taller aspect ratios
+        // iPhone 14 Pro Max: 430x932 (9:19.5)
+        // iPhone 14 Pro: 393x852 (9:19.5)
+        // iPhone SE: 375x667 (9:16) - but we'll use taller for consistency
+        if (screenWidth >= 428) {
+          // iPhone Pro Max / Plus
+          width = 430;
+          height = 932;
+          aspectRatio = "9 / 19.5";
+        } else if (screenWidth >= 390) {
+          // iPhone Pro / Standard
+          width = 393;
+          height = 852;
+          aspectRatio = "9 / 19.5";
+        } else {
+          // iPhone SE / smaller
+          width = 375;
+          height = 812;
+          aspectRatio = "9 / 19.5";
+        }
+      } else if (isAndroid) {
+        // Android devices vary, but many modern phones are tall
+        // Common: 360x800 (9:20), 412x915 (9:20)
+        if (screenWidth >= 412) {
+          width = 412;
+          height = 915;
+          aspectRatio = "9 / 20";
+        } else if (screenWidth >= 360) {
+          width = 360;
+          height = 800;
+          aspectRatio = "9 / 20";
+        } else {
+          width = 360;
+          height = 800;
+          aspectRatio = "9 / 20";
+        }
+      } else {
+        // Desktop or unknown - use iPhone-like dimensions for consistency
+        width = 390;
+        height = 844;
+        aspectRatio = "9 / 19.5";
+      }
+
+      setDeviceDimensions({ width, height, aspectRatio });
+    };
+
+    detectDevice();
+  }, []);
+
   const barrierBySlug = useMemo(() => {
     return barrierTypes.reduce<Record<string, BarrierType>>((acc, type) => {
       acc[type.slug] = type;
@@ -321,10 +504,31 @@ export default function GentleSupportScreen() {
 
   async function captureForecastCanvas() {
     if (!forecastRef.current) return null;
-    return html2canvas(forecastRef.current, {
-      backgroundColor: null,
-      scale: 2,
-    });
+    
+    // Temporarily set exact dimensions for accurate capture
+    const originalStyle = forecastRef.current.style.cssText;
+    forecastRef.current.style.width = `${deviceDimensions.width}px`;
+    forecastRef.current.style.height = `${deviceDimensions.height}px`;
+    forecastRef.current.style.aspectRatio = 'unset';
+    
+    try {
+      const canvas = await html2canvas(forecastRef.current, {
+        backgroundColor: null,
+        scale: 2,
+        width: deviceDimensions.width,
+        height: deviceDimensions.height,
+        useCORS: true,
+      });
+      
+      // Restore original styles
+      forecastRef.current.style.cssText = originalStyle;
+      
+      return canvas;
+    } catch (error) {
+      // Restore original styles even on error
+      forecastRef.current.style.cssText = originalStyle;
+      throw error;
+    }
   }
 
   function canvasToBlob(canvas: HTMLCanvasElement) {
@@ -458,7 +662,12 @@ export default function GentleSupportScreen() {
         plannedDate: checkinDate,
       });
       setWallpaperTheme("auto");
-      setDone(true);
+      
+      // Clear localStorage after successful save (database is now source of truth)
+      clearLocalStorageForDate(checkinDate);
+      
+      // Show success message before transitioning to forecast (Option A)
+      setShowSuccess(true);
       // Note: resetCheckIn() removed - don't clear state until navigation completes
       // The 'done' state prevents re-entry, and state will reset on next check-in start
     } catch (error: unknown) {
@@ -468,6 +677,25 @@ export default function GentleSupportScreen() {
     } finally {
       setSaving(false);
     }
+  }
+
+  // Show success message before forecast (Option A)
+  if (showSuccess && dailyForecast) {
+    return (
+      <main className="min-h-screen flex items-center justify-center px-4">
+        <div className="mx-auto max-w-md text-center space-y-4">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-emerald-100 dark:bg-emerald-900/30 mb-4 transition-all duration-300 scale-100">
+            <Check className="h-10 w-10 text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 transition-all duration-500">
+            Check-in saved! ✨
+          </h1>
+          <p className="text-lg text-slate-600 dark:text-slate-400 transition-all duration-500">
+            Your daily forecast is ready.
+          </p>
+        </div>
+      </main>
+    );
   }
 
   if (done && dailyForecast) {
@@ -491,17 +719,17 @@ export default function GentleSupportScreen() {
             <div>
               <p className="text-sm uppercase tracking-wide text-cyan-600">Daily Forecast</p>
               <h1 className="text-2xl font-bold text-slate-900">Your Daily Forecast</h1>
-              <p className="text-sm text-slate-600">Save as wallpaper to keep today&rsquo;s focus close.</p>
+              <p className="text-sm text-slate-600">Save as wallpaper to keep today&rsquo;s energy and focus close.</p>
             </div>
           </header>
 
           <section className="flex justify-center">
-            <div className="w-full max-w-[420px]">
+            <div className="w-full" style={{ maxWidth: `${deviceDimensions.width}px` }}>
               <div
                 ref={forecastRef}
                 className="relative w-full overflow-hidden rounded-[48px] shadow-2xl"
                 style={{
-                  aspectRatio: "9 / 16",
+                  aspectRatio: deviceDimensions.aspectRatio,
                 }}
               >
                 <div
@@ -510,8 +738,8 @@ export default function GentleSupportScreen() {
                     backgroundImage: `linear-gradient(135deg, ${theme.gradient[0]}, ${theme.gradient[1]})`,
                   }}
                 >
-                  {/* Focus list positioned lower for iOS wallpaper - starting at ~30% from top */}
-                  <div className={`absolute left-8 right-8 rounded-3xl bg-white/25 p-6 backdrop-blur ${anchorItemText}`} style={{ top: '30%' }}>
+                  {/* Focus list positioned at 70% down the page */}
+                  <div className={`absolute left-8 right-8 rounded-3xl bg-white/25 p-6 backdrop-blur ${anchorItemText}`} style={{ top: '70%' }}>
                     <p className={`text-xs font-semibold uppercase tracking-wide mb-4 ${anchorHeadingClass}`}>
                       Today&rsquo;s focus list
                     </p>
@@ -617,21 +845,21 @@ export default function GentleSupportScreen() {
           </div>
         </header>
 
-        <section className="rounded-3xl border border-white/20 bg-white/80 p-6 shadow-sm space-y-4">
+        <section className="rounded-3xl border border-white/20 bg-white/80 p-6 shadow-sm space-y-4 dark:border-slate-700/30 dark:bg-slate-800/70">
           <div className="flex items-center gap-3">
             <div className="text-4xl">{weather?.icon}</div>
             <div>
-              <p className="text-sm uppercase tracking-wide text-slate-500">Internal weather</p>
-              <p className="text-xl font-semibold text-slate-900">{weather?.label}</p>
-              <p className="text-sm text-slate-600">{weather?.description}</p>
-              <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-cyan-600">
+              <p className="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400">Energy type</p>
+              <p className="text-xl font-semibold text-slate-900 dark:text-slate-100">{weather?.label}</p>
+              <p className="text-sm text-slate-600 dark:text-slate-300">{weather?.description}</p>
+              <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-cyan-600 dark:text-cyan-400">
                 {weatherSupport.headline}
               </p>
-              <p className="text-sm text-slate-600">{weatherSupport.message}</p>
+              <p className="text-sm text-slate-600 dark:text-slate-300">{weatherSupport.message}</p>
             </div>
           </div>
           {forecastNote && (
-            <p className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
+            <p className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:bg-slate-700/50 dark:text-slate-200">
               {forecastNote}
             </p>
           )}

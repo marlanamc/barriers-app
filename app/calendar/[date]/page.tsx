@@ -118,7 +118,7 @@ export default function CalendarDetailPage() {
               <div className="flex items-center gap-4">
                 <div className="text-4xl">{checkin.weather_icon}</div>
                 <div>
-                  <p className="text-sm uppercase tracking-wide text-slate-500">Internal weather</p>
+                  <p className="text-sm uppercase tracking-wide text-slate-500">Energy type</p>
                   <p className="text-xl font-semibold text-slate-900">{checkin.internal_weather}</p>
                   {checkin.forecast_note && (
                     <p className="text-sm text-slate-600">{checkin.forecast_note}</p>

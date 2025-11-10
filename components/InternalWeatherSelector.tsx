@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 
-export interface WeatherOption {
+export interface EnergyTypeOption {
   key: string;
   label: string;
   description: string;
@@ -12,17 +12,17 @@ export interface WeatherOption {
 
 interface InternalWeatherSelectorProps {
   selectedKey?: string | null;
-  onSelect: (option: WeatherOption) => void;
+  onSelect: (option: EnergyTypeOption) => void;
   suppressAutoSelect?: boolean;
   onUserInteract?: () => void;
 }
 
-export const internalWeatherOptions: WeatherOption[] = [
-  { key: 'clear', label: 'Clear', description: 'Focused, light, steady', icon: '☀️' },
-  { key: 'cloudy', label: 'Cloudy', description: 'A bit foggy but okay', icon: '🌤' },
-  { key: 'rainy', label: 'Rainy', description: 'Heavy, slow, hard to get going', icon: '🌧' },
-  { key: 'stormy', label: 'Stormy', description: 'Overwhelmed, scattered, tense', icon: '🌪' },
-  { key: 'quiet', label: 'Quiet', description: 'Detached, tired, low input', icon: '🌙' },
+export const internalWeatherOptions: EnergyTypeOption[] = [
+  { key: 'sparky', label: 'Sparky', description: 'High energy, scattered', icon: '🔥' },
+  { key: 'steady', label: 'Steady', description: 'Focused, consistent', icon: '☀️' },
+  { key: 'flowing', label: 'Flowing', description: 'Moving but slow', icon: '🌊' },
+  { key: 'foggy', label: 'Foggy', description: 'Hard to focus, unclear', icon: '🌫️' },
+  { key: 'resting', label: 'Resting', description: 'Low energy, need recovery', icon: '🛌' },
 ];
 
 export function InternalWeatherSelector({ selectedKey, onSelect, suppressAutoSelect = false, onUserInteract }: InternalWeatherSelectorProps) {
@@ -35,6 +35,7 @@ export function InternalWeatherSelector({ selectedKey, onSelect, suppressAutoSel
   const rafRef = useRef<number | null>(null);
   const lastScrollTimeRef = useRef<number>(0);
   const isUserScrollingRef = useRef(false);
+  const autoSelectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Create looped array (3 copies for infinite scroll effect)
   const loopedOptions = [...internalWeatherOptions, ...internalWeatherOptions, ...internalWeatherOptions];
@@ -116,13 +117,13 @@ export function InternalWeatherSelector({ selectedKey, onSelect, suppressAutoSel
         const centerPosition = scrollLeft + (containerWidth / 2);
         const currentIndex = Math.round(centerPosition / totalItemWidth);
 
-        // Calculate the actual weather index (0-4)
-        const weatherIndex = currentIndex % internalWeatherOptions.length;
+        // Calculate the actual energy type index (0-4)
+        const energyIndex = currentIndex % internalWeatherOptions.length;
 
         // Only update if changed
         setCenterIndex((prevIndex) => {
-          if (weatherIndex !== prevIndex) {
-            return weatherIndex;
+          if (energyIndex !== prevIndex) {
+            return energyIndex;
           }
           return prevIndex;
         });
@@ -167,7 +168,7 @@ export function InternalWeatherSelector({ selectedKey, onSelect, suppressAutoSel
     };
   }, [loopedOptions.length, totalItemWidth, itemWidth, scrollIdleDelay]);
 
-  // Keep the carousel aligned with externally selected weather (e.g., when restoring saved check-ins)
+  // Keep the carousel aligned with externally selected energy type (e.g., when restoring saved check-ins)
   useEffect(() => {
     if (!selectedKey || !scrollRef.current) {
       return;
@@ -200,25 +201,86 @@ export function InternalWeatherSelector({ selectedKey, onSelect, suppressAutoSel
     };
   }, [selectedKey, itemWidth, startIndex, totalItemWidth]);
 
-  // Auto-select the centered option only on initial load (when no selection exists yet)
+  // Auto-select the centered option (Option B: no confirmation tap needed)
+  // - Auto-selects on initial load
+  // - Auto-selects when user scrolls to a different option (no tap needed)
   useEffect(() => {
     const option = internalWeatherOptions[centerIndex];
     if (!option) {
       return;
     }
 
+    // Don't auto-select if we're syncing to an external selectedKey
     if (pendingSyncIndexRef.current === centerIndex) {
       pendingSyncIndexRef.current = null;
       return;
     }
 
-    // Only auto-select when there is no selected weather yet and suppressAutoSelect is false
-    // This handles the initial selection, but doesn't auto-select during scrolling
-    if (!selectedKey && !suppressAutoSelect) {
-      onSelect(option);
+    // Don't auto-select if suppressAutoSelect is true (e.g., when editing)
+    if (suppressAutoSelect) {
+      return;
     }
-    // Don't auto-select when scrolling - user must explicitly click/tap to select
-  }, [centerIndex, selectedKey, onSelect, suppressAutoSelect]);
+
+    // Auto-select the centered option if:
+    // 1. No selection exists yet (initial load), OR
+    // 2. User scrolled to a different option (current selection doesn't match center)
+    const currentOptionKey = option.key;
+    const needsSelection = !selectedKey || selectedKey !== currentOptionKey;
+    
+    if (!needsSelection) {
+      return;
+    }
+
+    // Handle initial load case (no selection yet)
+    if (!selectedKey) {
+      // Wait for initialization to complete, then select immediately
+      if (isInitializingRef.current) {
+        // Will re-run after initialization completes
+        return;
+      }
+      
+      // Clear any pending timeout
+      if (autoSelectTimeoutRef.current) {
+        clearTimeout(autoSelectTimeoutRef.current);
+        autoSelectTimeoutRef.current = null;
+      }
+      
+      // Select immediately after initialization
+      onSelect(option);
+      return;
+    }
+
+    // Handle user scrolling to different option case
+    // Don't auto-select while user is actively scrolling (wait for scroll to stop)
+    if (isUserScrollingRef.current || isScrollingRef.current || isInitializingRef.current) {
+      return;
+    }
+
+    // Clear any pending auto-select timeout
+    if (autoSelectTimeoutRef.current) {
+      clearTimeout(autoSelectTimeoutRef.current);
+      autoSelectTimeoutRef.current = null;
+    }
+    
+    // Small delay to ensure scroll has fully settled before auto-selecting
+    autoSelectTimeoutRef.current = setTimeout(() => {
+      // Double-check we're still not scrolling and the option hasn't changed
+      if (!isUserScrollingRef.current && !isScrollingRef.current) {
+        const currentOption = internalWeatherOptions[centerIndex];
+        if (currentOption && currentOption.key === currentOptionKey) {
+          onSelect(currentOption);
+        }
+      }
+      autoSelectTimeoutRef.current = null;
+    }, scrollIdleDelay + 50); // Wait a bit longer than the snap delay
+    
+    return () => {
+      if (autoSelectTimeoutRef.current) {
+        clearTimeout(autoSelectTimeoutRef.current);
+        autoSelectTimeoutRef.current = null;
+      }
+    };
+  }, [centerIndex, selectedKey, onSelect, suppressAutoSelect, scrollIdleDelay]);
 
   const selectedOption = internalWeatherOptions[centerIndex];
 
@@ -239,11 +301,13 @@ export function InternalWeatherSelector({ selectedKey, onSelect, suppressAutoSel
           ref={scrollRef}
           className="overflow-x-auto scrollbar-hide relative z-10"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
+          role="listbox"
+          aria-label="Energy type selector"
         >
           <div className="flex items-center gap-2 py-4">
             {loopedOptions.map((option, index) => {
-              const weatherIndex = index % internalWeatherOptions.length;
-              const isCenter = weatherIndex === centerIndex && index >= startIndex - 2 && index <= startIndex + internalWeatherOptions.length + 2;
+              const energyIndex = index % internalWeatherOptions.length;
+              const isCenter = energyIndex === centerIndex && index >= startIndex - 2 && index <= startIndex + internalWeatherOptions.length + 2;
               return (
                 <div
                   key={`${option.key}-${index}`}
@@ -288,11 +352,46 @@ export function InternalWeatherSelector({ selectedKey, onSelect, suppressAutoSel
                         }, 300);
                       }
                     }}
+                    onKeyDown={(e) => {
+                      // Keyboard navigation: Arrow keys to navigate, Enter/Space to select
+                      const scrollContainer = scrollRef.current;
+                      if (!scrollContainer) return;
+                      
+                      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                        e.preventDefault();
+                        const direction = e.key === 'ArrowRight' ? 1 : -1;
+                        const currentEnergyIndex = centerIndex;
+                        const newIndex = (currentEnergyIndex + direction + internalWeatherOptions.length) % internalWeatherOptions.length;
+                        const targetOption = internalWeatherOptions[newIndex];
+                        
+                        // Find the target option in the looped array
+                        const targetIndex = startIndex + newIndex;
+                        const targetScroll = (targetIndex * totalItemWidth) - (scrollContainer.offsetWidth / 2) + (itemWidth / 2);
+                        
+                        isScrollingRef.current = true;
+                        scrollContainer.scrollTo({
+                          left: targetScroll,
+                          behavior: 'smooth'
+                        });
+                        setTimeout(() => {
+                          isScrollingRef.current = false;
+                        }, 300);
+                      } else if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onSelect(option);
+                        if (typeof onUserInteract === 'function') {
+                          onUserInteract();
+                        }
+                      }
+                    }}
                     className={clsx(
-                      'w-full h-24 flex items-center justify-center transition-all duration-200 select-none active:scale-95',
+                      'w-full h-24 flex items-center justify-center transition-all duration-200 select-none active:scale-95 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 rounded-2xl',
                       isCenter ? 'scale-110' : 'scale-75 opacity-40'
                     )}
                     style={{ minHeight: '96px' }}
+                    tabIndex={isCenter ? 0 : -1}
+                    aria-label={`${option.label}: ${option.description}`}
+                    aria-pressed={selectedKey === option.key}
                   >
                     <div className={clsx('transition-all duration-200 pointer-events-none', isCenter ? 'text-6xl' : 'text-4xl')}>
                       {option.icon}

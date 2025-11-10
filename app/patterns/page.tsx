@@ -116,7 +116,7 @@ export default function PatternsPage() {
           <div>
             <p className="text-sm uppercase tracking-wide text-cyan-600">Patterns</p>
             <h1 className="text-2xl font-bold text-slate-900">Patterns</h1>
-            <p className="text-sm text-slate-600">Seven-day view of your internal weather.</p>
+            <p className="text-sm text-slate-600">Seven-day view of your energy types.</p>
           </div>
         </header>
 
@@ -133,7 +133,7 @@ export default function PatternsPage() {
           </section>
         ) : (
           <section className="rounded-3xl border border-dashed border-white/40 bg-white/60 p-6 text-center text-slate-600">
-            No check-ins yet this week. Start with today&rsquo;s weather.
+            No check-ins yet this week. Start with today&rsquo;s energy check-in.
           </section>
         )}
 

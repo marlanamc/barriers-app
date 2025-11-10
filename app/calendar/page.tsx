@@ -214,7 +214,7 @@ export default function CalendarPage() {
           {/* Status Message */}
           {weather && (
             <div className="mb-4 text-center">
-              <p className="text-sm text-slate-600">Today feels <span className="font-medium text-slate-700">{weather.label.toLowerCase()}</span></p>
+              <p className="text-sm text-slate-600">Today&rsquo;s energy: <span className="font-medium text-slate-700">{weather.label.toLowerCase()}</span></p>
             </div>
           )}
 
