@@ -411,15 +411,25 @@ export default function FocusScreen() {
       if (!validationError) {
         setText("");
         setTags([]);
-        // The useEffect below will detect the new item and set editingItemId
+        // Set editingItemId immediately after adding - the useEffect will handle it if needed
+        // but we also set it here to ensure it happens synchronously
+        // We'll use a small delay to let the state update
+        setTimeout(() => {
+          const activeItems = focusItems.filter((item) => !item.completed);
+          if (activeItems.length > 0 && !editingItemId) {
+            const newestItem = activeItems.sort((a, b) => b.sortOrder - a.sortOrder)[0];
+            setEditingItemId(newestItem.id);
+          }
+        }, 10);
       }
     }
   };
   
   // When a new item is added (not editing), set it as the editing item
   useEffect(() => {
-    if (!editingItemId && focusItems.length > previousFocusItemsLength) {
-      // A new item was added
+    // Only set editingItemId if we're in "add mode" (no editItemId from URL) and have cleared on mount
+    if (!editItemId && !editingItemId && focusItems.length > previousFocusItemsLength && hasClearedOnMount) {
+      // A new item was added (only after we've cleared on mount to avoid race conditions)
       const newItems = focusItems.filter((item) => !item.completed);
       if (newItems.length > 0) {
         // Get the most recently added item (highest sortOrder)
@@ -428,7 +438,7 @@ export default function FocusScreen() {
       }
     }
     setPreviousFocusItemsLength(focusItems.length);
-  }, [focusItems.length, previousFocusItemsLength, editingItemId, focusItems]);
+  }, [focusItems.length, previousFocusItemsLength, editingItemId, focusItems, hasClearedOnMount, editItemId]);
 
   // Clear validation error when user starts typing
   useEffect(() => {
@@ -445,13 +455,18 @@ export default function FocusScreen() {
   // Clear focus items when entering "add mode" (no edit parameter) - only once on mount
   // This ensures saved items from homepage don't show when adding a new item
   useEffect(() => {
-    if (!editItemId && !hasClearedOnMount && focusItems.length > 0) {
+    if (!editItemId && !hasClearedOnMount) {
       // User is adding a new item, clear any existing items from context
       // They'll be saved items from homepage - user should focus on one item at a time
-      clearFocusItems();
+      // Only clear if there are items present on initial mount
+      const initialItems = focusItems.length;
+      if (initialItems > 0) {
+        clearFocusItems();
+      }
+      // Always set hasClearedOnMount to true to prevent this from running again
       setHasClearedOnMount(true);
     }
-  }, [editItemId, hasClearedOnMount, focusItems.length, clearFocusItems]);
+  }, [editItemId, hasClearedOnMount, clearFocusItems]);
   
   // When editing a specific item, filter to show only that item
   const itemsToShow = useMemo(() => {
