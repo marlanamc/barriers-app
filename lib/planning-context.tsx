@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useMemo, useState } from 'react
 import type { RecurrenceType } from './recurrence';
 
 export interface BarrierSelectionState {
+  barrierTypeId?: string | null;
   barrierTypeSlug?: string | null;
   custom?: string | null;
 }
@@ -22,6 +23,7 @@ export interface PlannedFocusItem {
   barrier?: BarrierSelectionState | null;
   anchorType?: TaskAnchorType | null;
   anchorValue?: string | null;
+  plannedItemId?: string | null;
 }
 
 interface PlanningContextValue {
@@ -73,6 +75,7 @@ export function PlanningProvider({ children }: { children: React.ReactNode }) {
         barrier: null,
         anchorType: null,
         anchorValue: null,
+        plannedItemId: null,
       };
       return [...prev, newItem];
     });

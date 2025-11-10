@@ -52,7 +52,7 @@ export default function PlanAheadSavePage() {
           start_date: startDate,
           end_date: endDate,
           recurrence_days: recurrenceType === 'weekly' ? recurrenceDays : null,
-          barrier_type_id: null, // We'll look this up by slug if needed
+          barrier_type_id: item.barrier?.barrierTypeId || null,
           custom_barrier: item.barrier?.custom || null,
           anchor_type: item.anchorType || null,
           anchor_value: item.anchorValue || null,

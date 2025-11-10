@@ -29,7 +29,7 @@ export default function PlanAheadBarriersPage() {
 
   const [barrierTypes, setBarrierTypes] = useState<BarrierType[]>([]);
   const [currentItemIndex, setCurrentItemIndex] = useState(0);
-  const [selectedBarrierSlug, setSelectedBarrierSlug] = useState<string | null>(null);
+  const [selectedBarrier, setSelectedBarrier] = useState<{ id: string; slug: string } | null>(null);
   const [customBarrier, setCustomBarrier] = useState("");
   const [selectedAnchorType, setSelectedAnchorType] = useState<TaskAnchorType | null>(null);
   const [anchorTime, setAnchorTime] = useState("");
@@ -46,7 +46,18 @@ export default function PlanAheadBarriersPage() {
   useEffect(() => {
     if (!currentItem) return;
 
-    setSelectedBarrierSlug(currentItem.barrier?.barrierTypeSlug || null);
+    if (currentItem.barrier?.barrierTypeSlug) {
+      const matchingBarrier = barrierTypes.find((barrier) => barrier.slug === currentItem.barrier?.barrierTypeSlug);
+      if (matchingBarrier) {
+        setSelectedBarrier({ id: matchingBarrier.id, slug: matchingBarrier.slug });
+      } else if (currentItem.barrier?.barrierTypeId) {
+        setSelectedBarrier({ id: currentItem.barrier.barrierTypeId, slug: currentItem.barrier.barrierTypeSlug });
+      } else {
+        setSelectedBarrier(null);
+      }
+    } else {
+      setSelectedBarrier(null);
+    }
     setCustomBarrier(currentItem.barrier?.custom || "");
     setSelectedAnchorType(currentItem.anchorType || null);
 
@@ -59,14 +70,15 @@ export default function PlanAheadBarriersPage() {
       setAnchorTime("");
       setAnchorText("");
     }
-  }, [currentItemIndex, currentItem]);
+  }, [currentItemIndex, currentItem, barrierTypes]);
 
   const handleNext = () => {
     // Save current item's barrier and anchor
     const barrier =
-      selectedBarrierSlug || customBarrier.trim()
+      selectedBarrier || customBarrier.trim()
         ? {
-            barrierTypeSlug: selectedBarrierSlug,
+            barrierTypeSlug: selectedBarrier?.slug ?? null,
+            barrierTypeId: selectedBarrier?.id ?? null,
             custom: customBarrier.trim() || null,
           }
         : null;
@@ -93,7 +105,7 @@ export default function PlanAheadBarriersPage() {
       // Move to next item
       setCurrentItemIndex((prev) => prev + 1);
       // Reset form for next item
-      setSelectedBarrierSlug(null);
+      setSelectedBarrier(null);
       setCustomBarrier("");
       setSelectedAnchorType(null);
       setAnchorTime("");
@@ -107,7 +119,7 @@ export default function PlanAheadBarriersPage() {
       router.push('/plan-ahead/save');
     } else {
       setCurrentItemIndex((prev) => prev + 1);
-      setSelectedBarrierSlug(null);
+      setSelectedBarrier(null);
       setCustomBarrier("");
       setSelectedAnchorType(null);
       setAnchorTime("");
@@ -159,13 +171,15 @@ export default function PlanAheadBarriersPage() {
               What feels hard about this? (optional)
             </label>
             <div className="grid gap-2 sm:grid-cols-2">
-              {barrierTypes.slice(0, 6).map((barrier) => {
-                const isSelected = selectedBarrierSlug === barrier.slug;
+              {barrierTypes.map((barrier) => {
+                const isSelected = selectedBarrier?.id === barrier.id;
                 return (
                   <button
-                    key={barrier.slug}
+                    key={barrier.id}
                     type="button"
-                    onClick={() => setSelectedBarrierSlug(isSelected ? null : barrier.slug)}
+                    onClick={() =>
+                      setSelectedBarrier(isSelected ? null : { id: barrier.id, slug: barrier.slug })
+                    }
                     className={`rounded-2xl border px-4 py-3 text-left transition ${
                       isSelected
                         ? "border-emerald-300 bg-emerald-50 ring-2 ring-emerald-200"

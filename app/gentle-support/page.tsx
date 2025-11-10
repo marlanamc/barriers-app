@@ -151,6 +151,7 @@ function pickReminder(seed: string) {
 export default function GentleSupportScreen() {
   const router = useRouter();
   const { weather, forecastNote, focusItems, resetCheckIn, checkinDate, setCheckinDate } = useCheckIn();
+  const activeFocusItems = focusItems.filter((item) => !item.completed);
   const { user, loading: authLoading, error: authError } = useSupabaseUser();
   const forecastRef = useRef<HTMLDivElement>(null);
   const [barrierTypes, setBarrierTypes] = useState<BarrierType[]>([]);
@@ -168,10 +169,10 @@ export default function GentleSupportScreen() {
     if (done || dailyForecast) return;
     if (!weather) {
       router.replace("/");
-    } else if (!focusItems.length) {
+    } else if (!activeFocusItems.length) {
       router.replace("/focus");
     }
-  }, [dailyForecast, done, focusItems.length, router, weather]);
+  }, [activeFocusItems.length, dailyForecast, done, router, weather]);
 
   useEffect(() => {
     let mounted = true;
@@ -183,7 +184,7 @@ export default function GentleSupportScreen() {
       setBarrierTypes(types);
 
       const slugSet = new Set(
-        focusItems
+        activeFocusItems
           .map((item) => item.barrier?.barrierTypeSlug)
           .filter(Boolean) as string[]
       );
@@ -211,7 +212,7 @@ export default function GentleSupportScreen() {
     return () => {
       mounted = false;
     };
-  }, [focusItems]);
+  }, [activeFocusItems]);
 
   useEffect(() => {
     if (!exportMessage) return;
@@ -226,11 +227,11 @@ export default function GentleSupportScreen() {
     }, {});
   }, [barrierTypes]);
 
-  if (!dailyForecast && (!weather || !focusItems.length)) {
+  if (!dailyForecast && (!weather || !activeFocusItems.length)) {
     return null;
   }
 
-  const canSave = Boolean(user) && !saving && focusItems.every((item) => {
+  const canSave = Boolean(user) && !saving && activeFocusItems.every((item) => {
     const barrier = item.barrier;
     const hasBarrier = Boolean(
       barrier && (barrier.barrierTypeSlug || barrier.custom?.trim())
@@ -329,7 +330,7 @@ export default function GentleSupportScreen() {
     setSaveError(null);
 
     try {
-      const snapshotTasks: ForecastTask[] = focusItems.map((item) => ({
+      const snapshotTasks: ForecastTask[] = activeFocusItems.map((item) => ({
         id: item.id,
         description: item.description,
         anchorType: item.anchorType ?? null,
@@ -341,11 +342,12 @@ export default function GentleSupportScreen() {
         userId: user.id,
         internalWeather: weather,
         forecastNote,
-        focusItems: focusItems.map((item) => ({
+        focusItems: activeFocusItems.map((item) => ({
           id: item.id,
           description: item.description,
           categories: item.categories,
           sortOrder: item.sortOrder,
+          plannedItemId: item.plannedItemId ?? null,
           anchorType: item.anchorType || null,
           anchorValue: item.anchorValue || null,
           barrier: item.barrier || null,
@@ -373,14 +375,8 @@ export default function GentleSupportScreen() {
   if (done && dailyForecast) {
     const theme = resolveWallpaperTheme(dailyForecast.weather.key, wallpaperTheme);
     const reminder = pickReminder(`${dailyForecast.checkinId}${dailyForecast.weather.key}`);
-    const plannedDate = new Date(dailyForecast.plannedDate);
-    const isToday = new Date().toDateString() === plannedDate.toDateString();
-    const headline = `${dailyForecast.weather.icon} ${dailyForecast.weather.label} Mind ${isToday ? "Today" : "Plan"}`;
-    const dateLabel = plannedDate.toLocaleDateString(undefined, {
-      weekday: "long",
-      month: "short",
-      day: "numeric",
-    });
+    const weatherEmoji = dailyForecast.weather.icon;
+    const weatherHeadline = `${dailyForecast.weather.label} energy`;
     const anchorHeadingClass =
       theme.text.includes("text-white") || theme.subtleText.includes("text-indigo")
         ? "text-white/80"
@@ -419,21 +415,19 @@ export default function GentleSupportScreen() {
                     backgroundImage: `linear-gradient(135deg, ${theme.gradient[0]}, ${theme.gradient[1]})`,
                   }}
                 >
-                  <div>
-                    <div className={`flex items-center justify-between text-sm font-semibold ${theme.subtleText}`}>
-                      <span className="text-5xl">{dailyForecast.weather.icon}</span>
-                      <span className={`text-right text-xs uppercase tracking-[0.3em] ${theme.accent}`}>
-                        {dateLabel}
-                      </span>
-                    </div>
-                    <h2 className={`mt-4 text-[2.25rem] font-bold leading-tight ${theme.text}`}>{headline}</h2>
+                  <div className="text-center">
+                    <span className="text-7xl drop-shadow-sm">{weatherEmoji}</span>
+                    <p className={`mt-3 text-xs font-semibold uppercase tracking-[0.3em] ${theme.subtleText}`}>
+                      today’s vibe
+                    </p>
+                    <h2 className={`mt-2 text-[2.5rem] font-bold leading-tight ${theme.text}`}>{weatherHeadline}</h2>
                     <p className={`text-base ${theme.subtleText}`}>{dailyForecast.weather.description}</p>
-                    <p className={`mt-6 text-xl font-semibold ${theme.text}`}>{reminder}</p>
+                    <p className={`mt-5 text-lg font-semibold leading-snug ${theme.text}`}>{reminder}</p>
                   </div>
 
                   <div className={`rounded-3xl bg-white/25 p-5 backdrop-blur ${anchorItemText}`}>
                     <p className={`text-xs font-semibold uppercase tracking-wide ${anchorHeadingClass}`}>
-                      Focus anchors
+                      Today’s focus list
                     </p>
                     <ul className="mt-3 space-y-3 text-base font-semibold">
                       {dailyForecast.tasks.map((task) => (
@@ -565,7 +559,7 @@ export default function GentleSupportScreen() {
         </section>
 
         <section className="space-y-4">
-          {focusItems.map((item) => {
+          {activeFocusItems.map((item) => {
             const slug = item.barrier?.barrierTypeSlug;
             const friendlyBarrier = slug ? barrierBySlug[slug] : null;
             const tip = slug ? tipsBySlug[slug] : null;

@@ -343,7 +343,16 @@ BEGIN
         barrier_type_identifier := NULL;
 
         IF barrier_record IS NOT NULL THEN
-            IF barrier_record ? 'barrierTypeSlug' THEN
+            IF barrier_record ? 'barrierTypeId' THEN
+                BEGIN
+                    barrier_type_identifier := (barrier_record->>'barrierTypeId')::UUID;
+                EXCEPTION
+                    WHEN invalid_text_representation THEN
+                        barrier_type_identifier := NULL;
+                END;
+            END IF;
+
+            IF barrier_type_identifier IS NULL AND barrier_record ? 'barrierTypeSlug' THEN
                 SELECT id
                 INTO barrier_type_identifier
                 FROM barrier_types

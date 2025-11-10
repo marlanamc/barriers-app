@@ -52,20 +52,27 @@ const anchorSuggestionMap: Partial<Record<TaskAnchorType, string[]>> = {
 export default function BarrierScreen() {
   const router = useRouter();
   const { focusItems, setBarrierForFocusItem, setAnchorForFocusItem } = useCheckIn();
+  const activeFocusItems = focusItems.filter((item) => !item.completed);
   const [barrierTypes, setBarrierTypes] = useState<BarrierType[]>([]);
+  const barrierBySlug = useMemo(() => {
+    return barrierTypes.reduce<Record<string, BarrierType>>((acc, barrier) => {
+      acc[barrier.slug] = barrier;
+      return acc;
+    }, {});
+  }, [barrierTypes]);
 
   useEffect(() => {
-    if (!focusItems.length) {
+    if (!activeFocusItems.length) {
       router.replace("/focus");
     }
-  }, [focusItems.length, router]);
+  }, [activeFocusItems.length, router]);
 
   useEffect(() => {
     getBarrierTypes().then(setBarrierTypes);
   }, []);
 
   const canProceed = useMemo(() =>
-    focusItems.length > 0 && focusItems.every((item) => {
+    activeFocusItems.length > 0 && activeFocusItems.every((item) => {
       const barrier = item.barrier;
       const hasBarrier = Boolean(
         barrier && (barrier.barrierTypeSlug || barrier.custom?.trim())
@@ -73,10 +80,10 @@ export default function BarrierScreen() {
       const hasAnchor = Boolean(item.anchorType && item.anchorValue?.trim());
       return hasBarrier && hasAnchor;
     }),
-  [focusItems]
+  [activeFocusItems]
   );
 
-  if (!focusItems.length) {
+  if (!activeFocusItems.length) {
     return null;
   }
 
@@ -98,8 +105,10 @@ export default function BarrierScreen() {
         </header>
 
         <section className="space-y-4">
-          {focusItems.map((item) => {
+          {activeFocusItems.map((item) => {
             const selectedSlug = item.barrier?.barrierTypeSlug || "";
+            const fallbackBarrier = selectedSlug ? barrierBySlug[selectedSlug] : null;
+            const selectedBarrierId = item.barrier?.barrierTypeId || fallbackBarrier?.id || null;
             const custom = item.barrier?.custom || "";
             const anchorSelected = item.anchorType;
             const anchorValue = item.anchorValue || "";
@@ -163,6 +172,7 @@ export default function BarrierScreen() {
                     onChange={(event) =>
                       setBarrierForFocusItem(item.id, {
                         barrierTypeSlug: event.target.value || undefined,
+                        barrierTypeId: event.target.value ? barrierBySlug[event.target.value]?.id ?? null : null,
                         custom,
                       })
                     }
@@ -188,6 +198,7 @@ export default function BarrierScreen() {
                     onChange={(event) =>
                       setBarrierForFocusItem(item.id, {
                         barrierTypeSlug: selectedSlug || undefined,
+                        barrierTypeId: selectedBarrierId,
                         custom: event.target.value,
                       })
                     }

@@ -13,6 +13,8 @@ export interface WeatherOption {
 interface InternalWeatherSelectorProps {
   selectedKey?: string | null;
   onSelect: (option: WeatherOption) => void;
+  suppressAutoSelect?: boolean;
+  onUserInteract?: () => void;
 }
 
 export const internalWeatherOptions: WeatherOption[] = [
@@ -23,7 +25,7 @@ export const internalWeatherOptions: WeatherOption[] = [
   { key: 'quiet', label: 'Quiet', description: 'Detached, tired, low input', icon: '🌙' },
 ];
 
-export function InternalWeatherSelector({ selectedKey, onSelect }: InternalWeatherSelectorProps) {
+export function InternalWeatherSelector({ selectedKey, onSelect, suppressAutoSelect = false, onUserInteract }: InternalWeatherSelectorProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [centerIndex, setCenterIndex] = useState(0);
   const isScrollingRef = useRef(false);
@@ -53,6 +55,9 @@ export function InternalWeatherSelector({ selectedKey, onSelect }: InternalWeath
 
     const handleScroll = () => {
       if (isScrollingRef.current) return;
+      if (typeof onUserInteract === 'function') {
+        onUserInteract();
+      }
 
       const containerWidth = scrollContainer.offsetWidth;
       const scrollLeft = scrollContainer.scrollLeft;
@@ -90,9 +95,12 @@ export function InternalWeatherSelector({ selectedKey, onSelect }: InternalWeath
   useEffect(() => {
     const option = internalWeatherOptions[centerIndex];
     if (option && option.key !== selectedKey) {
+      if (suppressAutoSelect && !selectedKey) {
+        return;
+      }
       onSelect(option);
     }
-  }, [centerIndex, selectedKey, onSelect]);
+  }, [centerIndex, selectedKey, onSelect, suppressAutoSelect]);
 
   const selectedOption = internalWeatherOptions[centerIndex];
 
@@ -124,6 +132,9 @@ export function InternalWeatherSelector({ selectedKey, onSelect }: InternalWeath
                   <button
                     type="button"
                     onClick={() => {
+                      if (typeof onUserInteract === 'function') {
+                        onUserInteract();
+                      }
                       const scrollContainer = scrollRef.current;
                       if (scrollContainer) {
                         const containerWidth = scrollContainer.offsetWidth;

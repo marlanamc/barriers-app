@@ -21,6 +21,7 @@ export type CalendarEntry = Database['public']['Tables']['user_calendar_entries'
 export type PlannedItem = Database['public']['Tables']['planned_items']['Row'];
 export type PlannedItemInsert = Database['public']['Tables']['planned_items']['Insert'];
 export type PlannedItemUpdate = Database['public']['Tables']['planned_items']['Update'];
+export type PlannedItemWithBarrier = PlannedItem & { barrier_types: BarrierType | null };
 
 export interface BarrierTipMessage {
   slug: string;
@@ -33,9 +34,11 @@ export type FocusItemPayload = {
   description: string;
   categories: string[];
   sortOrder: number;
+  plannedItemId?: string | null;
   anchorType?: 'at' | 'while' | 'before' | 'after' | null;
   anchorValue?: string | null;
   barrier?: {
+    barrierTypeId?: string | null;
     barrierTypeSlug?: string | null;
     custom?: string | null;
   } | null;
@@ -67,6 +70,7 @@ export type CheckinWithRelations = Checkin & {
 
 const focusItemsSelect = `*, focus_barriers(*, barrier_types(*))`;
 const checkinSelect = `*, focus_items(${focusItemsSelect})`;
+const plannedItemsSelect = `*, barrier_types:barrier_type_id(*)`;
 
 const LEGACY_NAME_FIELDS = [
   'label',
@@ -203,9 +207,16 @@ export async function saveCheckinWithFocus(payload: SaveCheckinPayload): Promise
     description: item.description,
     categories: item.categories,
     sortOrder: item.sortOrder ?? index,
+    plannedItemId: item.plannedItemId ?? null,
     anchorType: item.anchorType ?? null,
     anchorValue: item.anchorValue ?? null,
-    barrier: item.barrier || null,
+    barrier: item.barrier
+      ? {
+          barrierTypeId: item.barrier.barrierTypeId ?? null,
+          barrierTypeSlug: item.barrier.barrierTypeSlug ?? null,
+          custom: item.barrier.custom ?? null,
+        }
+      : null,
   }));
 
   const { data, error } = await supabase.rpc('create_checkin_with_focus', {
@@ -432,10 +443,10 @@ export async function createPlannedItem(plannedItem: PlannedItemInsert): Promise
 /**
  * Get all planned items for a user
  */
-export async function getPlannedItems(userId: string): Promise<PlannedItem[]> {
+export async function getPlannedItems(userId: string): Promise<PlannedItemWithBarrier[]> {
   const { data, error } = await supabase
     .from('planned_items')
-    .select('*')
+    .select(plannedItemsSelect)
     .eq('user_id', userId)
     .order('start_date', { ascending: true });
 
@@ -444,7 +455,7 @@ export async function getPlannedItems(userId: string): Promise<PlannedItem[]> {
     return [];
   }
 
-  return data as PlannedItem[];
+  return data as PlannedItemWithBarrier[];
 }
 
 /**
@@ -452,10 +463,10 @@ export async function getPlannedItems(userId: string): Promise<PlannedItem[]> {
  * This returns all items where the date falls within the recurrence range
  * Actual filtering by recurrence pattern happens in the client using recurrence.ts
  */
-export async function getPlannedItemsForDate(userId: string, date: string): Promise<PlannedItem[]> {
+export async function getPlannedItemsForDate(userId: string, date: string): Promise<PlannedItemWithBarrier[]> {
   const { data, error } = await supabase
     .from('planned_items')
-    .select('*')
+    .select(plannedItemsSelect)
     .eq('user_id', userId)
     .lte('start_date', date)
     .or(`end_date.is.null,end_date.gte.${date}`)
@@ -466,7 +477,7 @@ export async function getPlannedItemsForDate(userId: string, date: string): Prom
     return [];
   }
 
-  return data as PlannedItem[];
+  return data as PlannedItemWithBarrier[];
 }
 
 /**

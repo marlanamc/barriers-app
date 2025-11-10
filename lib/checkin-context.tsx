@@ -12,6 +12,7 @@ export interface WeatherSelection {
 }
 
 export interface BarrierSelectionState {
+  barrierTypeId?: string | null;
   barrierTypeSlug?: string | null;
   custom?: string | null;
 }
@@ -28,9 +29,11 @@ export interface FocusItemState {
   description: string;
   categories: string[];
   sortOrder: number;
+  plannedItemId?: string | null;
   barrier?: BarrierSelectionState | null;
   anchorType?: TaskAnchorType | null;
   anchorValue?: string | null;
+  completed: boolean;
 }
 
 interface CheckInContextValue {
@@ -61,23 +64,26 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
   const [focusItems, setFocusItems] = useState<FocusItemState[]>([]);
 
   const addFocusItem = useCallback((description: string, categories: string[]) => {
-    if (!description.trim() || focusItems.length >= MAX_FOCUS_ITEMS) return;
+    if (!description.trim()) return;
 
     setFocusItems((prev) => {
-      if (prev.length >= MAX_FOCUS_ITEMS) return prev;
+      const activeCount = prev.filter((item) => !item.completed).length;
+      if (activeCount >= MAX_FOCUS_ITEMS) return prev;
       const id = crypto.randomUUID();
       const next: FocusItemState = {
         id,
         description: description.trim(),
         categories,
         sortOrder: prev.length,
+        plannedItemId: null,
         barrier: null,
         anchorType: null,
         anchorValue: null,
+        completed: false,
       };
       return [...prev, next];
     });
-  }, [focusItems.length]);
+  }, []);
 
   const updateFocusItem = useCallback((id: string, updates: Partial<Omit<FocusItemState, 'id'>>) => {
     setFocusItems((prev) =>
@@ -128,7 +134,19 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const loadPlannedItems = useCallback((items: FocusItemState[]) => {
-    setFocusItems(items);
+    setFocusItems(items.map((item, index) => ({
+      ...item,
+      sortOrder: item.sortOrder ?? index,
+      completed: item.completed ?? false,
+      plannedItemId: item.plannedItemId ?? null,
+      barrier: item.barrier
+        ? {
+            barrierTypeId: item.barrier.barrierTypeId ?? null,
+            barrierTypeSlug: item.barrier.barrierTypeSlug ?? null,
+            custom: item.barrier.custom ?? null,
+          }
+        : null,
+    })));
   }, []);
 
   const resetCheckIn = useCallback(() => {
