@@ -80,7 +80,7 @@ export default function PlanAheadBarriersPage() {
             anchorValue:
               selectedAnchorType === "at"
                 ? anchorTime
-                : cleanAnchorInput(anchorText, selectedAnchorType),
+                : cleanAnchorInput(selectedAnchorType, anchorText),
           }
         : null;
 
@@ -240,7 +240,7 @@ export default function PlanAheadBarriersPage() {
                   selectedAnchorType,
                   selectedAnchorType === "at"
                     ? anchorTime
-                    : cleanAnchorInput(anchorText, selectedAnchorType)
+                    : cleanAnchorInput(selectedAnchorType, anchorText)
                 )}
               </p>
             )}
