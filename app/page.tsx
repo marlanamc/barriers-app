@@ -309,9 +309,17 @@ export default function HomePage() {
           </div>
         </header>
 
-        {renderWeatherSection()}
-
-        {renderFocusSummary()}
+        {hasFocus ? (
+          <>
+            {renderFocusSummary()}
+            {renderWeatherSection()}
+          </>
+        ) : (
+          <>
+            {renderWeatherSection()}
+            {renderFocusSummary()}
+          </>
+        )}
 
         <section className="space-y-3">
           <Link
