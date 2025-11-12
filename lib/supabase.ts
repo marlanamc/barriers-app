@@ -46,6 +46,8 @@ export type FocusItemPayload = {
   plannedItemId?: string | null;
   anchorType?: 'at' | 'while' | 'before' | 'after' | null;
   anchorValue?: string | null;
+  taskType?: 'focus' | 'life';
+  complexity?: 'quick' | 'medium' | 'deep';
   barrier?: {
     barrierTypeId?: string | null;
     barrierTypeSlug?: string | null;
@@ -273,6 +275,14 @@ export async function saveCheckinWithFocus(payload: SaveCheckinPayload): Promise
       ? item.categories.filter(cat => cat && typeof cat === 'string').slice(0, 10)
       : [];
     
+    // Validate task type and complexity
+    const taskType = item.taskType && ['focus', 'life'].includes(item.taskType)
+      ? item.taskType
+      : 'focus';
+    const complexity = item.complexity && ['quick', 'medium', 'deep'].includes(item.complexity)
+      ? item.complexity
+      : 'medium';
+
     return {
       id: item.id,
       description: description,
@@ -281,6 +291,8 @@ export async function saveCheckinWithFocus(payload: SaveCheckinPayload): Promise
       plannedItemId: item.plannedItemId ?? null,
       anchorType: item.anchorType ?? null,
       anchorValue: anchorValue,
+      taskType: taskType,
+      complexity: complexity,
       barrier: item.barrier
         ? {
             barrierTypeId: item.barrier.barrierTypeId ?? null,
