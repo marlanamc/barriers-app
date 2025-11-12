@@ -790,9 +790,9 @@ export async function getCurrentEnergyFromSchedule(userId: string): Promise<{
   if (!currentSchedule) {
     return null;
   }
-  
+
   return {
-    energy_key: currentSchedule.energy_key,
+    energy_key: currentSchedule.energy_key as 'sparky' | 'steady' | 'flowing' | 'foggy' | 'resting',
     schedule: currentSchedule,
     nextTransition,
   };
