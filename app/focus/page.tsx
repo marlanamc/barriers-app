@@ -1,38 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, CheckCircle2, Circle, Plus, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, CheckCircle2, Circle, Plus, Trash2, Pencil } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useCheckIn, MAX_FOCUS_ITEMS, type TaskAnchorType } from "@/lib/checkin-context";
-import { CATEGORY_OPTIONS, getCategoryEmoji } from "@/lib/categories";
+import { DEFAULT_CATEGORY_OPTIONS, getCategoryEmoji, getCategoryOptions } from "@/lib/categories";
 import { getBarrierTypes, saveCheckinWithFocus, getCheckinByDate, type BarrierType } from "@/lib/supabase";
-import { anchorValueForDisplay, cleanAnchorInput } from "@/lib/anchors";
+import { anchorValueForDisplay, cleanAnchorInput, getMergedAnchorSuggestions, defaultAnchorSuggestionMap } from "@/lib/anchors";
 import { hasBarrierSelection } from "@/lib/barrier-helpers";
 import { useSupabaseUser } from "@/lib/useSupabaseUser";
 import { getTodayLocalDateString } from "@/lib/date-utils";
-import { Pencil } from "lucide-react";
 
-const whileSuggestions = [
-  "while watching TV",
-  "while listening to music",
-  "while listening to a podcast",
-  "while listening to an audiobook",
-  "while waiting for laundry",
-  "while talking to a friend",
-];
-const beforeSuggestions = [
-  "before opening email",
-  "before the kids wake up",
-  "before leaving for work",
-  "before scrolling social media",
-];
-const afterSuggestions = [
-  "after lunch",
-  "after a shower",
-  "after walking the dog",
-  "after dinner cleanup",
-];
+// Default suggestions - will be merged with user presets
+const whileSuggestions = defaultAnchorSuggestionMap.while || [];
+const beforeSuggestions = defaultAnchorSuggestionMap.before || [];
+const afterSuggestions = defaultAnchorSuggestionMap.after || [];
 
 const anchorOptions: Array<{ type: TaskAnchorType; label: string }> = [
   { type: "at", label: "At…" },
@@ -273,6 +256,7 @@ export default function FocusScreen() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editItemId = searchParams.get('edit');
+  const isEditingSpecificItem = Boolean(editItemId);
   const {
     weather,
     forecastNote,
@@ -292,6 +276,7 @@ export default function FocusScreen() {
   const { user } = useSupabaseUser();
   const [text, setText] = useState("");
   const [tags, setTags] = useState<string[]>([]);
+  const [categoryOptions, setCategoryOptions] = useState(DEFAULT_CATEGORY_OPTIONS);
   const [barrierTypes, setBarrierTypes] = useState<BarrierType[]>([]);
   const [isMobile, setIsMobile] = useState(false);
   const [justCompleted, setJustCompleted] = useState<string | null>(null);
@@ -302,6 +287,12 @@ export default function FocusScreen() {
   const [editingItemId, setEditingItemId] = useState<string | null>(editItemId || null);
   const [previousFocusItemsLength, setPreviousFocusItemsLength] = useState(focusItems.length);
   const [hasClearedOnMount, setHasClearedOnMount] = useState(false);
+  const [mergedAnchorSuggestions, setMergedAnchorSuggestions] = useState<Partial<Record<TaskAnchorType, string[]>>>({
+    while: whileSuggestions,
+    before: beforeSuggestions,
+    after: afterSuggestions,
+  });
+  const initialFocusItemsLengthRef = useRef<number | null>(null);
   
   useEffect(() => {
     const checkMobile = () => {
@@ -317,6 +308,36 @@ export default function FocusScreen() {
   useEffect(() => {
     getBarrierTypes().then(setBarrierTypes);
   }, []);
+
+  // Load user anchor presets and merge with defaults
+  useEffect(() => {
+    if (!user?.id) return;
+    
+    const loadMergedSuggestions = async () => {
+      try {
+        const [whileMerged, beforeMerged, afterMerged] = await Promise.all([
+          getMergedAnchorSuggestions('while', user.id),
+          getMergedAnchorSuggestions('before', user.id),
+          getMergedAnchorSuggestions('after', user.id),
+        ]);
+        setMergedAnchorSuggestions({
+          while: whileMerged,
+          before: beforeMerged,
+          after: afterMerged,
+        });
+      } catch (error) {
+        console.error('Error loading merged anchor suggestions:', error);
+      }
+    };
+    
+    loadMergedSuggestions();
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (user?.id) {
+      getCategoryOptions(user.id).then(setCategoryOptions);
+    }
+  }, [user?.id]);
 
   // Load saved focus items from database ONLY if we're editing a specific item via URL
   // When adding a new item, don't load/show saved items - user should focus on one item at a time
@@ -391,7 +412,7 @@ export default function FocusScreen() {
   const handleAdd = () => {
     if (!text.trim()) return;
     
-    if (editingItemId) {
+    if (isEditingSpecificItem && editingItemId) {
       // Update existing item's description and categories
       const itemToUpdate = focusItems.find((item) => item.id === editingItemId);
       if (itemToUpdate) {
@@ -411,12 +432,11 @@ export default function FocusScreen() {
       if (!validationError) {
         setText("");
         setTags([]);
-        // Set editingItemId immediately after adding - the useEffect will handle it if needed
-        // but we also set it here to ensure it happens synchronously
-        // We'll use a small delay to let the state update
+        // Set editingItemId to the newly added item
+        // Use a small delay to let the state update
         setTimeout(() => {
           const activeItems = focusItems.filter((item) => !item.completed);
-          if (activeItems.length > 0 && !editingItemId) {
+          if (activeItems.length > 0) {
             const newestItem = activeItems.sort((a, b) => b.sortOrder - a.sortOrder)[0];
             setEditingItemId(newestItem.id);
           }
@@ -428,17 +448,18 @@ export default function FocusScreen() {
   // When a new item is added (not editing), set it as the editing item
   useEffect(() => {
     // Only set editingItemId if we're in "add mode" (no editItemId from URL) and have cleared on mount
-    if (!editItemId && !editingItemId && focusItems.length > previousFocusItemsLength && hasClearedOnMount) {
+    if (!editItemId && focusItems.length > previousFocusItemsLength && hasClearedOnMount) {
       // A new item was added (only after we've cleared on mount to avoid race conditions)
       const newItems = focusItems.filter((item) => !item.completed);
       if (newItems.length > 0) {
         // Get the most recently added item (highest sortOrder)
         const newestItem = newItems.sort((a, b) => b.sortOrder - a.sortOrder)[0];
+        // Always update to the newest item when a new one is added
         setEditingItemId(newestItem.id);
       }
     }
     setPreviousFocusItemsLength(focusItems.length);
-  }, [focusItems.length, previousFocusItemsLength, editingItemId, focusItems, hasClearedOnMount, editItemId]);
+  }, [focusItems.length, previousFocusItemsLength, focusItems, hasClearedOnMount, editItemId]);
 
   // Clear validation error when user starts typing
   useEffect(() => {
@@ -455,32 +476,38 @@ export default function FocusScreen() {
   // Clear focus items when entering "add mode" (no edit parameter) - only once on mount
   // This ensures saved items from homepage don't show when adding a new item
   useEffect(() => {
-    if (!editItemId && !hasClearedOnMount) {
+    // Only run this once on mount when there's no editItemId
+    // Use a ref to track if we've already cleared to prevent re-running
+    if (!editItemId && initialFocusItemsLengthRef.current === null && !hasClearedOnMount) {
+      // Capture the initial length on first mount - this is the value from when component mounted
+      // Items added after mount will have a different length, so we won't clear them
+      const mountTimeItemsLength = focusItems.length;
+      initialFocusItemsLengthRef.current = mountTimeItemsLength;
+      
       // User is adding a new item, clear any existing items from context
       // They'll be saved items from homepage - user should focus on one item at a time
-      // Only clear if there are items present on initial mount
-      const initialItems = focusItems.length;
-      if (initialItems > 0) {
+      // Only clear if there are items present on initial mount AND we haven't cleared yet
+      if (mountTimeItemsLength > 0) {
         clearFocusItems();
       }
       // Always set hasClearedOnMount to true to prevent this from running again
       setHasClearedOnMount(true);
     }
-  }, [editItemId, hasClearedOnMount, clearFocusItems]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array - only run once on mount
   
-  // When editing a specific item, filter to show only that item
+  // Show all focus items - don't filter by editingItemId
+  // The editingItemId is just used to highlight which item is currently being edited
   const itemsToShow = useMemo(() => {
-    if (editingItemId) {
-      return focusItems.filter((item) => item.id === editingItemId);
-    }
-    // When adding a new item, show only the items being added in this session
     return focusItems;
-  }, [focusItems, editingItemId]);
+  }, [focusItems]);
   
   const itemsToShowActive = useMemo(() => itemsToShow.filter((item) => !item.completed), [itemsToShow]);
   
   // Load item data when editing (for items already in focusItems)
   useEffect(() => {
+    if (!isEditingSpecificItem) return;
+
     if (editingItemId && focusItems.length > 0) {
       const itemToEdit = focusItems.find((item) => item.id === editingItemId);
       if (itemToEdit && (!text || text !== itemToEdit.description)) {
@@ -488,7 +515,7 @@ export default function FocusScreen() {
         setTags(itemToEdit.categories || []);
       }
     }
-  }, [editingItemId, focusItems, text]);
+  }, [isEditingSpecificItem, editingItemId, focusItems, text]);
   
   // Function to load saved items into draft for editing
   const handleEditSavedItems = () => {
@@ -527,7 +554,7 @@ export default function FocusScreen() {
           </div>
         </header>
 
-        <section className="rounded-3xl border border-white/20 bg-white/80 p-6 backdrop-blur dark:border-white/10 dark:bg-slate-900/70">
+        <section className="rounded-3xl border border-white/20 bg-white/80 p-6 backdrop-blur dark:border-slate-600/40 dark:bg-slate-800/80">
           <div className="space-y-4">
             <div>
               <label className="text-sm font-semibold text-slate-700 dark:text-slate-200" htmlFor="focus-text">
@@ -545,10 +572,10 @@ export default function FocusScreen() {
                   }
                 }}
                 placeholder={focusPlaceholder}
-                className={`mt-2 w-full rounded-2xl border px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 dark:text-slate-100 dark:placeholder:text-slate-400 ${
+                className={`mt-2 w-full rounded-2xl border px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 dark:text-slate-100 dark:placeholder:text-slate-500 ${
                   validationError 
-                    ? 'border-rose-300 bg-rose-50/50 focus:border-rose-400 focus:ring-rose-100 dark:border-rose-500/70 dark:bg-rose-500/10 dark:focus:border-rose-400 dark:focus:ring-rose-900/40' 
-                    : 'border-white/40 bg-white/80 focus:border-cyan-300 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-900/60 dark:focus:border-cyan-500 dark:focus:ring-cyan-900/40'
+                    ? 'border-rose-300 bg-rose-50/50 focus:border-rose-400 focus:ring-rose-100 dark:border-rose-500/60 dark:bg-rose-500/15 dark:focus:border-rose-400 dark:focus:ring-rose-900/40' 
+                    : 'border-white/40 bg-white/80 focus:border-cyan-300 focus:ring-cyan-100 dark:border-slate-600/50 dark:bg-slate-700/60 dark:focus:border-cyan-500 dark:focus:ring-cyan-900/40'
                 }`}
                 aria-invalid={!!validationError}
                 aria-describedby={validationError ? "focus-error" : undefined}
@@ -563,7 +590,7 @@ export default function FocusScreen() {
             <div>
               <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Category tags</p>
               <div className="mt-2 flex flex-wrap gap-2 text-sm">
-                {CATEGORY_OPTIONS.map((option) => {
+                {categoryOptions.map((option) => {
                   const active = tags.includes(option.label);
                   return (
                     <button
@@ -573,10 +600,10 @@ export default function FocusScreen() {
                       className={`rounded-full px-4 py-1.5 font-medium transition ${
                         active
                           ? "bg-cyan-100 text-cyan-800 dark:bg-cyan-500/30 dark:text-cyan-100"
-                          : "bg-white/70 text-slate-600 hover:bg-white dark:bg-slate-900/60 dark:text-slate-300 dark:hover:bg-slate-800"
+                          : "bg-white/70 text-slate-600 hover:bg-white dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60"
                       }`}
                     >
-                      <span className="mr-1">{option.emoji}</span>
+                      {option.emoji && <span className="mr-1">{option.emoji}</span>}
                       {option.label}
                     </button>
                   );
@@ -587,12 +614,12 @@ export default function FocusScreen() {
             <button
               type="button"
               onClick={handleAdd}
-              disabled={!text.trim() || (!editingItemId && activeCount >= MAX_FOCUS_ITEMS)}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-cyan-200 bg-white/80 px-4 py-3 font-semibold text-cyan-700 transition hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900/70 dark:text-cyan-200 dark:hover:bg-slate-800"
+              disabled={!text.trim() || (!isEditingSpecificItem && activeCount >= MAX_FOCUS_ITEMS)}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-cyan-200 bg-white/80 px-4 py-3 font-semibold text-cyan-700 transition hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600/50 dark:bg-slate-800/60 dark:text-cyan-200 dark:hover:bg-slate-700/60"
             >
               <Plus className="h-5 w-5" />
-              {editingItemId ? "Update focus" : "Add focus"}
-              {!editingItemId && <span className="text-sm text-cyan-500 dark:text-cyan-400">{activeCount}/{MAX_FOCUS_ITEMS}</span>}
+              {isEditingSpecificItem ? "Update focus" : "Add focus"}
+              {!isEditingSpecificItem && <span className="text-sm text-cyan-500 dark:text-cyan-400">{activeCount}/{MAX_FOCUS_ITEMS}</span>}
             </button>
           </div>
         </section>
@@ -652,7 +679,7 @@ export default function FocusScreen() {
                     const contextualType = anchorSelected && anchorSelected !== "at" ? anchorSelected : null;
                     const contextLabel = contextualType ? anchorTextLabels[contextualType] : "";
                     const contextPlaceholder = contextualType ? anchorPlaceholders[contextualType] : "";
-                    const contextSuggestions = contextualType ? anchorSuggestionMap[contextualType] ?? [] : [];
+                    const contextSuggestions = contextualType ? (mergedAnchorSuggestions[contextualType] ?? []) : [];
                     const anchorDisplayValue = anchorValueForDisplay(anchorSelected, anchorValue);
                     const anchorSummaryType = anchorSelected && anchorDisplayValue ? anchorSelected : null;
 
@@ -661,8 +688,8 @@ export default function FocusScreen() {
                         key={item.id}
                         className={`space-y-4 rounded-3xl border p-5 shadow-sm transition-all duration-300 ${
                           justCompleted === item.id
-                            ? 'border-emerald-200 bg-emerald-50/50 dark:border-emerald-700 dark:bg-emerald-900/20 scale-[1.02]'
-                            : 'border-white/30 bg-white/80 dark:border-slate-700 dark:bg-slate-800'
+                            ? 'border-emerald-200 bg-emerald-50/50 dark:border-emerald-600/50 dark:bg-emerald-900/30 scale-[1.02]'
+                            : 'border-white/30 bg-white/80 dark:border-slate-600/50 dark:bg-slate-800/60'
                         }`}
                       >
                         <div className="flex items-start gap-3">
@@ -730,57 +757,80 @@ export default function FocusScreen() {
                           <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                             What feels hard? (needed before the next step)
                           </label>
-                          <div className="space-y-3">
+                          <div className="space-y-4">
                             {barrierGroups.length > 0 ? (
-                              barrierGroups.map((group) => (
-                                <div
-                                  key={group.title}
-                                  className="rounded-2xl border border-white/30 bg-white/70 p-3 dark:border-slate-800 dark:bg-slate-900/40"
-                                >
-                                  <div className="flex items-baseline justify-between gap-4">
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                              barrierGroups.map((group) => {
+                                // Color bands for different groups
+                                const groupColors: Record<string, { bg: string; border: string; darkBg: string; darkBorder: string }> = {
+                                  "Energy & Motivation": {
+                                    bg: "bg-amber-50/50",
+                                    border: "border-amber-200/50",
+                                    darkBg: "dark:bg-amber-900/20",
+                                    darkBorder: "dark:border-amber-700/30"
+                                  },
+                                  "Focus & Overwhelm": {
+                                    bg: "bg-blue-50/50",
+                                    border: "border-blue-200/50",
+                                    darkBg: "dark:bg-blue-900/20",
+                                    darkBorder: "dark:border-blue-700/30"
+                                  },
+                                  "Time & Avoidance": {
+                                    bg: "bg-purple-50/50",
+                                    border: "border-purple-200/50",
+                                    darkBg: "dark:bg-purple-900/20",
+                                    darkBorder: "dark:border-purple-700/30"
+                                  },
+                                  "Emotional & Relational": {
+                                    bg: "bg-rose-50/50",
+                                    border: "border-rose-200/50",
+                                    darkBg: "dark:bg-rose-900/20",
+                                    darkBorder: "dark:border-rose-700/30"
+                                  },
+                                };
+                                
+                                const colors = groupColors[group.title] || {
+                                  bg: "bg-slate-50/50",
+                                  border: "border-slate-200/50",
+                                  darkBg: "dark:bg-slate-800/30",
+                                  darkBorder: "dark:border-slate-600/30"
+                                };
+                                
+                                return (
+                                  <div
+                                    key={group.title}
+                                    className={`rounded-2xl border ${colors.bg} ${colors.border} ${colors.darkBg} ${colors.darkBorder} p-3`}
+                                  >
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300 mb-2.5">
                                       {group.title}
                                     </p>
-                                    {group.description && (
-                                      <p className="text-[11px] text-slate-400 dark:text-slate-400">{group.description}</p>
-                                    )}
-                                  </div>
-                                  <div className="mt-2 space-y-2">
-                                    {group.options.map((barrier) => {
-                                      const meta = getBarrierDisplayMeta(barrier);
-                                      const active = isCurrentBarrier(barrier);
-                                      return (
-                                        <button
-                                          type="button"
-                                          key={barrier.id ?? barrier.slug ?? meta.label}
-                                          onClick={() => toggleBarrierSelection(barrier)}
-                                          aria-pressed={active}
-                                          className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
-                                            active
-                                              ? "border-cyan-400 bg-cyan-50/80 shadow-sm dark:border-cyan-500/60 dark:bg-cyan-500/10"
-                                              : "border-white/40 bg-white/70 hover:border-cyan-200 hover:bg-white dark:border-slate-800 dark:bg-slate-900/60 dark:hover:border-cyan-500/40"
-                                          }`}
-                                        >
-                                          <div className="flex items-start gap-3">
-                                            <span className="text-xl leading-none">{meta.emoji}</span>
-                                            <div className="flex-1">
-                                              <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-                                                {meta.label}
-                                              </p>
-                                              {meta.helperText && (
-                                                <p className="text-xs text-slate-500 dark:text-slate-400">{meta.helperText}</p>
-                                              )}
-                                            </div>
+                                    <div className="flex flex-wrap gap-2">
+                                      {group.options.map((barrier) => {
+                                        const meta = getBarrierDisplayMeta(barrier);
+                                        const active = isCurrentBarrier(barrier);
+                                        return (
+                                          <button
+                                            type="button"
+                                            key={barrier.id ?? barrier.slug ?? meta.label}
+                                            onClick={() => toggleBarrierSelection(barrier)}
+                                            aria-pressed={active}
+                                            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                                              active
+                                                ? "bg-cyan-600 text-white shadow-sm dark:bg-cyan-500"
+                                                : "bg-white/80 text-slate-700 hover:bg-white dark:bg-slate-800/60 dark:text-slate-200 dark:hover:bg-slate-700/60"
+                                            }`}
+                                          >
+                                            <span className="text-base leading-none">{meta.emoji}</span>
+                                            <span>{meta.label}</span>
                                             {active && (
-                                              <CheckCircle2 className="h-4 w-4 text-cyan-500 dark:text-cyan-400" aria-hidden="true" />
+                                              <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
                                             )}
-                                          </div>
-                                        </button>
-                                      );
-                                    })}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
                                   </div>
-                                </div>
-                              ))
+                                );
+                              })
                             ) : (
                               <p className="text-sm text-slate-500 dark:text-slate-400">
                                 Loading barrier ideas from the ADHD First Aid Kit…
@@ -797,11 +847,11 @@ export default function FocusScreen() {
                               })
                             }
                             placeholder="Add your own words about what feels hard..."
-                            className="w-full rounded-2xl border border-white/40 bg-white/80 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus:border-cyan-500 dark:focus:ring-cyan-900/40"
+                            className="w-full rounded-2xl border border-white/40 bg-white/80 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-100 dark:border-slate-600/50 dark:bg-slate-700/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-cyan-500 dark:focus:ring-cyan-900/40"
                           />
                         </div>
 
-                        <div className="space-y-3 rounded-2xl border border-dashed border-cyan-100 bg-cyan-50/50 px-4 py-4 dark:border-cyan-900/40 dark:bg-cyan-900/10">
+                        <div className="space-y-3 rounded-2xl border border-dashed border-cyan-100 bg-cyan-50/50 px-4 py-4 dark:border-cyan-800/40 dark:bg-cyan-900/20">
                           <div>
                             <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                               Anchor it to something? (optional)
@@ -834,7 +884,7 @@ export default function FocusScreen() {
                                   className={`rounded-full px-4 py-1.5 font-semibold transition ${
                                     active
                                       ? "bg-cyan-600 text-white shadow dark:bg-cyan-500 dark:text-slate-900"
-                                      : "bg-white text-slate-600 hover:bg-cyan-100 dark:bg-slate-900/60 dark:text-slate-300 dark:hover:bg-slate-800"
+                                      : "bg-white text-slate-600 hover:bg-cyan-100 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60"
                                   }`}
                                 >
                                   {label}
@@ -857,7 +907,7 @@ export default function FocusScreen() {
                                     anchorValue: event.target.value,
                                   })
                                 }
-                                className="w-full rounded-2xl border-2 border-cyan-200 bg-white px-4 py-3 text-lg font-medium text-slate-900 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-100 dark:border-cyan-600 dark:bg-slate-900/70 dark:text-slate-100 dark:focus:border-cyan-500 dark:focus:ring-cyan-900/40"
+                                className="w-full rounded-2xl border-2 border-cyan-200 bg-white px-4 py-3 text-lg font-medium text-slate-900 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-100 dark:border-cyan-600/50 dark:bg-slate-800/60 dark:text-slate-100 dark:focus:border-cyan-500 dark:focus:ring-cyan-900/40"
                                 placeholder="Select time"
                               />
                               <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -881,7 +931,7 @@ export default function FocusScreen() {
                                   })
                                 }
                                 placeholder={contextPlaceholder}
-                                className="w-full rounded-2xl border border-white/80 bg-white/90 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus:border-cyan-500 dark:focus:ring-cyan-900/40"
+                                className="w-full rounded-2xl border border-white/80 bg-white/90 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-100 dark:border-slate-600/50 dark:bg-slate-700/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-cyan-500 dark:focus:ring-cyan-900/40"
                               />
                               {contextSuggestions.length > 0 && (
                                 <div className="flex flex-wrap gap-2 text-xs">
@@ -895,7 +945,7 @@ export default function FocusScreen() {
                                           anchorValue: cleanAnchorInput(contextualType, suggestion),
                                         })
                                       }
-                                      className="rounded-full border border-white/60 bg-white/80 px-3 py-1 text-slate-600 transition hover:border-cyan-200 hover:text-cyan-700 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200 dark:hover:border-cyan-400 dark:hover:text-cyan-200"
+                                      className="rounded-full border border-white/60 bg-white/80 px-3 py-1 text-slate-600 transition hover:border-cyan-200 hover:text-cyan-700 dark:border-slate-600/50 dark:bg-slate-800/60 dark:text-slate-200 dark:hover:border-cyan-400 dark:hover:text-cyan-200"
                                     >
                                       {suggestion}
                                     </button>
@@ -924,7 +974,7 @@ export default function FocusScreen() {
             )}
 
             {itemsToShow.filter((item) => item.completed).length > 0 && (
-              <div className="space-y-2 border-t border-white/40 pt-4 dark:border-white/10">
+              <div className="space-y-2 border-t border-white/40 pt-4 dark:border-slate-600/40">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Completed</p>
                 <div className="space-y-2">
                   {itemsToShow
@@ -932,7 +982,7 @@ export default function FocusScreen() {
                     .map((item) => (
                     <div
                       key={item.id}
-                      className="flex items-center gap-3 rounded-3xl border border-dashed border-emerald-200 bg-emerald-50/60 px-4 py-3 dark:border-emerald-500/40 dark:bg-emerald-500/10"
+                      className="flex items-center gap-3 rounded-3xl border border-dashed border-emerald-200 bg-emerald-50/60 px-4 py-3 dark:border-emerald-600/40 dark:bg-emerald-900/25"
                     >
                       <button
                         type="button"

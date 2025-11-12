@@ -8,29 +8,13 @@ import { updatePlannedItem, getPlannedItems, type PlannedItemWithBarrier } from 
 import { useSupabaseUser } from "@/lib/useSupabaseUser";
 import { CATEGORY_OPTIONS, getCategoryEmoji } from "@/lib/categories";
 import { getBarrierTypes, type BarrierType } from "@/lib/supabase";
-import { anchorValueForDisplay, cleanAnchorInput } from "@/lib/anchors";
+import { anchorValueForDisplay, cleanAnchorInput, getMergedAnchorSuggestions, defaultAnchorSuggestionMap } from "@/lib/anchors";
 import type { TaskAnchorType } from "@/lib/checkin-context";
 
-const whileSuggestions = [
-  "while watching TV",
-  "while listening to music",
-  "while listening to a podcast",
-  "while listening to an audiobook",
-  "while waiting for laundry",
-  "while talking to a friend",
-];
-const beforeSuggestions = [
-  "before opening email",
-  "before the kids wake up",
-  "before leaving for work",
-  "before scrolling social media",
-];
-const afterSuggestions = [
-  "after lunch",
-  "after a shower",
-  "after walking the dog",
-  "after dinner cleanup",
-];
+// Default suggestions - will be merged with user presets
+const whileSuggestions = defaultAnchorSuggestionMap.while || [];
+const beforeSuggestions = defaultAnchorSuggestionMap.before || [];
+const afterSuggestions = defaultAnchorSuggestionMap.after || [];
 
 const anchorOptions: Array<{ type: TaskAnchorType; label: string }> = [
   { type: "at", label: "At…" },
@@ -51,11 +35,7 @@ const anchorPlaceholders: Record<Exclude<TaskAnchorType, "at">, string> = {
   after: "dinner cleanup...",
 };
 
-const anchorSuggestionMap: Partial<Record<TaskAnchorType, string[]>> = {
-  while: whileSuggestions,
-  before: beforeSuggestions,
-  after: afterSuggestions,
-};
+// anchorSuggestionMap is now replaced by mergedAnchorSuggestions state
 
 type BarrierGroupDefinition = {
   title: string;
@@ -227,12 +207,41 @@ export default function EditPlannedItemPage() {
   const [customBarrier, setCustomBarrier] = useState("");
   const [anchorType, setAnchorType] = useState<TaskAnchorType | null>(null);
   const [anchorValue, setAnchorValue] = useState("");
+  const [mergedAnchorSuggestions, setMergedAnchorSuggestions] = useState<Partial<Record<TaskAnchorType, string[]>>>({
+    while: whileSuggestions,
+    before: beforeSuggestions,
+    after: afterSuggestions,
+  });
 
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   useEffect(() => {
     getBarrierTypes().then(setBarrierTypes);
   }, []);
+
+  // Load user anchor presets and merge with defaults
+  useEffect(() => {
+    if (!user?.id) return;
+    
+    const loadMergedSuggestions = async () => {
+      try {
+        const [whileMerged, beforeMerged, afterMerged] = await Promise.all([
+          getMergedAnchorSuggestions('while', user.id),
+          getMergedAnchorSuggestions('before', user.id),
+          getMergedAnchorSuggestions('after', user.id),
+        ]);
+        setMergedAnchorSuggestions({
+          while: whileMerged,
+          before: beforeMerged,
+          after: afterMerged,
+        });
+      } catch (error) {
+        console.error('Error loading merged anchor suggestions:', error);
+      }
+    };
+    
+    loadMergedSuggestions();
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user?.id || !itemId) return;
@@ -618,9 +627,9 @@ export default function EditPlannedItemPage() {
                   placeholder={anchorPlaceholders[anchorType]}
                   className="w-full rounded-2xl border border-white/80 bg-white/90 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-100"
                 />
-                {anchorSuggestionMap[anchorType] && (
+                {mergedAnchorSuggestions[anchorType] && (
                   <div className="flex flex-wrap gap-2 text-xs">
-                    {anchorSuggestionMap[anchorType]!.map((suggestion) => (
+                    {mergedAnchorSuggestions[anchorType]!.map((suggestion) => (
                       <button
                         type="button"
                         key={suggestion}

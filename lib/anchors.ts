@@ -1,4 +1,65 @@
 import type { TaskAnchorType } from './checkin-context';
+import { getAnchorPresets } from './supabase';
+
+// Default anchor suggestions
+export const defaultWhileSuggestions = [
+  "while watching TV",
+  "while listening to music",
+  "while listening to a podcast",
+  "while listening to an audiobook",
+  "while waiting for laundry",
+  "while talking to a friend",
+];
+
+export const defaultBeforeSuggestions = [
+  "before opening email",
+  "before the kids wake up",
+  "before leaving for work",
+  "before scrolling social media",
+];
+
+export const defaultAfterSuggestions = [
+  "after lunch",
+  "after a shower",
+  "after walking the dog",
+  "after dinner cleanup",
+];
+
+export const defaultAnchorSuggestionMap: Partial<Record<TaskAnchorType, string[]>> = {
+  while: defaultWhileSuggestions,
+  before: defaultBeforeSuggestions,
+  after: defaultAfterSuggestions,
+};
+
+/**
+ * Get merged anchor suggestions (defaults + user presets)
+ * Returns defaults if userId is not provided or if there's an error
+ */
+export async function getMergedAnchorSuggestions(
+  anchorType: Exclude<TaskAnchorType, 'at'>,
+  userId?: string | null
+): Promise<string[]> {
+  const defaults = defaultAnchorSuggestionMap[anchorType] || [];
+  
+  if (!userId) {
+    return defaults;
+  }
+
+  try {
+    const userPresets = await getAnchorPresets(userId, anchorType);
+    // Merge: user presets first, then defaults (avoiding duplicates)
+    const merged = [...userPresets];
+    defaults.forEach((defaultSuggestion) => {
+      if (!merged.includes(defaultSuggestion)) {
+        merged.push(defaultSuggestion);
+      }
+    });
+    return merged;
+  } catch (error) {
+    console.error('Error loading user anchor presets:', error);
+    return defaults;
+  }
+}
 
 function formatTimeFromValue(value: string) {
   const trimmed = value.trim();

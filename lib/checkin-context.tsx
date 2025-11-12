@@ -155,11 +155,13 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
       }
       
       const id = crypto.randomUUID();
+      // Calculate sortOrder based on active items only
+      const activeItems = prev.filter((item) => !item.completed);
       const next: FocusItemState = {
         id,
         description: trimmedDescription,
         categories: categories || [],
-        sortOrder: prev.length,
+        sortOrder: activeItems.length,
         plannedItemId: null,
         barrier: null,
         anchorType: null,

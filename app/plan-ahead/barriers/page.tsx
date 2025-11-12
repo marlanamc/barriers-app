@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { useEffect, useState, useMemo } from "react";
+import { ArrowLeft, ArrowRight, CheckCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { usePlanning } from "@/lib/planning-context";
@@ -9,6 +9,155 @@ import { getBarrierTypes, type BarrierType } from "@/lib/supabase";
 import { buildAnchorPhrase, cleanAnchorInput } from "@/lib/anchors";
 import { getCategoryEmoji } from "@/lib/categories";
 import type { TaskAnchorType } from "@/lib/planning-context";
+
+// Barrier group definitions matching focus page
+type BarrierGroupDefinition = {
+  title: string;
+  slugOrder: string[];
+  description: string;
+};
+
+type BarrierGroup = {
+  title: string;
+  description: string;
+  options: BarrierType[];
+};
+
+const barrierGroupDefinitions: BarrierGroupDefinition[] = [
+  {
+    title: "Energy & Motivation",
+    slugOrder: ["low-energy", "no-motivation", "decision-fatigue"],
+    description: "Body and brain fuel checks",
+  },
+  {
+    title: "Focus & Overwhelm",
+    slugOrder: ["stuck-frozen", "cant-focus", "overwhelm"],
+    description: "Getting started or staying with it",
+  },
+  {
+    title: "Time & Avoidance",
+    slugOrder: ["no-time", "perfection-loop", "keep-avoiding-it"],
+    description: "Schedules, loops, and slippery tasks",
+  },
+  {
+    title: "Emotional & Relational",
+    slugOrder: ["shame-guilt", "feeling-alone"],
+    description: "Feelings and people dynamics",
+  },
+];
+
+const barrierSlugAliases: Record<string, string> = {
+  overwhelmed: "overwhelm",
+  focus: "cant-focus",
+  "time-pressure": "no-time",
+  perfectionism: "perfection-loop",
+};
+
+function createBarrierSlugMap(barriers: BarrierType[]): Record<string, BarrierType> {
+  const map = barriers.reduce<Record<string, BarrierType>>((acc, barrier) => {
+    const slug = barrier.slug?.toLowerCase();
+    if (slug) {
+      acc[slug] = barrier;
+    }
+    return acc;
+  }, {});
+
+  Object.entries(barrierSlugAliases).forEach(([alias, canonical]) => {
+    const aliasSlug = alias.toLowerCase();
+    const canonicalSlug = canonical.toLowerCase();
+    if (map[aliasSlug] && !map[canonicalSlug]) {
+      map[canonicalSlug] = map[aliasSlug];
+    } else if (!map[aliasSlug] && map[canonicalSlug]) {
+      map[aliasSlug] = map[canonicalSlug];
+    }
+  });
+
+  return map;
+}
+
+function buildBarrierGroups(
+  barrierTypes: BarrierType[],
+  slugMap: Record<string, BarrierType>
+): BarrierGroup[] {
+  if (!barrierTypes.length) return [];
+
+  const used = new Set<string>();
+  const groups: BarrierGroup[] = [];
+
+  for (const definition of barrierGroupDefinitions) {
+    const options = definition.slugOrder
+      .map((slug) => {
+        const key = slug.toLowerCase();
+        const barrier = slugMap[key];
+        if (barrier) {
+          used.add(key);
+          return barrier;
+        }
+        return null;
+      })
+      .filter(Boolean) as BarrierType[];
+
+    if (options.length) {
+      groups.push({
+        title: definition.title,
+        description: definition.description,
+        options,
+      });
+    }
+  }
+
+  const remaining = barrierTypes
+    .filter((barrier) => {
+      const slug = barrier.slug?.toLowerCase();
+      return slug ? !used.has(slug) : false;
+    })
+    .sort((a, b) => (a.label ?? "").localeCompare(b.label ?? ""));
+
+  if (remaining.length) {
+    groups.push({
+      title: "More barriers",
+      description: "Other things that might get in the way",
+      options: remaining,
+    });
+  }
+
+  return groups;
+}
+
+type BarrierCompanionMeta = {
+  label: string;
+  emoji: string;
+};
+
+const barrierCompanionOverrides: Record<string, BarrierCompanionMeta> = {
+  "low-energy": { label: "Low Energy", emoji: "🪫" },
+  "no-motivation": { label: "Low Motivation", emoji: "😴" },
+  "decision-fatigue": { label: "Decision Fatigue", emoji: "💭" },
+  "stuck-frozen": { label: "Stuck / Frozen", emoji: "🧊" },
+  "cant-focus": { label: "Can't Stay Focused", emoji: "🎯" },
+  overwhelm: { label: "Overwhelmed", emoji: "🌀" },
+  "no-time": { label: "No Time", emoji: "⏰" },
+  "keep-avoiding-it": { label: "Keep Avoiding It", emoji: "📅" },
+  "perfection-loop": { label: "Perfection Loop", emoji: "🔄" },
+  "shame-guilt": { label: "Shame / Guilt", emoji: "💔" },
+  "waiting-on-someone": { label: "Waiting on Someone", emoji: "💬" },
+  "feeling-alone": { label: "Feeling Alone", emoji: "🧍" },
+};
+
+type BarrierDisplayMeta = {
+  label: string;
+  emoji: string;
+  helperText?: string;
+};
+
+function getBarrierDisplayMeta(barrier: BarrierType): BarrierDisplayMeta {
+  const slug = barrier.slug?.toLowerCase() ?? "";
+  const override = barrierCompanionOverrides[slug];
+  const label = override?.label ?? barrier.label ?? "Barrier";
+  const emoji = override?.emoji ?? barrier.icon ?? "🌀";
+  const helperText = barrier.description ?? undefined;
+  return { label, emoji, helperText };
+}
 
 const anchorOptions: Array<{ type: TaskAnchorType; label: string }> = [
   { type: "at", label: "At…" },
@@ -34,6 +183,7 @@ export default function PlanAheadBarriersPage() {
   const [selectedAnchorType, setSelectedAnchorType] = useState<TaskAnchorType | null>(null);
   const [anchorTime, setAnchorTime] = useState("");
   const [anchorText, setAnchorText] = useState("");
+  const [justSelectedBarrier, setJustSelectedBarrier] = useState<string | null>(null);
 
   const currentItem = plannedItems[currentItemIndex];
   const isLastItem = currentItemIndex === plannedItems.length - 1;
@@ -41,6 +191,22 @@ export default function PlanAheadBarriersPage() {
   useEffect(() => {
     getBarrierTypes().then(setBarrierTypes);
   }, []);
+
+  const barrierBySlug = useMemo(() => createBarrierSlugMap(barrierTypes), [barrierTypes]);
+  const barrierGroups = useMemo(
+    () => buildBarrierGroups(barrierTypes, barrierBySlug),
+    [barrierTypes, barrierBySlug]
+  );
+
+  // Get selected barrier info for summary
+  const selectedBarrierInfo = useMemo(() => {
+    if (!selectedBarrier) return null;
+    const barrier = barrierTypes.find((b) => b.id === selectedBarrier.id);
+    if (!barrier) return null;
+    const meta = getBarrierDisplayMeta(barrier);
+    const group = barrierGroups.find((g) => g.options.some((o) => o.id === barrier.id));
+    return { barrier, meta, groupTitle: group?.title };
+  }, [selectedBarrier, barrierTypes, barrierGroups]);
 
   // Load existing data when changing items
   useEffect(() => {
@@ -71,6 +237,26 @@ export default function PlanAheadBarriersPage() {
       setAnchorText("");
     }
   }, [currentItemIndex, currentItem, barrierTypes]);
+
+  const isCurrentBarrier = (barrier: BarrierType) => {
+    if (!selectedBarrier) return false;
+    const slug = barrier.slug?.toLowerCase();
+    if (slug && selectedBarrier.slug) {
+      return slug === selectedBarrier.slug.toLowerCase();
+    }
+    return barrier.id === selectedBarrier.id;
+  };
+
+  const toggleBarrierSelection = (barrier: BarrierType) => {
+    if (isCurrentBarrier(barrier)) {
+      setSelectedBarrier(null);
+    } else {
+      setSelectedBarrier({ id: barrier.id, slug: barrier.slug });
+      // Add selection animation feedback
+      setJustSelectedBarrier(barrier.id);
+      setTimeout(() => setJustSelectedBarrier(null), 300);
+    }
+  };
 
   const handleNext = () => {
     // Save current item's barrier and anchor
@@ -166,31 +352,102 @@ export default function PlanAheadBarriersPage() {
 
         <section className="space-y-6 rounded-3xl border border-white/20 bg-white/80 p-6 backdrop-blur">
           {/* Barrier Selection */}
-          <div className="space-y-3">
+          <div className="space-y-4">
+            <div>
             <label className="text-sm font-semibold text-slate-700">
               What feels hard about this? (optional)
             </label>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {barrierTypes.map((barrier) => {
-                const isSelected = selectedBarrier?.id === barrier.id;
-                return (
-                  <button
-                    key={barrier.id}
-                    type="button"
-                    onClick={() =>
-                      setSelectedBarrier(isSelected ? null : { id: barrier.id, slug: barrier.slug })
-                    }
-                    className={`rounded-2xl border px-4 py-3 text-left transition ${
-                      isSelected
-                        ? "border-emerald-300 bg-emerald-50 ring-2 ring-emerald-200"
-                        : "border-white/40 bg-white/70 hover:border-emerald-200"
-                    }`}
-                  >
-                    <span className="text-lg">{barrier.icon}</span>
-                    <p className="font-semibold text-slate-900">{barrier.label}</p>
-                  </button>
-                );
-              })}
+              {/* Summary line */}
+              {selectedBarrierInfo && (
+                <p className="mt-1 text-xs text-slate-600">
+                  You've chosen <span className="font-semibold">"{selectedBarrierInfo.meta.label}"</span>
+                  {selectedBarrierInfo.groupTitle && (
+                    <> from <span className="font-medium">{selectedBarrierInfo.groupTitle}</span></>
+                  )}
+                </p>
+              )}
+            </div>
+
+            {/* Barrier groups with pills */}
+            <div className="space-y-4">
+              {barrierGroups.length > 0 ? (
+                barrierGroups.map((group) => {
+                  // Category color coding with subtle tints
+                  const groupColors: Record<string, { bg: string; border: string }> = {
+                    "Energy & Motivation": {
+                      bg: "bg-amber-50/30 dark:bg-amber-900/10",
+                      border: "border-amber-200/30 dark:border-amber-700/20",
+                    },
+                    "Focus & Overwhelm": {
+                      bg: "bg-sky-50/30 dark:bg-sky-900/10",
+                      border: "border-sky-200/30 dark:border-sky-700/20",
+                    },
+                    "Time & Avoidance": {
+                      bg: "bg-violet-50/30 dark:bg-violet-900/10",
+                      border: "border-violet-200/30 dark:border-violet-700/20",
+                    },
+                    "Emotional & Relational": {
+                      bg: "bg-rose-50/30 dark:bg-rose-900/10",
+                      border: "border-rose-200/30 dark:border-rose-700/20",
+                    },
+                  };
+
+                  const colors = groupColors[group.title] || {
+                    bg: "bg-slate-50/20 dark:bg-slate-800/20",
+                    border: "border-slate-200/20 dark:border-slate-600/20",
+                  };
+
+                  return (
+                    <div
+                      key={group.title}
+                      className={`category-box rounded-2xl border p-3 ${colors.bg} ${colors.border}`}
+                    >
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300 mb-3">
+                        {group.title}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {group.options.map((barrier) => {
+                          const meta = getBarrierDisplayMeta(barrier);
+                          const active = isCurrentBarrier(barrier);
+                          const isJustSelected = justSelectedBarrier === barrier.id;
+                          return (
+                            <button
+                              type="button"
+                              key={barrier.id ?? barrier.slug ?? meta.label}
+                              onClick={() => toggleBarrierSelection(barrier)}
+                              aria-pressed={active}
+                              className={`pill inline-flex items-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-medium transition-all duration-300 min-h-[44px] ${
+                                active
+                                  ? "selected bg-gradient-to-br from-[#74C8FF] to-[#8AEFFF] text-[#0B172A] font-semibold shadow-md"
+                                  : "bg-white/80 text-slate-700 hover:bg-white/90 dark:bg-slate-800/60 dark:text-slate-200 dark:hover:bg-slate-700/60"
+                              }`}
+                              style={{
+                                animation: isJustSelected ? "microBounce 0.3s ease-in-out" : undefined,
+                              }}
+                            >
+                              <span className="text-base leading-none">{meta.emoji}</span>
+                              <span>{meta.label}</span>
+                              {active && (
+                                <CheckCircle2 
+                                  className="h-4 w-4 flex-shrink-0 ml-0.5" 
+                                  aria-hidden="true"
+                                  style={{
+                                    animation: "fadeIn 0.3s ease-in-out",
+                                  }}
+                                />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Loading barrier ideas from the ADHD First Aid Kit…
+                </p>
+              )}
             </div>
 
             <input
@@ -198,7 +455,7 @@ export default function PlanAheadBarriersPage() {
               value={customBarrier}
               onChange={(e) => setCustomBarrier(e.target.value)}
               placeholder="Or describe your own barrier..."
-              className="w-full rounded-2xl border border-white/40 bg-white/80 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+              className="w-full rounded-2xl border border-white/40 bg-white/80 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-100 dark:border-slate-600/50 dark:bg-slate-700/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-emerald-500 dark:focus:ring-emerald-900/40"
             />
           </div>
 

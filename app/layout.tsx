@@ -6,6 +6,7 @@ import { PlanningProvider } from "@/lib/planning-context";
 import { ThemeProvider } from "@/lib/theme-context";
 import { AuthProvider } from "@/components/AuthProvider";
 import { ThemeColorUpdater } from "@/components/ThemeColorUpdater";
+import { GlobalNavigation } from "@/components/GlobalNavigation";
 
 export const metadata: Metadata = {
   title: "ADHD Barrier Tracker",
@@ -60,7 +61,10 @@ export default function RootLayout({
           <ThemeColorUpdater />
           <AuthProvider>
             <CheckInProvider>
-              <PlanningProvider>{children}</PlanningProvider>
+              <PlanningProvider>
+                <GlobalNavigation />
+                {children}
+              </PlanningProvider>
             </CheckInProvider>
           </AuthProvider>
         </ThemeProvider>

@@ -17,6 +17,19 @@ module.exports = {
           green: '#D6FFE8',
           yellow: '#FFEFD6',
           peach: '#FFE6D6',
+        },
+        // Calming pastel lavender colors for light mode
+        lavender: {
+          50: '#FAF8FF',
+          100: '#F3F0FF',
+          200: '#E8E2FF',
+          300: '#D4C7FF',
+          400: '#B8A3FF',
+          500: '#9B7FFF',
+          600: '#7C5AFF',
+          700: '#5D3AFF',
+          800: '#4A2ED9',
+          900: '#3A23B3',
         }
       }
     },

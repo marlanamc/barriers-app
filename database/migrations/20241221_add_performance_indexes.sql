@@ -19,3 +19,4 @@ CREATE INDEX IF NOT EXISTS idx_planned_items_barrier_type
 ON planned_items(barrier_type_id) 
 WHERE barrier_type_id IS NOT NULL;
 
+

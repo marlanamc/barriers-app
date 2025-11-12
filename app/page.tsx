@@ -4,10 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, CalendarDays, CalendarPlus, CheckCircle2, Circle, GripVertical, LineChart, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
-import { InternalWeatherSelector, internalWeatherOptions } from "@/components/InternalWeatherSelector";
+import { InternalWeatherSelector, internalWeatherOptions, getIconName, getIconComponent, type EnergyTypeOption } from "@/components/InternalWeatherSelector";
 import { AppWordmark } from "@/components/AppWordmark";
-import { ThemeToggle } from "@/components/ThemeToggle";
-import { UserMenu } from "@/components/UserMenu";
 import { useCheckIn, MAX_FOCUS_ITEMS, type FocusItemState, type WeatherSelection } from "@/lib/checkin-context";
 import { useSupabaseUser } from "@/lib/useSupabaseUser";
 import { getCategoryEmoji } from "@/lib/categories";
@@ -15,6 +13,7 @@ import { getPlannedItemsForDate, getCheckinByDate, saveCheckinWithFocus } from "
 import { appliesToDate } from "@/lib/recurrence";
 import { getTodayLocalDateString } from "@/lib/date-utils";
 import { anchorValueForDisplay } from "@/lib/anchors";
+import { useEnergySchedule } from "@/lib/useEnergySchedule";
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -44,43 +43,43 @@ const weatherThemes: Record<
 > = {
   sparky: {
     gradient: ["#FF6B6B", "#FFE66D"],
-    darkGradient: ["#CC5555", "#CCB855"], // Darker, more muted for dark mode
+    darkGradient: ["#8B3D3D", "#8B7A3D"], // Much darker, more muted for dark mode
     textColor: "text-slate-900",
     darkTextColor: "text-white",
     subtleTextColor: "text-slate-700",
-    darkSubtleTextColor: "text-slate-100",
+    darkSubtleTextColor: "text-slate-200",
   },
   steady: {
     gradient: ["#FFD580", "#FFF9E3"],
-    darkGradient: ["#CCAA66", "#CCCCB3"], // Darker, more muted for dark mode
+    darkGradient: ["#8B7A3D", "#8B8B6B"], // Much darker, more muted for dark mode
     textColor: "text-slate-900",
-    darkTextColor: "text-slate-900", // Still readable on lighter gradient
+    darkTextColor: "text-slate-100", // Better contrast on darker gradient
     subtleTextColor: "text-slate-700",
-    darkSubtleTextColor: "text-slate-700",
+    darkSubtleTextColor: "text-slate-300",
   },
   flowing: {
     gradient: ["#4ECDC4", "#95E1D3"],
-    darkGradient: ["#3E9C94", "#75B1A3"], // Darker, more muted for dark mode
+    darkGradient: ["#2D6B66", "#4A7A73"], // Much darker, more muted for dark mode
     textColor: "text-slate-900",
     darkTextColor: "text-white",
     subtleTextColor: "text-slate-700",
-    darkSubtleTextColor: "text-slate-100",
+    darkSubtleTextColor: "text-slate-200",
   },
   foggy: {
     gradient: ["#9CBED7", "#D1E2EA"],
-    darkGradient: ["#7C9EB7", "#B1C2DA"], // Darker, more muted for dark mode
+    darkGradient: ["#5A6B7A", "#6B7A8A"], // Much darker, more muted for dark mode
     textColor: "text-slate-900",
     darkTextColor: "text-white",
     subtleTextColor: "text-slate-700",
-    darkSubtleTextColor: "text-slate-100",
+    darkSubtleTextColor: "text-slate-200",
   },
   resting: {
     gradient: ["#B6B6D8", "#E0D5F2"],
-    darkGradient: ["#9696B8", "#C0B5D2"], // Darker, more muted for dark mode
+    darkGradient: ["#6B6B8A", "#7A7A9A"], // Much darker, more muted for dark mode
     textColor: "text-slate-900",
     darkTextColor: "text-white",
     subtleTextColor: "text-slate-700",
-    darkSubtleTextColor: "text-slate-100",
+    darkSubtleTextColor: "text-slate-200",
   },
   // Legacy support for old weather keys
   clear: {
@@ -154,28 +153,45 @@ export default function HomePage() {
   const [justCompleted, setJustCompleted] = useState<string | null>(null);
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
+  const [autoAdjustedEnergy, setAutoAdjustedEnergy] = useState<string | null>(null);
   const weatherSectionRef = useRef<HTMLDivElement>(null);
   const lastLoadedDateRef = useRef<string | null>(null);
   
   // Detect dark mode
   useEffect(() => {
     const checkDarkMode = () => {
-      setIsDarkMode(document.documentElement.classList.contains('dark') || 
-                   window.matchMedia('(prefers-color-scheme: dark)').matches);
+      setIsDarkMode(document.documentElement.classList.contains('dark'));
     };
     checkDarkMode();
     const observer = new MutationObserver(checkDarkMode);
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    mediaQuery.addEventListener('change', checkDarkMode);
     return () => {
       observer.disconnect();
-      mediaQuery.removeEventListener('change', checkDarkMode);
     };
   }, []);
 
   const greeting = useMemo(() => getGreeting(), []);
   const todayLabel = useMemo(() => getTodayLabel(), []);
+
+  // Auto-adjust energy based on schedule
+  const { currentEnergy: scheduledEnergy } = useEnergySchedule({
+    onEnergyChange: (energyKey) => {
+      // Only auto-adjust if user hasn't manually set energy today
+      if (!weather && energyKey) {
+        const energyOption = internalWeatherOptions.find((opt) => opt.key === energyKey);
+        if (energyOption) {
+          setWeather({
+            key: energyOption.key,
+            label: energyOption.label,
+            description: energyOption.description,
+            icon: getIconName(energyOption.icon),
+          });
+          setAutoAdjustedEnergy(energyKey);
+        }
+      }
+    },
+    enableNotifications: true,
+  });
 
   // Memoize the load planned items function to avoid recreating it on every render
   const loadPlannedItemsIfNeeded = useCallback(async (userId: string, date: string, cancelled: { current: boolean }) => {
@@ -313,7 +329,7 @@ export default function HomePage() {
                 key: weatherOption.key,
                 label: weatherOption.label,
                 description: weatherOption.description,
-                icon: checkin.weather_icon || weatherOption.icon,
+                icon: checkin.weather_icon || getIconName(weatherOption.icon),
               };
               setWeather(weatherSelection);
             }
@@ -416,8 +432,14 @@ export default function HomePage() {
     setShouldScrollToWeather(true);
   };
 
-  const handleSelectWeather = (option: WeatherSelection) => {
-    setWeather(option);
+  const handleSelectWeather = (option: EnergyTypeOption) => {
+    const weatherSelection: WeatherSelection = {
+      key: option.key,
+      label: option.label,
+      description: option.description,
+      icon: getIconName(option.icon),
+    };
+    setWeather(weatherSelection);
     setSuppressAutoSelectWeather(false);
     if (isEditingWeather) {
       setIsEditingWeather(false);
@@ -477,12 +499,18 @@ export default function HomePage() {
   }
 
   const renderWeatherSection = () => (
-    <section ref={weatherSectionRef} className="space-y-4 rounded-3xl border border-white/20 bg-white/70 p-6 backdrop-blur dark:border-slate-700/30 dark:bg-slate-800/70">
-      <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{todayLabel}</h2>
+    <section ref={weatherSectionRef} className="space-y-4 rounded-3xl border border-lavender-200/50 bg-white/95 p-6 backdrop-blur dark:border-slate-600/40 dark:bg-slate-800/80">
+      <h2 className="text-2xl font-bold text-slate-700 dark:text-slate-100">{todayLabel}</h2>
       <div>
-        <p className="text-sm font-medium uppercase tracking-wide text-cyan-600 dark:text-cyan-400">Energy type</p>
-        <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100">What kind of energy do you have right now?</h3>
-        <p className="text-slate-600 dark:text-slate-400">Scroll to find yours—it selects automatically.</p>
+        <p className="text-sm font-medium uppercase tracking-wide text-teal-500 dark:text-cyan-400">Energy type</p>
+        <h3 className="text-2xl font-bold text-slate-700 dark:text-slate-100">What kind of energy do you have right now?</h3>
+        {autoAdjustedEnergy && scheduledEnergy === autoAdjustedEnergy ? (
+          <p className="text-slate-500 dark:text-slate-400">
+            Auto-adjusted based on your schedule. Scroll to change if needed.
+          </p>
+        ) : (
+          <p className="text-slate-500 dark:text-slate-400">Scroll to find yours—it selects automatically.</p>
+        )}
       </div>
 
       <InternalWeatherSelector
@@ -493,7 +521,7 @@ export default function HomePage() {
       />
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-slate-700 dark:text-slate-300" htmlFor="forecast-note">
+        <label className="text-sm font-medium text-slate-600 dark:text-slate-300" htmlFor="forecast-note">
           How are your energy or focus levels today?
         </label>
         <textarea
@@ -501,7 +529,7 @@ export default function HomePage() {
           value={forecastNote}
           onChange={(event) => setForecastNote(event.target.value)}
           placeholder="Mentally foggy? Overstimulated? Drop a few words."
-          className="w-full rounded-2xl border border-white/30 bg-white/70 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-100 dark:border-slate-700/30 dark:bg-slate-700/50 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-cyan-500 dark:focus:ring-cyan-900/50"
+          className="w-full rounded-2xl border border-blue-200/50 bg-white/90 px-4 py-3 text-slate-700 placeholder:text-slate-400 focus:border-teal-300 focus:outline-none focus:ring-2 focus:ring-teal-100 dark:border-slate-600/50 dark:bg-slate-700/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-cyan-500 dark:focus:ring-cyan-900/50"
           rows={3}
         />
       </div>
@@ -522,7 +550,7 @@ export default function HomePage() {
         type="button"
         onClick={handleSetEnergy}
         disabled={!weather || savingEnergy}
-        className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-6 py-4 text-lg font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-700 dark:hover:bg-slate-600"
+        className="flex w-full items-center justify-center gap-2 rounded-2xl bg-teal-400 px-6 py-4 text-lg font-semibold text-white transition hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-700 dark:hover:bg-slate-600"
       >
         {savingEnergy ? (
           <>
@@ -540,6 +568,7 @@ export default function HomePage() {
     const theme = weather?.key && weatherThemes[weather.key] ? weatherThemes[weather.key] : null;
     
     // Create lighter version of gradient by mixing with white (70% white, 30% original)
+    // In dark mode, create darker version by mixing with dark slate (70% dark, 30% original)
     const lightenColor = (hex: string, amount: number = 0.7): string => {
       const r = parseInt(hex.slice(1, 3), 16);
       const g = parseInt(hex.slice(3, 5), 16);
@@ -550,14 +579,32 @@ export default function HomePage() {
       return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
     };
     
+    const darkenColor = (hex: string, amount: number = 0.7): string => {
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      // Mix with dark slate-800 (#1e293b)
+      const darkR = 30;
+      const darkG = 41;
+      const darkB = 59;
+      const newR = Math.round(r * (1 - amount) + darkR * amount);
+      const newG = Math.round(g * (1 - amount) + darkG * amount);
+      const newB = Math.round(b * (1 - amount) + darkB * amount);
+      return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
+    };
+    
     // Use dark gradient if available and in dark mode
     const activeGradient = theme && isDarkMode && theme.darkGradient 
       ? theme.darkGradient 
       : theme?.gradient;
     
     const cardBackground = activeGradient
-      ? `linear-gradient(135deg, ${lightenColor(activeGradient[0], 0.7)} 0%, ${lightenColor(activeGradient[1], 0.7)} 100%)`
-      : 'linear-gradient(135deg, #fef3f2 0%, #fef7f6 100%)'; // Default light pink fallback
+      ? isDarkMode
+        ? `linear-gradient(135deg, ${darkenColor(activeGradient[0], 0.7)} 0%, ${darkenColor(activeGradient[1], 0.7)} 100%)`
+        : `linear-gradient(135deg, ${lightenColor(activeGradient[0], 0.9)} 0%, ${lightenColor(activeGradient[1], 0.9)} 100%)`
+      : isDarkMode
+        ? 'linear-gradient(135deg, #1e293b 0%, #334155 100%)' // Dark default
+        : 'linear-gradient(135deg, #faf8ff 0%, #f5f3ff 100%)'; // Very light lavender default
     
     // Get gradient for the energy type badge
     const badgeGradient = theme && isDarkMode && theme.darkGradient
@@ -566,31 +613,36 @@ export default function HomePage() {
     
     return (
     <section 
-      className="space-y-3 rounded-3xl border border-white/30 p-5 shadow-sm dark:border-slate-700/30 dark:bg-slate-800/80"
+      className="space-y-3 rounded-3xl border border-lavender-200/50 p-5 shadow-sm dark:border-slate-600/40"
       style={{ background: cardBackground }}
     >
       {showCompactWeather && weather && (
         <>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-900">{todayLabel}</h2>
+          <h2 className="text-2xl font-bold text-slate-700 dark:text-slate-100">{todayLabel}</h2>
           {theme && badgeGradient && (
               <div 
-                className={`rounded-2xl border border-white/40 px-4 py-3 text-sm shadow-sm dark:border-slate-600/40 ${isDarkMode ? (theme.darkTextColor || 'text-white') : (theme.textColor || 'text-slate-900')}`}
+                className={`rounded-2xl border border-white/40 px-4 py-3 text-sm shadow-sm dark:border-slate-500/40 ${isDarkMode ? (theme.darkTextColor || 'text-white') : (theme.textColor || 'text-slate-900')}`}
                 style={{
                   background: `linear-gradient(135deg, ${badgeGradient[0]} 0%, ${badgeGradient[1]} 100%)`
                 }}
               >
                 <div className="flex items-center justify-between gap-x-3 gap-y-1">
                   <p className={`flex flex-wrap items-center gap-2 text-base font-semibold ${isDarkMode ? (theme.darkTextColor || 'text-white') : (theme.textColor || 'text-slate-900')}`}>
-                    <span className="text-2xl leading-none">{weather.icon}</span>
+                    <span className="text-2xl leading-none">
+                      {(() => {
+                        const IconComponent = getIconComponent(weather.icon);
+                        return <IconComponent className="w-8 h-8" />;
+                      })()}
+                    </span>
                     <span>{weather.label}</span>
                     <span className={`text-sm font-normal ${isDarkMode ? (theme.darkSubtleTextColor || 'text-slate-100') : (theme.subtleTextColor || 'text-slate-500')}`}>{weather.description}</span>
                   </p>
                   <button
                     type="button"
                     onClick={handleAdjustWeather}
-                    className={`flex-shrink-0 rounded-full border border-slate-200 bg-white/60 p-2 transition hover:bg-white dark:border-slate-600 dark:bg-slate-700/60 dark:hover:bg-slate-700 ${
+                    className={`flex-shrink-0 rounded-full border border-slate-200 bg-white/60 p-2 transition hover:bg-white dark:border-slate-500/50 dark:bg-slate-700/50 dark:hover:bg-slate-700/70 ${
                       isDarkMode 
-                        ? (theme?.darkTextColor === 'text-white' ? 'text-white border-white/40 bg-white/20 hover:bg-white/30' : 'text-slate-200')
+                        ? (theme?.darkTextColor === 'text-white' ? 'text-white border-white/30 bg-white/15 hover:bg-white/25' : 'text-slate-200')
                         : (theme?.textColor === 'text-white' ? 'text-white border-white/40 bg-white/20 hover:bg-white/30' : 'text-slate-600')
                     }`}
                     aria-label="Change energy type"
@@ -603,9 +655,9 @@ export default function HomePage() {
         </>
       )}
 
-      <div className="flex items-center justify-between border-t border-dashed border-slate-200 pt-3 text-[0.75rem] font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-600 dark:text-slate-700">
-        <span className="dark:text-slate-900">What matters today</span>
-        <span className="dark:text-slate-900">
+      <div className="flex items-center justify-between border-t border-dashed border-blue-200/60 pt-3 text-[0.75rem] font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-500/50 dark:text-slate-300">
+        <span>What matters today</span>
+        <span>
           {activeFocusItems.length}/{MAX_FOCUS_ITEMS}
         </span>
       </div>
@@ -658,13 +710,13 @@ export default function HomePage() {
                       setDragOverItemId(null);
                     }}
                     className={`flex items-start gap-3 rounded-2xl border px-3 py-2 text-sm transition-all duration-300 cursor-move ${
-                      justCompleted === item.id
-                        ? 'border-emerald-200 bg-emerald-50/50 dark:border-emerald-700 dark:bg-emerald-900/20 scale-[1.02]'
+                        justCompleted === item.id
+                        ? 'border-teal-200 bg-teal-50/50 dark:border-emerald-600/50 dark:bg-emerald-900/30 scale-[1.02]'
                         : isDragging
-                        ? 'opacity-50 scale-95 border-cyan-300 dark:border-cyan-500'
+                        ? 'opacity-50 scale-95 border-teal-300 dark:border-cyan-600/50'
                         : isDragOver
-                        ? 'border-cyan-400 bg-cyan-50/50 dark:border-cyan-500 dark:bg-cyan-900/20 scale-[1.02]'
-                        : 'border-white/40 bg-white/70 dark:border-slate-600 dark:bg-slate-800 hover:border-cyan-200 dark:hover:border-cyan-500'
+                        ? 'border-teal-400 bg-teal-50/50 dark:border-cyan-600/50 dark:bg-cyan-900/30 scale-[1.02]'
+                        : 'border-blue-200/50 bg-blue-50/80 dark:border-slate-600/50 dark:bg-slate-800/60 hover:border-teal-200 dark:hover:border-cyan-500/50'
                     }`}
                   >
                     <div className="flex items-center text-slate-300 dark:text-slate-500 cursor-move" aria-hidden="true">
@@ -681,9 +733,9 @@ export default function HomePage() {
                         setTimeout(() => setJustCompleted(null), 600);
                       }}
                       className={`rounded-full border border-transparent p-1 transition-all duration-300 ${
-                        justCompleted === item.id
-                          ? 'scale-125 text-emerald-500 border-emerald-200 dark:border-emerald-700'
-                          : 'text-slate-400 hover:border-cyan-200 hover:text-cyan-600 dark:text-slate-400 dark:hover:border-cyan-500 dark:hover:text-cyan-300'
+                      justCompleted === item.id
+                        ? 'scale-125 text-teal-500 border-teal-200 dark:border-emerald-700'
+                        : 'text-slate-400 hover:border-teal-200 hover:text-teal-600 dark:text-slate-400 dark:hover:border-cyan-500 dark:hover:text-cyan-300'
                       }`}
                       aria-label="Mark focus as done"
                     >
@@ -694,12 +746,12 @@ export default function HomePage() {
                       )}
                     </button>
                     <div className="flex-1 space-y-1">
-                      <p className="flex flex-wrap items-center gap-2 text-sm font-semibold leading-tight text-slate-900 dark:text-slate-100">
+                      <p className="flex flex-wrap items-center gap-2 text-sm font-semibold leading-tight text-slate-700 dark:text-slate-100">
                         <span className="text-lg leading-none">{getCategoryEmoji(item.categories[0]) || "•"}</span>
                         <span>{item.description}</span>
                       </p>
                       {anchorType && anchorDisplayValue && (
-                        <p className="text-xs font-semibold text-cyan-700 dark:text-cyan-400">
+                        <p className="text-xs font-semibold text-teal-600 dark:text-cyan-400">
                           {anchorType} {anchorDisplayValue}
                         </p>
                       )}
@@ -714,7 +766,7 @@ export default function HomePage() {
                         type="button"
                         onMouseDown={(e) => e.stopPropagation()}
                         onClick={() => router.push(`/focus?edit=${item.id}`)}
-                        className="rounded-full border border-transparent p-1 text-slate-400 transition hover:border-cyan-200 hover:text-cyan-600 dark:hover:border-cyan-600 dark:hover:text-cyan-400"
+                        className="rounded-full border border-transparent p-1 text-slate-400 transition hover:border-teal-200 hover:text-teal-600 dark:hover:border-cyan-600 dark:hover:text-cyan-400"
                         aria-label="Edit focus"
                       >
                         <Pencil className="h-4 w-4" />
@@ -793,8 +845,8 @@ export default function HomePage() {
           </ul>
 
           {completedFocusItems.length > 0 && (
-            <div className="space-y-2 border-t border-dashed border-slate-200 pt-3 dark:border-slate-600">
-              <p className="text-[0.7rem] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Completed today</p>
+            <div className="space-y-2 border-t border-dashed border-blue-200/60 pt-3 dark:border-slate-500/50">
+              <p className="text-[0.7rem] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-400">Completed today</p>
               <ul className="space-y-1">
                 {completedFocusItems
                   .slice()
@@ -805,12 +857,12 @@ export default function HomePage() {
                     return (
                       <li
                         key={item.id}
-                        className="flex items-start gap-3 rounded-2xl border border-transparent bg-slate-50/80 px-3 py-2 text-sm dark:bg-slate-700/30"
+                        className="flex items-start gap-3 rounded-2xl border border-transparent bg-lavender-50/80 px-3 py-2 text-sm dark:bg-slate-800/40"
                       >
                         <button
                           type="button"
                           onClick={() => updateFocusItem(item.id, { completed: false })}
-                          className="rounded-full border border-transparent p-1 text-emerald-500 transition hover:border-emerald-200 dark:hover:border-emerald-700"
+                          className="rounded-full border border-transparent p-1 text-teal-500 transition hover:border-teal-200 dark:hover:border-emerald-700"
                           aria-label="Mark focus as not done"
                         >
                           <CheckCircle2 className="h-4 w-4" />
@@ -818,7 +870,7 @@ export default function HomePage() {
                         <div className="flex-1 space-y-1">
                           <p className="text-sm font-semibold text-slate-500 line-through dark:text-slate-400">{item.description}</p>
                           {anchorType && anchorDisplayValue && (
-                            <p className="text-xs font-semibold text-cyan-700 dark:text-cyan-300">
+                            <p className="text-xs font-semibold text-teal-600 dark:text-cyan-300">
                               {anchorType} {anchorDisplayValue}
                             </p>
                           )}
@@ -875,7 +927,7 @@ export default function HomePage() {
           )}
 
           {activeFocusItems.length >= MAX_FOCUS_ITEMS ? (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 text-center text-sm text-amber-800 dark:border-amber-700/50 dark:bg-amber-900/20 dark:text-amber-200">
+            <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 text-center text-sm text-amber-800 dark:border-amber-700/40 dark:bg-amber-900/30 dark:text-amber-200">
               <p className="font-medium">You already have enough on your hands</p>
               <p className="mt-1 text-xs">Focus on your current things or remove some for another day</p>
             </div>
@@ -883,7 +935,7 @@ export default function HomePage() {
             <button
               type="button"
               onClick={() => router.push("/focus")}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white/70 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white dark:border-slate-600/50 dark:bg-slate-700/40 dark:text-slate-100 dark:hover:bg-slate-700"
+              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-blue-200/60 bg-white/90 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-blue-50/80 dark:border-slate-600/50 dark:bg-slate-800/60 dark:text-slate-100 dark:hover:bg-slate-700/60"
             >
               <Plus className="h-4 w-4" />
               Add Focus
@@ -891,12 +943,12 @@ export default function HomePage() {
           )}
         </>
       ) : (
-        <div className="rounded-2xl border border-dashed border-white/40 bg-white/70 p-4 text-center text-sm text-slate-600 dark:border-slate-700/40 dark:bg-slate-800/50 dark:text-slate-400">
+        <div className="rounded-2xl border border-dashed border-blue-200/60 bg-white/95 p-4 text-center text-sm text-slate-600 dark:border-slate-600/40 dark:bg-slate-800/60 dark:text-slate-300">
           <p>No items yet. Add focus item when you&rsquo;re ready.</p>
           <button
             type="button"
             onClick={() => router.push("/focus")}
-            className="mt-3 inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white dark:border-slate-600/60 dark:bg-slate-700/40 dark:text-slate-100"
+            className="mt-3 inline-flex items-center justify-center gap-2 rounded-full border border-blue-200/60 bg-white/90 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-blue-50/80 dark:border-slate-600/50 dark:bg-slate-800/60 dark:text-slate-100 dark:hover:bg-slate-700/60"
           >
             <Plus className="h-4 w-4" />
             Add Focus
@@ -913,11 +965,7 @@ export default function HomePage() {
         <header className="flex items-start justify-between">
           <div>
             <AppWordmark className="text-base font-semibold" />
-            <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">{greeting}</h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
-            <UserMenu />
+            <h1 className="text-3xl font-bold text-slate-700 dark:text-slate-100">{greeting}</h1>
           </div>
         </header>
 
@@ -933,54 +981,6 @@ export default function HomePage() {
           </>
         )}
 
-        <section className="space-y-3">
-          <div className="flex items-center gap-3 pt-4">
-            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-slate-700"></div>
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Explore</h2>
-            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-slate-700"></div>
-          </div>
-          <Link
-            href="/calendar"
-            className="group flex items-center gap-4 rounded-2xl border border-white/30 bg-white/70 p-4 shadow-sm transition hover:bg-white hover:shadow-md dark:border-slate-700/30 dark:bg-slate-800/70 dark:hover:bg-slate-800"
-          >
-            <span className="rounded-full bg-cyan-100 p-3 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300">
-              <CalendarDays className="h-5 w-5" />
-            </span>
-            <div className="flex-1">
-              <p className="font-semibold text-slate-900 dark:text-slate-100">Calendar</p>
-              <p className="text-sm text-slate-600 dark:text-slate-400">See your daily energy</p>
-            </div>
-            <ArrowRight className="h-5 w-5 text-slate-400 dark:text-slate-500 transition group-hover:translate-x-1" />
-          </Link>
-
-          <Link
-            href="/patterns"
-            className="group flex items-center gap-4 rounded-2xl border border-white/30 bg-white/70 p-4 shadow-sm transition hover:bg-white hover:shadow-md dark:border-slate-700/30 dark:bg-slate-800/70 dark:hover:bg-slate-800"
-          >
-            <span className="rounded-full bg-indigo-100 p-3 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300">
-              <LineChart className="h-5 w-5" />
-            </span>
-            <div className="flex-1">
-              <p className="font-semibold text-slate-900 dark:text-slate-100">Patterns</p>
-              <p className="text-sm text-slate-600 dark:text-slate-400">Notice gentle trends</p>
-            </div>
-            <ArrowRight className="h-5 w-5 text-slate-400 dark:text-slate-500 transition group-hover:translate-x-1" />
-          </Link>
-
-          <Link
-            href="/plan-ahead"
-            className="group flex items-center gap-4 rounded-2xl border border-white/30 bg-white/70 p-4 shadow-sm transition hover:bg-white hover:shadow-md dark:border-slate-700/30 dark:bg-slate-800/70 dark:hover:bg-slate-800"
-          >
-            <span className="rounded-full bg-emerald-100 p-3 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300">
-              <CalendarPlus className="h-5 w-5" />
-            </span>
-            <div className="flex-1">
-              <p className="font-semibold text-slate-900 dark:text-slate-100">Plan Ahead</p>
-              <p className="text-sm text-slate-600 dark:text-slate-400">Set up future or recurring items</p>
-            </div>
-            <ArrowRight className="h-5 w-5 text-slate-400 dark:text-slate-500 transition group-hover:translate-x-1" />
-          </Link>
-        </section>
       </div>
     </main>
   );

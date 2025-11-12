@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import html2canvas from "html2canvas";
 import { useCheckIn, type TaskAnchorType, type WeatherSelection } from "@/lib/checkin-context";
+import { getIconComponent } from "@/components/InternalWeatherSelector";
 import { useSupabaseUser } from "@/lib/useSupabaseUser";
 import { getBarrierTypes, saveCheckinWithFocus, type BarrierType } from "@/lib/supabase";
 import { anchorLabel, buildAnchorPhrase } from "@/lib/anchors";
@@ -714,14 +715,14 @@ export default function GentleSupportScreen() {
           <header className="flex items-center gap-4">
             <Link
               href="/"
-              className="rounded-full border border-white/40 bg-white/70 p-2 text-slate-600 transition hover:-translate-y-0.5"
+              className="rounded-full border border-white/40 bg-white/70 p-2 text-slate-600 transition hover:-translate-y-0.5 dark:border-slate-600/40 dark:bg-slate-800/70 dark:text-slate-300"
             >
               <ArrowLeft className="h-5 w-5" />
             </Link>
             <div>
-              <p className="text-sm uppercase tracking-wide text-cyan-600">Daily Forecast</p>
-              <h1 className="text-2xl font-bold text-slate-900">Your Daily Forecast</h1>
-              <p className="text-sm text-slate-600">Save as wallpaper to keep today&rsquo;s energy and focus close.</p>
+              <p className="text-sm uppercase tracking-wide text-cyan-600 dark:text-cyan-400">Daily Forecast</p>
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Your Daily Forecast</h1>
+              <p className="text-sm text-slate-600 dark:text-slate-400">Save as wallpaper to keep today&rsquo;s energy and focus close.</p>
             </div>
           </header>
 
@@ -760,12 +761,12 @@ export default function GentleSupportScreen() {
           </section>
 
           {exportMessage && (
-            <p className="text-center text-sm text-slate-600">{exportMessage}</p>
+            <p className="text-center text-sm text-slate-600 dark:text-slate-400">{exportMessage}</p>
           )}
 
-          <section className="rounded-3xl border border-white/30 bg-white/90 p-5 shadow-sm">
-            <p className="text-sm font-semibold text-slate-800">Wallpaper palette</p>
-            <p className="text-xs text-slate-500">
+          <section className="rounded-3xl border border-white/30 bg-white/90 p-5 shadow-sm dark:border-slate-600/40 dark:bg-slate-800/60">
+            <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Wallpaper palette</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Try a different gradient before saving to match your phone vibe.
             </p>
             <div className="mt-3 flex flex-wrap gap-3">
@@ -782,8 +783,8 @@ export default function GentleSupportScreen() {
                     onClick={() => setWallpaperTheme(option.key)}
                     className={`flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-medium transition ${
                       active
-                        ? "border-cyan-400 bg-cyan-50 text-cyan-800"
-                        : "border-white/60 bg-white text-slate-600 hover:border-cyan-200"
+                        ? "border-cyan-400 bg-cyan-50 text-cyan-800 dark:border-cyan-500/50 dark:bg-cyan-500/20 dark:text-cyan-200"
+                        : "border-white/60 bg-white text-slate-600 hover:border-cyan-200 dark:border-slate-600/50 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:border-cyan-500/50"
                     }`}
                   >
                     <span
@@ -804,7 +805,7 @@ export default function GentleSupportScreen() {
               type="button"
               onClick={handleSaveImage}
               disabled={exportingImage}
-              className="flex items-center justify-center gap-2 rounded-2xl border border-white/30 bg-white/90 px-4 py-3 font-semibold text-slate-800 transition hover:-translate-y-0.5 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex items-center justify-center gap-2 rounded-2xl border border-white/30 bg-white/90 px-4 py-3 font-semibold text-slate-800 transition hover:-translate-y-0.5 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600/40 dark:bg-slate-800/60 dark:text-slate-100 dark:hover:bg-slate-700/60"
             >
               {exportingImage && <Loader2 className="h-4 w-4 animate-spin" />}
               Save as image
@@ -813,7 +814,7 @@ export default function GentleSupportScreen() {
               type="button"
               onClick={handleShareImage}
               disabled={exportingImage}
-              className="flex items-center justify-center gap-2 rounded-2xl border border-white/30 bg-white/90 px-4 py-3 font-semibold text-slate-800 transition hover:-translate-y-0.5 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex items-center justify-center gap-2 rounded-2xl border border-white/30 bg-white/90 px-4 py-3 font-semibold text-slate-800 transition hover:-translate-y-0.5 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600/40 dark:bg-slate-800/60 dark:text-slate-100 dark:hover:bg-slate-700/60"
             >
               {exportingImage && <Loader2 className="h-4 w-4 animate-spin" />}
               Share
@@ -821,7 +822,7 @@ export default function GentleSupportScreen() {
             <button
               type="button"
               onClick={handleDone}
-              className="rounded-2xl bg-slate-900 px-4 py-3 text-lg font-semibold text-white transition hover:-translate-y-0.5 hover:bg-slate-800"
+              className="rounded-2xl bg-slate-900 px-4 py-3 text-lg font-semibold text-white transition hover:-translate-y-0.5 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600"
             >
               Done
             </button>
@@ -841,15 +842,20 @@ export default function GentleSupportScreen() {
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div>
-            <p className="text-sm uppercase tracking-wide text-cyan-600">Support</p>
-            <h1 className="text-2xl font-bold text-slate-900">Gentle support</h1>
-            <p className="text-sm text-slate-600">Soft reminders matched to each barrier.</p>
+            <p className="text-sm uppercase tracking-wide text-cyan-600 dark:text-cyan-400">Support</p>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Gentle support</h1>
+            <p className="text-sm text-slate-600 dark:text-slate-400">Soft reminders matched to each barrier.</p>
           </div>
         </header>
 
         <section className="rounded-3xl border border-white/20 bg-white/80 p-6 shadow-sm space-y-4 dark:border-slate-700/30 dark:bg-slate-800/70">
           <div className="flex items-center gap-3">
-            <div className="text-4xl">{weather?.icon}</div>
+            <div className="text-4xl">
+              {weather?.icon && (() => {
+                const IconComponent = getIconComponent(weather.icon);
+                return <IconComponent className="w-10 h-10" />;
+              })()}
+            </div>
             <div>
               <p className="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400">Energy type</p>
               <p className="text-xl font-semibold text-slate-900 dark:text-slate-100">{weather?.label}</p>
@@ -877,32 +883,32 @@ export default function GentleSupportScreen() {
             return (
               <div
                 key={item.id}
-                className="space-y-3 rounded-3xl border border-white/30 bg-white/80 p-6 shadow-sm"
+                className="space-y-3 rounded-3xl border border-white/30 bg-white/80 p-6 shadow-sm dark:border-slate-600/40 dark:bg-slate-800/60"
               >
                 <div>
-                  <p className="text-sm uppercase tracking-wide text-slate-500">Focus</p>
-                  <p className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                  <p className="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400">Focus</p>
+                  <p className="text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                     {categoryEmoji && <span className="text-2xl leading-none">{categoryEmoji}</span>}
                     <span>{item.description}</span>
                   </p>
                   {anchorSummary && (
-                    <p className="text-sm text-cyan-700">{anchorSummary}</p>
+                    <p className="text-sm text-cyan-700 dark:text-cyan-300">{anchorSummary}</p>
                   )}
                 </div>
 
-                <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                  <p className="font-semibold text-slate-800">Barrier</p>
+                <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:bg-slate-700/50 dark:text-slate-200">
+                  <p className="font-semibold text-slate-800 dark:text-slate-100">Barrier</p>
                   <p>
                     {friendlyBarrier?.icon && <span className="mr-1">{friendlyBarrier.icon}</span>}
                     {friendlyBarrier?.label || item.barrier?.custom || "Custom reflection"}
                   </p>
                   {item.barrier?.custom && (
-                    <p className="mt-1 text-slate-500">{item.barrier.custom}</p>
+                    <p className="mt-1 text-slate-500 dark:text-slate-400">{item.barrier.custom}</p>
                   )}
                 </div>
 
-                <div className="rounded-2xl border border-dashed border-cyan-100 bg-white px-4 py-4 text-slate-700">
-                  <div className="mb-2 flex items-center gap-2 text-cyan-600">
+                <div className="rounded-2xl border border-dashed border-cyan-100 bg-white px-4 py-4 text-slate-700 dark:border-cyan-600/40 dark:bg-slate-800/60 dark:text-slate-200">
+                  <div className="mb-2 flex items-center gap-2 text-cyan-600 dark:text-cyan-300">
                     <Sparkles className="h-4 w-4" />
                     Gentle support
                   </div>
@@ -914,13 +920,13 @@ export default function GentleSupportScreen() {
         </section>
 
         {authError && (
-          <p className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          <p className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:bg-amber-900/30 dark:text-amber-200">
             {authError}. Saving may require configuring Supabase credentials.
           </p>
         )}
 
         {saveError && (
-          <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">{saveError}</p>
+          <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600 dark:bg-rose-900/30 dark:text-rose-200">{saveError}</p>
         )}
 
         <button

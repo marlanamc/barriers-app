@@ -2,12 +2,14 @@
 
 import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
+import { Zap, Sun, Waves, CloudFog, Moon } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 export interface EnergyTypeOption {
   key: string;
   label: string;
   description: string;
-  icon: string;
+  icon: LucideIcon;
 }
 
 interface InternalWeatherSelectorProps {
@@ -18,12 +20,46 @@ interface InternalWeatherSelectorProps {
 }
 
 export const internalWeatherOptions: EnergyTypeOption[] = [
-  { key: 'sparky', label: 'Sparky', description: 'High energy, scattered', icon: '🔥' },
-  { key: 'steady', label: 'Steady', description: 'Focused, consistent', icon: '☀️' },
-  { key: 'flowing', label: 'Flowing', description: 'Moving but slow', icon: '🌊' },
-  { key: 'foggy', label: 'Foggy', description: 'Hard to focus, unclear', icon: '🌫️' },
-  { key: 'resting', label: 'Resting', description: 'Low energy, need recovery', icon: '🛌' },
+  { key: 'sparky', label: 'Sparky', description: 'High energy, scattered', icon: Zap },
+  { key: 'steady', label: 'Steady', description: 'Focused, consistent', icon: Sun },
+  { key: 'flowing', label: 'Flowing', description: 'Moving but slow', icon: Waves },
+  { key: 'foggy', label: 'Foggy', description: 'Hard to focus, unclear', icon: CloudFog },
+  { key: 'resting', label: 'Resting', description: 'Low energy, need recovery', icon: Moon },
 ];
+
+// Mapping from icon components to their string names
+const iconNameMap = new Map<LucideIcon, string>([
+  [Zap, 'zap'],
+  [Sun, 'sun'],
+  [Waves, 'waves'],
+  [CloudFog, 'cloud-fog'],
+  [Moon, 'moon'],
+]);
+
+// Reverse mapping from icon names to components (including legacy emoji support)
+const iconComponentMap: Record<string, LucideIcon> = {
+  'zap': Zap,
+  'sun': Sun,
+  'waves': Waves,
+  'cloud-fog': CloudFog,
+  'moon': Moon,
+  // Legacy emoji support
+  '🔥': Zap,
+  '☀️': Sun,
+  '🌊': Waves,
+  '🌫️': CloudFog,
+  '🛌': Moon,
+};
+
+// Helper function to get icon name from component
+export function getIconName(icon: LucideIcon): string {
+  return iconNameMap.get(icon) || 'zap';
+}
+
+// Helper function to get icon component from name (supports both new names and legacy emojis)
+export function getIconComponent(iconName: string): LucideIcon {
+  return iconComponentMap[iconName] || Zap;
+}
 
 export function InternalWeatherSelector({ selectedKey, onSelect, suppressAutoSelect = false, onUserInteract }: InternalWeatherSelectorProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -286,12 +322,12 @@ export function InternalWeatherSelector({ selectedKey, onSelect, suppressAutoSel
 
   return (
     <div className="space-y-6">
-      {/* Emoji Carousel with Fixed Center Indicator */}
+      {/* Icon Carousel with Fixed Center Indicator */}
       <div className="relative">
-        {/* Fixed center indicator - behind the emojis */}
+        {/* Fixed center indicator - behind the icons */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div
-            className="rounded-full bg-cyan-100/80 ring-4 ring-cyan-200/60 dark:bg-cyan-400/20 dark:ring-cyan-500/30"
+            className="rounded-full bg-cyan-100/80 ring-4 ring-cyan-200/60 dark:bg-cyan-500/15 dark:ring-cyan-500/25"
             style={{ width: '100px', height: '100px' }}
           />
         </div>
@@ -393,9 +429,12 @@ export function InternalWeatherSelector({ selectedKey, onSelect, suppressAutoSel
                     aria-label={`${option.label}: ${option.description}`}
                     aria-pressed={selectedKey === option.key}
                   >
-                    <div className={clsx('transition-all duration-200 pointer-events-none', isCenter ? 'text-6xl' : 'text-4xl')}>
-                      {option.icon}
-                    </div>
+                    <option.icon 
+                      className={clsx(
+                        'transition-all duration-200 pointer-events-none text-slate-900 dark:text-slate-100',
+                        isCenter ? 'w-16 h-16' : 'w-12 h-12'
+                      )}
+                    />
                   </button>
                 </div>
               );

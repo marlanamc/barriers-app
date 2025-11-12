@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, X, Check } from "lucide-react";
 import Link from "next/link";
-import { useCheckIn, type TaskAnchorType } from "@/lib/checkin-context";
+import { type TaskAnchorType } from "@/lib/checkin-context";
 import { useSupabaseUser } from "@/lib/useSupabaseUser";
 import { getCheckinsForRange, type CheckinWithRelations } from "@/lib/supabase";
 import { formatDateToLocalString } from "@/lib/date-utils";
@@ -27,7 +27,6 @@ const monthNames = [
 const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default function CalendarPage() {
-  const { weather } = useCheckIn();
   const { user, loading: authLoading } = useSupabaseUser();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [checkins, setCheckins] = useState<CheckinWithRelations[]>([]);
@@ -125,29 +124,29 @@ export default function CalendarPage() {
           <header className="flex items-center gap-4">
             <Link
               href="/"
-              className="rounded-full border border-white/40 bg-white/70 p-2 text-slate-600 transition hover:-translate-y-0.5"
+              className="rounded-full border border-white/40 bg-white/70 p-2 text-slate-600 transition hover:-translate-y-0.5 dark:border-slate-600/40 dark:bg-slate-800/70 dark:text-slate-300"
               aria-label="Go back to home"
             >
               <ArrowLeft className="h-5 w-5" />
             </Link>
             <div className="flex-1">
-              <p className="text-sm uppercase tracking-wide text-cyan-600">Calendar</p>
-              <h1 className="text-2xl font-bold text-slate-900">Calendar</h1>
+              <p className="text-sm uppercase tracking-wide text-cyan-600 dark:text-cyan-400">Calendar</p>
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Calendar</h1>
             </div>
             <Link
               href="/"
-              className="rounded-2xl border border-white/40 bg-white/70 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:-translate-y-0.5 hover:bg-white"
+              className="rounded-2xl border border-white/40 bg-white/70 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:-translate-y-0.5 hover:bg-white dark:border-slate-600/40 dark:bg-slate-800/70 dark:text-slate-300 dark:hover:bg-slate-700/60"
             >
               Home
             </Link>
           </header>
-          <div className="rounded-2xl bg-rose-50 border border-rose-200 p-6" role="alert">
-            <p className="text-sm font-medium text-rose-800 mb-2">Unable to load calendar</p>
-            <p className="text-sm text-rose-700">{error}</p>
+          <div className="rounded-2xl bg-rose-50 border border-rose-200 p-6 dark:bg-rose-900/30 dark:border-rose-700/50" role="alert">
+            <p className="text-sm font-medium text-rose-800 dark:text-rose-200 mb-2">Unable to load calendar</p>
+            <p className="text-sm text-rose-700 dark:text-rose-300">{error}</p>
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="mt-4 rounded-full bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700"
+              className="mt-4 rounded-full bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 dark:bg-rose-700 dark:hover:bg-rose-600"
             >
               Try again
             </button>
@@ -172,56 +171,50 @@ export default function CalendarPage() {
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div className="flex-1 min-w-0">
-            <p className="text-sm uppercase tracking-wide text-cyan-600">Calendar</p>
-            <h1 className="text-2xl font-bold text-slate-900">Calendar</h1>
-            <p className="mt-1 text-sm text-slate-600">Tap a day to revisit your focus + barriers.</p>
+            <p className="text-sm uppercase tracking-wide text-cyan-600 dark:text-cyan-400">Calendar</p>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Calendar</h1>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Tap a day to revisit your focus + barriers.</p>
           </div>
           <Link
             href="/"
-            className="mt-1 rounded-2xl border border-white/40 bg-white/70 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:-translate-y-0.5 hover:bg-white active:scale-95"
+            className="mt-1 rounded-2xl border border-white/40 bg-white/70 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:-translate-y-0.5 hover:bg-white active:scale-95 dark:border-slate-600/40 dark:bg-slate-800/70 dark:text-slate-300 dark:hover:bg-slate-700/60"
           >
             Home
           </Link>
         </header>
 
         {/* Calendar Card */}
-        <section className="rounded-3xl border border-white/20 bg-white/80 p-4 sm:p-6 shadow-sm">
+        <section className="rounded-3xl border border-white/20 bg-white/80 p-4 sm:p-6 shadow-sm dark:border-slate-600/40 dark:bg-slate-800/80">
           {/* Month Navigation */}
           <div className="mb-6 flex items-center justify-between">
             <button
               type="button"
               onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}
-              className="rounded-full border border-white/40 bg-white/70 p-2.5 text-slate-600 transition hover:bg-white active:scale-95 [touch-action:manipulation]"
+              className="rounded-full border border-white/40 bg-white/70 p-2.5 text-slate-600 transition hover:bg-white active:scale-95 [touch-action:manipulation] dark:border-slate-600/40 dark:bg-slate-800/70 dark:text-slate-300 dark:hover:bg-slate-700/60"
               aria-label="Previous month"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
             <div className="flex-1 text-center px-4">
-              <p className="text-lg sm:text-xl font-semibold text-slate-900">
+              <p className="text-lg sm:text-xl font-semibold text-slate-900 dark:text-slate-100">
                 {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
               </p>
             </div>
             <button
               type="button"
               onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))}
-              className="rounded-full border border-white/40 bg-white/70 p-2.5 text-slate-600 transition hover:bg-white active:scale-95 [touch-action:manipulation]"
+              className="rounded-full border border-white/40 bg-white/70 p-2.5 text-slate-600 transition hover:bg-white active:scale-95 [touch-action:manipulation] dark:border-slate-600/40 dark:bg-slate-800/70 dark:text-slate-300 dark:hover:bg-slate-700/60"
               aria-label="Next month"
             >
               <ChevronRight className="h-5 w-5" />
             </button>
           </div>
 
-          {/* Status Message */}
-          {weather && (
-            <div className="mb-4 text-center">
-              <p className="text-sm text-slate-600">Today&rsquo;s energy: <span className="font-medium text-slate-700">{weather.label.toLowerCase()}</span></p>
-            </div>
-          )}
 
           {/* Days of Week Header */}
           <div className="mb-3 grid grid-cols-7 gap-1.5 sm:gap-2">
             {dayNames.map((day) => (
-              <div key={day} className="text-center text-xs font-semibold text-slate-500 py-1">
+              <div key={day} className="text-center text-xs font-semibold text-slate-500 dark:text-slate-400 py-1">
                 {day}
               </div>
             ))}
@@ -243,30 +236,25 @@ export default function CalendarPage() {
                   key={iso}
                   type="button"
                   onClick={() => openModal(date)}
-                  className={`aspect-square rounded-xl sm:rounded-2xl border px-1.5 sm:px-2 py-1.5 sm:py-2 text-left transition [touch-action:manipulation] ${
+                  className={`aspect-square rounded-xl sm:rounded-2xl border px-1.5 sm:px-2 py-1.5 sm:py-2 text-left transition [touch-action:manipulation] relative ${
                     entry
-                      ? "border-cyan-200 bg-white shadow-sm hover:-translate-y-0.5 active:scale-95"
-                      : "border-white/40 bg-white/60"
-                  } ${isToday ? "ring-2 ring-cyan-200 ring-offset-1" : ""} disabled:cursor-not-allowed disabled:opacity-60`}
+                      ? "border-cyan-200 bg-white shadow-sm hover:-translate-y-0.5 active:scale-95 dark:border-cyan-600/50 dark:bg-slate-800/60 dark:hover:bg-slate-700/60"
+                      : "border-white/40 bg-white/60 dark:border-slate-600/40 dark:bg-slate-800/40"
+                  } ${isToday ? "ring-2 ring-cyan-200 ring-offset-1 dark:ring-cyan-500/50" : ""} disabled:cursor-not-allowed disabled:opacity-60`}
                   disabled={!entry}
                   aria-label={entry ? `View check-in for ${date.toLocaleDateString()}` : `No check-in for ${date.toLocaleDateString()}`}
                   aria-pressed={selectedDate === iso}
                 >
                   <div className="flex items-start justify-between gap-1">
-                    <span className="text-xs sm:text-sm font-semibold text-slate-600 leading-none">
+                    <span className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 leading-none">
                       {date.getDate()}
                     </span>
-                    {entry && entry.weather_icon && (
-                      <span className="text-sm sm:text-base leading-none flex-shrink-0" aria-hidden="true">
-                        {entry.weather_icon}
+                    {entry && (
+                      <span className="text-cyan-600 dark:text-cyan-400 flex-shrink-0" aria-hidden="true">
+                        <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       </span>
                     )}
                   </div>
-                  {entry && (
-                    <p className="mt-1.5 sm:mt-2 line-clamp-2 text-[10px] sm:text-xs text-slate-500 leading-tight">
-                      {entry.internal_weather}
-                    </p>
-                  )}
                 </button>
               );
             })}
@@ -284,18 +272,18 @@ export default function CalendarPage() {
             if (e.target === e.currentTarget) closeModal();
           }}
         >
-          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-xl">
+          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-xl dark:bg-slate-800 dark:border dark:border-slate-700/50">
             <div className="mb-4 flex items-start justify-between">
               <div>
-                <p className="text-sm uppercase tracking-wide text-slate-500">{selectedDate}</p>
-                <p id="checkin-modal-title" className="text-xl font-semibold text-slate-900">
+                <p className="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-200">{selectedDate}</p>
+                <p id="checkin-modal-title" className="text-xl font-semibold text-slate-900 dark:text-slate-100">
                   {selectedCheckin.weather_icon} {selectedCheckin.internal_weather}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={closeModal}
-                className="rounded-full bg-slate-100 p-2 text-slate-500 hover:text-slate-800"
+                className="rounded-full bg-slate-100 p-2 text-slate-500 hover:text-slate-800 dark:bg-slate-700 dark:text-slate-300 dark:hover:text-slate-100"
                 aria-label="Close modal"
               >
                 <X className="h-5 w-5" />
@@ -303,7 +291,7 @@ export default function CalendarPage() {
             </div>
 
             {selectedCheckin.forecast_note && (
-              <p className="mb-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
+              <p className="mb-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:bg-slate-700/50 dark:text-slate-200">
                 {selectedCheckin.forecast_note}
               </p>
             )}
@@ -318,19 +306,19 @@ export default function CalendarPage() {
                   const anchor = anchorLabel(anchorType, item.anchor_value || null);
                   const categoryEmoji = getCategoryEmoji(item.categories?.[0]);
                   return (
-                    <div key={item.id} className="rounded-2xl border border-white/40 bg-white px-4 py-3">
-                      <p className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                    <div key={item.id} className="rounded-2xl border border-white/40 bg-white px-4 py-3 dark:border-slate-600/40 dark:bg-slate-800/60">
+                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                         {categoryEmoji && <span className="text-xl" aria-hidden="true">{categoryEmoji}</span>}
                         <span>{item.description}</span>
                       </p>
                     {anchor && (
-                      <div className="mt-2 rounded-2xl border border-cyan-100 bg-cyan-50/80 px-3 py-2 text-xs text-cyan-800">
-                        <p className="font-semibold uppercase tracking-wide text-[10px] text-cyan-600">Anchor pairing</p>
+                      <div className="mt-2 rounded-2xl border border-cyan-100 bg-cyan-50/80 px-3 py-2 text-xs text-cyan-800 dark:border-cyan-800/40 dark:bg-cyan-900/25 dark:text-cyan-200">
+                        <p className="font-semibold uppercase tracking-wide text-[10px] text-cyan-600 dark:text-cyan-400">Anchor pairing</p>
                         <p className="mt-0.5 font-medium">{anchor}</p>
                       </div>
                     )}
                     {barrierLabel && (
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
                         {barrier?.barrier_types?.icon && <span className="mr-1" aria-hidden="true">{barrier.barrier_types.icon}</span>}
                         {barrierLabel}
                       </p>
@@ -339,7 +327,7 @@ export default function CalendarPage() {
                   );
                 })
               ) : (
-                <p className="text-sm text-slate-500">No focus items for this check-in.</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">No focus items for this check-in.</p>
               )}
             </div>
           </div>

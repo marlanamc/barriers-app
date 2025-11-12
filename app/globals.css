@@ -145,3 +145,42 @@ html {
 .dark .gradient-energy-panel {
   background: linear-gradient(to bottom, #1e4a3a, #2a5a4a);
 }
+
+/* Barrier pill animations and styles */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes microBounce {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.03);
+  }
+}
+
+/* Category box styling - reduced visual weight */
+.category-box {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.dark .category-box {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+/* Selected pill styling with gradient */
+.pill.selected {
+  background: linear-gradient(135deg, #74C8FF, #8AEFFF);
+  color: #0B172A;
+  font-weight: 600;
+}

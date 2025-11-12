@@ -24,6 +24,36 @@ export type PlannedItemInsert = Database['public']['Tables']['planned_items']['I
 export type PlannedItemUpdate = Database['public']['Tables']['planned_items']['Update'];
 export type PlannedItemWithBarrier = PlannedItem & { barrier_types: BarrierType | null };
 
+// Energy Schedule types (manually defined until database types are regenerated)
+export interface EnergySchedule {
+  id: string;
+  user_id: string;
+  start_time_minutes: number;
+  energy_key: 'sparky' | 'steady' | 'flowing' | 'foggy' | 'resting';
+  label: string | null;
+  notify_on_transition: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EnergyScheduleInsert {
+  user_id: string;
+  start_time_minutes: number;
+  energy_key: 'sparky' | 'steady' | 'flowing' | 'foggy' | 'resting';
+  label?: string | null;
+  notify_on_transition?: boolean;
+  is_active?: boolean;
+}
+
+export interface EnergyScheduleUpdate {
+  start_time_minutes?: number;
+  energy_key?: 'sparky' | 'steady' | 'flowing' | 'foggy' | 'resting';
+  label?: string | null;
+  notify_on_transition?: boolean;
+  is_active?: boolean;
+}
+
 export interface BarrierTipMessage {
   slug: string;
   message: string;
@@ -649,6 +679,291 @@ export async function deletePlannedItem(itemId: string): Promise<boolean> {
   if (error) {
     console.error('Error deleting planned item:', error);
     return false;
+  }
+
+  return true;
+}
+
+// ==========================================
+// ENERGY SCHEDULE CRUD FUNCTIONS
+// ==========================================
+
+/**
+ * Get all energy schedules for a user
+ */
+export async function getEnergySchedules(userId: string): Promise<EnergySchedule[]> {
+  const { data, error } = await supabase
+    .from('energy_schedules')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .order('start_time_minutes', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching energy schedules:', error);
+    return [];
+  }
+
+  return (data ?? []) as EnergySchedule[];
+}
+
+/**
+ * Create a new energy schedule
+ */
+export async function createEnergySchedule(schedule: EnergyScheduleInsert): Promise<EnergySchedule | null> {
+  const { data, error } = await supabase
+    .from('energy_schedules')
+    .insert(schedule)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating energy schedule:', error);
+    throw error;
+  }
+
+  return data as EnergySchedule;
+}
+
+/**
+ * Update an energy schedule
+ */
+export async function updateEnergySchedule(
+  scheduleId: string,
+  updates: EnergyScheduleUpdate
+): Promise<EnergySchedule | null> {
+  const { data, error } = await supabase
+    .from('energy_schedules')
+    .update(updates)
+    .eq('id', scheduleId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating energy schedule:', error);
+    throw error;
+  }
+
+  return data as EnergySchedule;
+}
+
+/**
+ * Delete an energy schedule
+ */
+export async function deleteEnergySchedule(scheduleId: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('energy_schedules')
+    .delete()
+    .eq('id', scheduleId);
+
+  if (error) {
+    console.error('Error deleting energy schedule:', error);
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Get the current energy level based on schedule
+ * Returns the energy key that should be active at the current time
+ */
+export async function getCurrentEnergyFromSchedule(userId: string): Promise<{
+  energy_key: 'sparky' | 'steady' | 'flowing' | 'foggy' | 'resting';
+  schedule: EnergySchedule | null;
+  nextTransition: EnergySchedule | null;
+} | null> {
+  const schedules = await getEnergySchedules(userId);
+  
+  if (schedules.length === 0) {
+    return null;
+  }
+
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  
+  // Sort schedules by time
+  const sortedSchedules = [...schedules].sort((a, b) => a.start_time_minutes - b.start_time_minutes);
+  
+  // Find the current energy level
+  // If it's before the first schedule, use the last schedule of the previous day
+  let currentSchedule: EnergySchedule | null = null;
+  let nextTransition: EnergySchedule | null = null;
+  
+  for (let i = 0; i < sortedSchedules.length; i++) {
+    const schedule = sortedSchedules[i];
+    const nextSchedule = sortedSchedules[i + 1];
+    
+    if (currentMinutes >= schedule.start_time_minutes) {
+      if (!nextSchedule || currentMinutes < nextSchedule.start_time_minutes) {
+        currentSchedule = schedule;
+        nextTransition = nextSchedule || sortedSchedules[0]; // Wrap around to first schedule next day
+        break;
+      }
+    }
+  }
+  
+  // If before first schedule, use last schedule (from previous day)
+  if (!currentSchedule && sortedSchedules.length > 0) {
+    currentSchedule = sortedSchedules[sortedSchedules.length - 1];
+    nextTransition = sortedSchedules[0];
+  }
+  
+  if (!currentSchedule) {
+    return null;
+  }
+  
+  return {
+    energy_key: currentSchedule.energy_key,
+    schedule: currentSchedule,
+    nextTransition,
+  };
+}
+
+// ==========================================
+// USER PROFILE PREFERENCES FUNCTIONS
+// ==========================================
+
+/**
+ * Get user profile with preferences
+ */
+export async function getUserProfile(userId: string) {
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error && error.code !== 'PGRST116') {
+    console.error('Error fetching user profile:', error);
+    return null;
+  }
+
+  return data;
+}
+
+/**
+ * Update user profile preferences
+ */
+export async function updateUserPreferences(
+  userId: string,
+  preferences: Record<string, any>
+): Promise<boolean> {
+  // First, try to get existing profile
+  const existing = await getUserProfile(userId);
+
+  if (existing) {
+    // Update existing profile, merging preferences
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({
+        preferences: { ...existing.preferences, ...preferences },
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Error updating user preferences:', error);
+      return false;
+    }
+  } else {
+    // Create new profile
+    const { error } = await supabase
+      .from('user_profiles')
+      .insert({
+        user_id: userId,
+        preferences,
+      });
+
+    if (error) {
+      console.error('Error creating user profile:', error);
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Get custom tags from user preferences
+ */
+export async function getCustomTags(userId: string): Promise<string[]> {
+  const profile = await getUserProfile(userId);
+  if (!profile?.preferences) return [];
+  return (profile.preferences.customTags as string[]) || [];
+}
+
+/**
+ * Set custom tags in user preferences
+ */
+export async function setCustomTags(userId: string, tags: string[]): Promise<boolean> {
+  return updateUserPreferences(userId, { customTags: tags });
+}
+
+/**
+ * Get anchor presets for a user by type
+ */
+export async function getAnchorPresets(
+  userId: string,
+  anchorType: 'at' | 'while' | 'before' | 'after'
+): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('anchor_presets')
+    .select('preset_value')
+    .eq('user_id', userId)
+    .eq('anchor_type', anchorType)
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    // Silently handle missing table (migration not run yet)
+    if (error.code === '42P01') {
+      return [];
+    }
+    console.error('Error fetching anchor presets:', error);
+    return [];
+  }
+
+  return data.map((row) => row.preset_value);
+}
+
+/**
+ * Set anchor presets for a user by type
+ */
+export async function setAnchorPresets(
+  userId: string,
+  anchorType: 'at' | 'while' | 'before' | 'after',
+  presets: string[]
+): Promise<boolean> {
+  // Delete existing presets for this type
+  const { error: deleteError } = await supabase
+    .from('anchor_presets')
+    .delete()
+    .eq('user_id', userId)
+    .eq('anchor_type', anchorType);
+
+  if (deleteError) {
+    console.error('Error deleting existing anchor presets:', deleteError);
+    return false;
+  }
+
+  // Insert new presets
+  if (presets.length > 0) {
+    const inserts = presets.map((preset, index) => ({
+      user_id: userId,
+      anchor_type: anchorType,
+      preset_value: preset.trim(),
+      sort_order: index,
+    }));
+
+    const { error: insertError } = await supabase
+      .from('anchor_presets')
+      .insert(inserts);
+
+    if (insertError) {
+      console.error('Error inserting anchor presets:', insertError);
+      return false;
+    }
   }
 
   return true;

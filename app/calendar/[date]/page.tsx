@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { useSupabaseUser } from "@/lib/useSupabaseUser";
 import { getCheckinByDate, type CheckinWithRelations } from "@/lib/supabase";
+import { getIconComponent } from "@/components/InternalWeatherSelector";
 
 export default function CalendarDetailPage() {
   const params = useParams();
@@ -116,7 +117,12 @@ export default function CalendarDetailPage() {
           <div className="space-y-4">
             <section className="rounded-3xl border border-white/20 bg-white/80 p-6 shadow-sm">
               <div className="flex items-center gap-4">
-                <div className="text-4xl">{checkin.weather_icon}</div>
+                <div className="text-4xl">
+                  {checkin.weather_icon && (() => {
+                    const IconComponent = getIconComponent(checkin.weather_icon);
+                    return <IconComponent className="w-10 h-10" />;
+                  })()}
+                </div>
                 <div>
                   <p className="text-sm uppercase tracking-wide text-slate-500">Energy type</p>
                   <p className="text-xl font-semibold text-slate-900">{checkin.internal_weather}</p>
