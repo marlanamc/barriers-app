@@ -261,6 +261,66 @@ export type Database = {
         };
         Relationships: [];
       };
+      energy_schedules: {
+        Row: {
+          id: string;
+          user_id: string;
+          start_time_minutes: number;
+          energy_key: string;
+          label: string | null;
+          notify_on_transition: boolean;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          start_time_minutes: number;
+          energy_key: string;
+          label?: string | null;
+          notify_on_transition?: boolean;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          start_time_minutes?: number;
+          energy_key?: string;
+          label?: string | null;
+          notify_on_transition?: boolean;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      anchor_presets: {
+        Row: {
+          id: string;
+          user_id: string;
+          anchor_type: string;
+          preset_text: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          anchor_type: string;
+          preset_text: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          anchor_type?: string;
+          preset_text?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       user_internal_weather_stats: {

@@ -24,35 +24,13 @@ export type PlannedItemInsert = Database['public']['Tables']['planned_items']['I
 export type PlannedItemUpdate = Database['public']['Tables']['planned_items']['Update'];
 export type PlannedItemWithBarrier = PlannedItem & { barrier_types: BarrierType | null };
 
-// Energy Schedule types (manually defined until database types are regenerated)
-export interface EnergySchedule {
-  id: string;
-  user_id: string;
-  start_time_minutes: number;
-  energy_key: 'sparky' | 'steady' | 'flowing' | 'foggy' | 'resting';
-  label: string | null;
-  notify_on_transition: boolean;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
+export type EnergySchedule = Database['public']['Tables']['energy_schedules']['Row'];
+export type EnergyScheduleInsert = Database['public']['Tables']['energy_schedules']['Insert'];
+export type EnergyScheduleUpdate = Database['public']['Tables']['energy_schedules']['Update'];
 
-export interface EnergyScheduleInsert {
-  user_id: string;
-  start_time_minutes: number;
-  energy_key: 'sparky' | 'steady' | 'flowing' | 'foggy' | 'resting';
-  label?: string | null;
-  notify_on_transition?: boolean;
-  is_active?: boolean;
-}
-
-export interface EnergyScheduleUpdate {
-  start_time_minutes?: number;
-  energy_key?: 'sparky' | 'steady' | 'flowing' | 'foggy' | 'resting';
-  label?: string | null;
-  notify_on_transition?: boolean;
-  is_active?: boolean;
-}
+export type AnchorPreset = Database['public']['Tables']['anchor_presets']['Row'];
+export type AnchorPresetInsert = Database['public']['Tables']['anchor_presets']['Insert'];
+export type AnchorPresetUpdate = Database['public']['Tables']['anchor_presets']['Update'];
 
 export interface BarrierTipMessage {
   slug: string;
