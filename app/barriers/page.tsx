@@ -4,9 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, ChevronDown, ChevronUp } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useCheckIn, type TaskAnchorType } from "@/lib/checkin-context";
+import { useCheckIn, type TaskAnchorType, type TaskAnchor } from "@/lib/checkin-context";
 import { getBarrierTypes, type BarrierType } from "@/lib/supabase";
-import { buildAnchorPhrase, cleanAnchorInput, getMergedAnchorSuggestions, defaultAnchorSuggestionMap } from "@/lib/anchors";
+import { buildAnchorPhrase, buildMultipleAnchorsPhrase, cleanAnchorInput, getMergedAnchorSuggestions, defaultAnchorSuggestionMap, anchorLabel } from "@/lib/anchors";
 import { getCategoryEmoji } from "@/lib/categories";
 import { hasBarrierSelection } from "@/lib/barrier-helpers";
 import { useSupabaseUser } from "@/lib/useSupabaseUser";
@@ -39,11 +39,14 @@ const anchorSuggestionMap: Partial<Record<TaskAnchorType, string[]>> = {
 
 export default function BarrierScreen() {
   const router = useRouter();
-  const { focusItems, setBarrierForFocusItem, setAnchorForFocusItem } = useCheckIn();
+  const { focusItems, setBarrierForFocusItem, setAnchorForFocusItem, addAnchorToFocusItem, removeAnchorFromFocusItem, setAnchorsForFocusItem } = useCheckIn();
   const { user } = useSupabaseUser();
   const activeFocusItems = focusItems.filter((item) => !item.completed);
   const [barrierTypes, setBarrierTypes] = useState<BarrierType[]>([]);
   const [expandedAnchors, setExpandedAnchors] = useState<Record<string, boolean>>({});
+  const [addingAnchor, setAddingAnchor] = useState<Record<string, boolean>>({});
+  const [newAnchorType, setNewAnchorType] = useState<Record<string, TaskAnchorType | null>>({});
+  const [newAnchorValue, setNewAnchorValue] = useState<Record<string, string>>({});
   const [mergedAnchorSuggestions, setMergedAnchorSuggestions] = useState<Partial<Record<TaskAnchorType, string[]>>>({
     while: whileSuggestions,
     before: beforeSuggestions,
@@ -126,48 +129,9 @@ export default function BarrierScreen() {
             const fallbackBarrier = selectedSlug ? barrierBySlug[selectedSlug] : null;
             const selectedBarrierId = item.barrier?.barrierTypeId || fallbackBarrier?.id || null;
             const custom = item.barrier?.custom || "";
-            const anchorSelected = item.anchorType;
-            const anchorValue = item.anchorValue || "";
-            const contextualType =
-              anchorSelected && anchorSelected !== "at" ? anchorSelected : null;
-            const contextPlaceholder = contextualType
-              ? `${contextualType} ${anchorPlaceholders[contextualType]}`
-              : "";
-            const contextLabel = contextualType ? anchorTextLabels[contextualType] : "";
-            const contextSuggestions = contextualType
-              ? (mergedAnchorSuggestions[contextualType] ?? [])
-              : [];
 
-            const handleAnchorType = (type: TaskAnchorType) => {
-              if (type === anchorSelected) return;
-              // Set current time as default when "at" is selected
-              const defaultValue = type === "at" 
-                ? new Date().toTimeString().slice(0, 5) // HH:MM format
-                : "";
-              setAnchorForFocusItem(item.id, {
-                anchorType: type,
-                anchorValue: defaultValue,
-              });
-            };
-
-            const handleAnchorValue = (value: string) => {
-              if (!anchorSelected) return;
-              const nextValue =
-                anchorSelected === "at" ? value : cleanAnchorInput(anchorSelected, value);
-              setAnchorForFocusItem(item.id, {
-                anchorType: anchorSelected,
-                anchorValue: nextValue,
-              });
-            };
-
-            const categoryEmoji = getCategoryEmoji(item.categories[0]);
-            const anchorPhrase =
-              anchorSelected && anchorValue
-                ? buildAnchorPhrase(item.description, anchorSelected, anchorValue)
-                : "";
-            
             // Auto-expand if anchor is already selected
-            const isAnchorExpanded = expandedAnchors[item.id] ?? Boolean(anchorSelected);
+            const isAnchorExpanded = expandedAnchors[item.id] ?? Boolean(item.anchors && item.anchors.length > 0);
             
             return (
               <div
@@ -237,11 +201,11 @@ export default function BarrierScreen() {
                     onClick={() => setExpandedAnchors(prev => ({ ...prev, [item.id]: !prev[item.id] }))}
                     className="flex w-full items-center justify-between text-left"
                   >
-                    <div>
+                    <div className="flex-1">
                       <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                        {anchorSelected ? "Anchor: " + anchorPhrase : "Link to time or rhythm? (optional)"}
+                        {item.anchors && item.anchors.length > 0 ? "Anchors: " + buildMultipleAnchorsPhrase(item.anchors) : "Link to time or rhythm? (optional)"}
                       </p>
-                      {!anchorSelected && (
+                      {(!item.anchors || item.anchors.length === 0) && (
                         <p className="text-xs text-slate-500 dark:text-slate-400">at, while, before, after</p>
                       )}
                     </div>
@@ -251,80 +215,155 @@ export default function BarrierScreen() {
                       <ChevronDown className="h-4 w-4 text-slate-500 dark:text-slate-400" />
                     )}
                   </button>
-                  
+
                   {isAnchorExpanded && (
                     <div className="space-y-3 pt-2 border-t border-cyan-200/50 dark:border-cyan-700/30">
-                      <div className="flex flex-wrap gap-2 text-sm">
-                        {anchorOptions.map(({ type, label }) => {
-                          const active = anchorSelected === type;
-                          return (
-                            <button
-                              type="button"
-                              key={type}
-                              onClick={() => handleAnchorType(type)}
-                              className={`rounded-full px-3 py-1.5 font-semibold transition ${
-                                active
-                                  ? "bg-cyan-600 text-white shadow dark:bg-cyan-500"
-                                  : "bg-white text-slate-600 hover:bg-cyan-100 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60"
-                              }`}
-                            >
-                              {label}
-                            </button>
-                          );
-                        })}
-                        {anchorSelected && (
-                          <button
-                            type="button"
-                            onClick={() => setAnchorForFocusItem(item.id, null)}
-                            className="rounded-full border border-transparent px-3 py-1 text-xs font-medium text-slate-500 hover:border-slate-200 dark:text-slate-400 dark:hover:border-slate-600"
-                          >
-                            Clear
-                          </button>
-                        )}
-                      </div>
-
-                      {anchorSelected === "at" && (
+                      {/* Display existing anchors */}
+                      {item.anchors && item.anchors.length > 0 && (
                         <div className="space-y-2">
-                          <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                            Pick a time
-                          </label>
-                          <input
-                            type="time"
-                            value={anchorValue}
-                            onChange={(event) => handleAnchorValue(event.target.value)}
-                            className="w-full rounded-2xl border-2 border-cyan-200 bg-white px-4 py-3 text-lg font-medium text-slate-900 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-100 dark:border-cyan-600/50 dark:bg-slate-800/60 dark:text-slate-100 dark:focus:border-cyan-500 dark:focus:ring-cyan-900/40"
-                            placeholder="Select time"
-                          />
+                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Current Anchors</p>
+                          <div className="flex flex-wrap gap-2">
+                            {item.anchors.map((anchor, index) => (
+                              <div
+                                key={index}
+                                className="flex items-center gap-2 rounded-full bg-cyan-600 px-3 py-1.5 text-sm font-semibold text-white dark:bg-cyan-500"
+                              >
+                                <span>{anchorLabel(anchor.type, anchor.value)}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => removeAnchorFromFocusItem(item.id, index)}
+                                  className="rounded-full hover:bg-cyan-700 dark:hover:bg-cyan-600 p-0.5"
+                                  aria-label="Remove anchor"
+                                >
+                                  <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
 
-                      {contextualType && (
-                        <div className="space-y-2">
-                          <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                            {contextLabel}
-                          </label>
-                          <input
-                            type="text"
-                            value={anchorValue}
-                            onChange={(event) => handleAnchorValue(event.target.value)}
-                            placeholder={contextPlaceholder}
-                            className="w-full rounded-2xl border border-white/80 bg-white/90 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-100 dark:border-slate-600/50 dark:bg-slate-700/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-cyan-500 dark:focus:ring-cyan-900/40"
-                          />
-                          {contextSuggestions.length > 0 && (
-                            <div className="flex flex-wrap gap-2 text-xs">
-                              {contextSuggestions.slice(0, 4).map((suggestion) => (
+                      {/* Add new anchor */}
+                      {!addingAnchor[item.id] ? (
+                        <button
+                          type="button"
+                          onClick={() => setAddingAnchor(prev => ({ ...prev, [item.id]: true }))}
+                          className="w-full rounded-2xl border border-dashed border-cyan-300 bg-white/50 px-4 py-2 text-sm font-semibold text-cyan-700 transition hover:bg-white dark:border-cyan-600/50 dark:bg-slate-800/40 dark:text-cyan-400 dark:hover:bg-slate-800/60"
+                        >
+                          + Add {item.anchors && item.anchors.length > 0 ? "Another" : "an"} Anchor
+                        </button>
+                      ) : (
+                        <div className="space-y-3 rounded-2xl border border-cyan-200 bg-white p-3 dark:border-cyan-700/50 dark:bg-slate-800/60">
+                          <div className="flex flex-wrap gap-2 text-sm">
+                            {anchorOptions.map(({ type, label }) => {
+                              const active = newAnchorType[item.id] === type;
+                              return (
                                 <button
                                   type="button"
-                                  key={`${contextualType}-${suggestion}`}
-                                  onClick={() => handleAnchorValue(suggestion)}
-                                  className="rounded-full border border-white/60 bg-white/80 px-3 py-1 text-slate-600 transition hover:border-cyan-200 hover:text-cyan-700 dark:border-slate-600/50 dark:bg-slate-800/60 dark:text-slate-200 dark:hover:border-cyan-400 dark:hover:text-cyan-200"
+                                  key={type}
+                                  onClick={() => {
+                                    setNewAnchorType(prev => ({ ...prev, [item.id]: type }));
+                                    setNewAnchorValue(prev => ({ ...prev, [item.id]: type === "at" ? new Date().toTimeString().slice(0, 5) : "" }));
+                                  }}
+                                  className={`rounded-full px-3 py-1.5 font-semibold transition ${
+                                    active
+                                      ? "bg-cyan-600 text-white shadow dark:bg-cyan-500"
+                                      : "bg-white text-slate-600 hover:bg-cyan-100 dark:bg-slate-700/60 dark:text-slate-300 dark:hover:bg-slate-600/60"
+                                  }`}
                                 >
-                                  {suggestion}
+                                  {label}
                                 </button>
-                              ))}
+                              );
+                            })}
+                          </div>
+
+                          {newAnchorType[item.id] === "at" && (
+                            <div className="space-y-2">
+                              <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                Pick a time
+                              </label>
+                              <input
+                                type="time"
+                                value={newAnchorValue[item.id] || ""}
+                                onChange={(e) => setNewAnchorValue(prev => ({ ...prev, [item.id]: e.target.value }))}
+                                className="w-full rounded-2xl border-2 border-cyan-200 bg-white px-4 py-3 text-lg font-medium text-slate-900 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-100 dark:border-cyan-600/50 dark:bg-slate-700/60 dark:text-slate-100 dark:focus:border-cyan-500 dark:focus:ring-cyan-900/40"
+                              />
                             </div>
                           )}
+
+                          {newAnchorType[item.id] && newAnchorType[item.id] !== "at" && (
+                            <div className="space-y-2">
+                              <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                {anchorTextLabels[newAnchorType[item.id] as Exclude<TaskAnchorType, "at">]}
+                              </label>
+                              <input
+                                type="text"
+                                value={newAnchorValue[item.id] || ""}
+                                onChange={(e) => setNewAnchorValue(prev => ({ ...prev, [item.id]: cleanAnchorInput(newAnchorType[item.id]!, e.target.value) }))}
+                                placeholder={anchorPlaceholders[newAnchorType[item.id] as Exclude<TaskAnchorType, "at">]}
+                                className="w-full rounded-2xl border border-cyan-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-100 dark:border-cyan-600/50 dark:bg-slate-700/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-cyan-500 dark:focus:ring-cyan-900/40"
+                              />
+                              {newAnchorType[item.id] && mergedAnchorSuggestions[newAnchorType[item.id] as Exclude<TaskAnchorType, "at">] && (
+                                <div className="flex flex-wrap gap-2 text-xs">
+                                  {(mergedAnchorSuggestions[newAnchorType[item.id] as Exclude<TaskAnchorType, "at">] || []).slice(0, 4).map((suggestion) => (
+                                    <button
+                                      type="button"
+                                      key={suggestion}
+                                      onClick={() => setNewAnchorValue(prev => ({ ...prev, [item.id]: suggestion }))}
+                                      className="rounded-full border border-cyan-200 bg-white px-3 py-1 text-slate-600 transition hover:border-cyan-300 hover:text-cyan-700 dark:border-cyan-700/50 dark:bg-slate-700/60 dark:text-slate-200 dark:hover:border-cyan-600 dark:hover:text-cyan-200"
+                                    >
+                                      {suggestion}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const type = newAnchorType[item.id];
+                                const value = newAnchorValue[item.id];
+                                if (type && value) {
+                                  addAnchorToFocusItem(item.id, { type, value });
+                                  setAddingAnchor(prev => ({ ...prev, [item.id]: false }));
+                                  setNewAnchorType(prev => ({ ...prev, [item.id]: null }));
+                                  setNewAnchorValue(prev => ({ ...prev, [item.id]: "" }));
+                                }
+                              }}
+                              disabled={!newAnchorType[item.id] || !newAnchorValue[item.id]}
+                              className="flex-1 rounded-2xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-cyan-500 dark:hover:bg-cyan-600"
+                            >
+                              Add Anchor
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAddingAnchor(prev => ({ ...prev, [item.id]: false }));
+                                setNewAnchorType(prev => ({ ...prev, [item.id]: null }));
+                                setNewAnchorValue(prev => ({ ...prev, [item.id]: "" }));
+                              }}
+                              className="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700/60 dark:text-slate-300 dark:hover:bg-slate-600/60"
+                            >
+                              Cancel
+                            </button>
+                          </div>
                         </div>
+                      )}
+
+                      {/* Clear all anchors button */}
+                      {item.anchors && item.anchors.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setAnchorsForFocusItem(item.id, [])}
+                          className="text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                        >
+                          Clear all anchors
+                        </button>
                       )}
                     </div>
                   )}
