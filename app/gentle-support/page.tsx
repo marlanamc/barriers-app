@@ -682,8 +682,16 @@ export default function GentleSupportScreen() {
     }
   }
 
-  // Show success message before forecast (Option A)
+  // Show success message then redirect to home
   if (showSuccess && dailyForecast) {
+    // Auto-redirect to home after showing success message
+    useEffect(() => {
+      const timer = setTimeout(() => {
+        router.push("/");
+      }, 1500); // Show success for 1.5 seconds then go home
+      return () => clearTimeout(timer);
+    }, [router]);
+
     return (
       <main className="min-h-screen flex items-center justify-center px-4">
         <div className="mx-auto max-w-md text-center space-y-4">
@@ -694,7 +702,7 @@ export default function GentleSupportScreen() {
             Check-in saved! ✨
           </h1>
           <p className="text-lg text-slate-600 dark:text-slate-400 transition-all duration-500">
-            Your daily forecast is ready.
+            Redirecting to home...
           </p>
         </div>
       </main>
