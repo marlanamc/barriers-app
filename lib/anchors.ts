@@ -1,4 +1,4 @@
-import type { TaskAnchorType } from './checkin-context';
+import type { TaskAnchorType, TaskAnchor } from './checkin-context';
 import { getAnchorPresets } from './supabase';
 
 // Default anchor suggestions
@@ -127,4 +127,54 @@ export function buildAnchorPhrase(
 
 export function formatAnchorValue(anchorType?: TaskAnchorType | null, anchorValue?: string | null) {
   return anchorValueForDisplay(anchorType, anchorValue);
+}
+
+/**
+ * Build a natural language phrase from multiple anchors
+ * Examples:
+ *  - [at 3pm] → "at 3:00 PM"
+ *  - [at 3pm, while listening to music] → "at 3:00 PM while listening to music"
+ *  - [after lunch, before opening email] → "after lunch and before opening email"
+ */
+export function buildMultipleAnchorsPhrase(anchors: TaskAnchor[]): string {
+  if (!anchors || anchors.length === 0) return '';
+
+  if (anchors.length === 1) {
+    return anchorLabel(anchors[0].type, anchors[0].value);
+  }
+
+  const parts: string[] = [];
+
+  for (let i = 0; i < anchors.length; i++) {
+    const anchor = anchors[i];
+    const label = anchorLabel(anchor.type, anchor.value);
+    if (!label) continue;
+
+    if (i === 0) {
+      parts.push(label);
+    } else if (i === anchors.length - 1) {
+      // Last item - use "and" if same type, otherwise just append
+      const prevType = anchors[i - 1].type;
+      if (prevType === anchor.type) {
+        parts.push(`and ${label}`);
+      } else {
+        parts.push(label);
+      }
+    } else {
+      parts.push(label);
+    }
+  }
+
+  return parts.join(' ');
+}
+
+/**
+ * Build a complete phrase with title and multiple anchors
+ * Example: "Take morning meds at 8:00 AM while making coffee"
+ */
+export function buildPhraseWithMultipleAnchors(title: string, anchors?: TaskAnchor[]): string {
+  if (!anchors || anchors.length === 0) return title;
+  const anchorPhrase = buildMultipleAnchorsPhrase(anchors);
+  if (!anchorPhrase) return title;
+  return `${title} ${anchorPhrase}`;
 }

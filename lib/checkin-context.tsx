@@ -18,6 +18,11 @@ export interface BarrierSelectionState {
 
 export type TaskAnchorType = 'at' | 'while' | 'before' | 'after';
 
+export interface TaskAnchor {
+  type: TaskAnchorType;
+  value: string;
+}
+
 export interface TaskAnchorState {
   anchorType?: TaskAnchorType | null;
   anchorValue?: string | null;
@@ -30,8 +35,11 @@ export interface FocusItemState {
   sortOrder: number;
   plannedItemId?: string | null;
   barrier?: BarrierSelectionState | null;
+  // Legacy single anchor support (deprecated, use anchors array)
   anchorType?: TaskAnchorType | null;
   anchorValue?: string | null;
+  // New multiple anchors support
+  anchors?: TaskAnchor[];
   completed: boolean;
 }
 
@@ -49,6 +57,9 @@ interface CheckInContextValue {
   reorderFocusItems: (draggedId: string, targetId: string) => void;
   setBarrierForFocusItem: (id: string, barrier: BarrierSelectionState | null) => void;
   setAnchorForFocusItem: (id: string, anchor: TaskAnchorState | null) => void;
+  setAnchorsForFocusItem: (id: string, anchors: TaskAnchor[]) => void;
+  addAnchorToFocusItem: (id: string, anchor: TaskAnchor) => void;
+  removeAnchorFromFocusItem: (id: string, anchorIndex: number) => void;
   loadPlannedItems: (items: FocusItemState[]) => void;
   loadFocusItemsFromCheckin: (items: FocusItemState[]) => void;
   resetCheckIn: () => void;
@@ -270,9 +281,59 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
               ...item,
               anchorType: anchor?.anchorType ?? null,
               anchorValue: anchor?.anchorValue ?? null,
+              // Also update anchors array for consistency
+              anchors: anchor?.anchorType && anchor?.anchorValue
+                ? [{ type: anchor.anchorType, value: anchor.anchorValue }]
+                : [],
             }
           : item
       )
+    );
+  }, []);
+
+  const setAnchorsForFocusItem = useCallback((id: string, anchors: TaskAnchor[]) => {
+    setFocusItems((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              anchors,
+              // Keep legacy fields in sync with first anchor for backward compatibility
+              anchorType: anchors.length > 0 ? anchors[0].type : null,
+              anchorValue: anchors.length > 0 ? anchors[0].value : null,
+            }
+          : item
+      )
+    );
+  }, []);
+
+  const addAnchorToFocusItem = useCallback((id: string, anchor: TaskAnchor) => {
+    setFocusItems((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              anchors: [...(item.anchors || []), anchor],
+            }
+          : item
+      )
+    );
+  }, []);
+
+  const removeAnchorFromFocusItem = useCallback((id: string, anchorIndex: number) => {
+    setFocusItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        const newAnchors = [...(item.anchors || [])];
+        newAnchors.splice(anchorIndex, 1);
+        return {
+          ...item,
+          anchors: newAnchors,
+          // Update legacy fields
+          anchorType: newAnchors.length > 0 ? newAnchors[0].type : null,
+          anchorValue: newAnchors.length > 0 ? newAnchors[0].value : null,
+        };
+      })
     );
   }, []);
 
@@ -430,6 +491,9 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
       reorderFocusItems,
       setBarrierForFocusItem,
       setAnchorForFocusItem,
+      setAnchorsForFocusItem,
+      addAnchorToFocusItem,
+      removeAnchorFromFocusItem,
       loadPlannedItems,
       loadFocusItemsFromCheckin,
       resetCheckIn,
@@ -438,7 +502,7 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
       validationError,
       clearValidationError,
     }),
-    [weather, forecastNote, checkinDate, focusItems, addFocusItem, updateFocusItem, removeFocusItem, reorderFocusItems, setBarrierForFocusItem, setAnchorForFocusItem, loadPlannedItems, loadFocusItemsFromCheckin, resetCheckIn, clearFocusItems, clearLocalStorageForDate, validationError, clearValidationError]
+    [weather, forecastNote, checkinDate, focusItems, addFocusItem, updateFocusItem, removeFocusItem, reorderFocusItems, setBarrierForFocusItem, setAnchorForFocusItem, setAnchorsForFocusItem, addAnchorToFocusItem, removeAnchorFromFocusItem, loadPlannedItems, loadFocusItemsFromCheckin, resetCheckIn, clearFocusItems, clearLocalStorageForDate, validationError, clearValidationError]
   );
 
   return <CheckInContext.Provider value={value}>{children}</CheckInContext.Provider>;
