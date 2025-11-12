@@ -58,17 +58,23 @@ export function FocusSection({
         <button
           type="button"
           onClick={onAddTask}
-          disabled={!canAddMore}
+          aria-disabled={!canAddMore}
           className={`flex items-center gap-1 rounded-full border px-3 py-1 text-sm font-semibold transition ${
             canAddMore
               ? 'border-transparent bg-gradient-to-r from-[#bff1ff] to-[#e0f7ff] text-[#046d8b] shadow-[0_10px_25px_rgba(120,210,255,0.45)] hover:brightness-105 dark:border-cyan-800 dark:bg-none dark:bg-cyan-900/30 dark:text-cyan-100'
-              : 'cursor-not-allowed border-slate-200 bg-white/40 text-slate-400 opacity-70 dark:border-slate-700 dark:text-slate-500'
+              : 'border-amber-200 bg-white/80 text-amber-700 shadow-none ring-1 ring-amber-100 dark:border-amber-800/60 dark:bg-slate-900/40 dark:text-amber-200'
           }`}
         >
           <Plus className="h-4 w-4" />
           Add
         </button>
       </div>
+
+      {!canAddMore && (
+        <p className="mb-3 text-xs font-medium text-amber-700 dark:text-amber-200">
+          Capacity is tight, but you can still add something meaningful.
+        </p>
+      )}
 
       {activeTasks.length > 0 ? (
         <div className="space-y-2">
