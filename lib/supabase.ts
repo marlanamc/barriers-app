@@ -298,6 +298,17 @@ export async function saveCheckinWithFocus(payload: SaveCheckinPayload): Promise
     console.warn('Invalid check-in date provided, defaulting to today.', payload.checkinDate);
   }
 
+  // Log the save operation for debugging date issues
+  const actualCheckinDate = normalizedCheckinDate || new Date().toISOString().split('T')[0];
+  console.log('💾 Saving check-in:', {
+    userId: payload.userId,
+    date: actualCheckinDate,
+    providedDate: payload.checkinDate,
+    normalizedDate: normalizedCheckinDate,
+    weather: payload.internalWeather.key,
+    focusItemsCount: payload.focusItems.length,
+  });
+
   const rpcParams = {
     p_user_id: payload.userId,
     p_internal_weather: payload.internalWeather.key,
