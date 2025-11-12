@@ -112,6 +112,7 @@ export type Database = {
           sort_order: number;
           anchor_type: string | null;
           anchor_value: string | null;
+          anchors: Json;
           created_at: string;
           updated_at: string;
         };
@@ -124,6 +125,7 @@ export type Database = {
           sort_order?: number;
           anchor_type?: string | null;
           anchor_value?: string | null;
+          anchors?: Json;
           created_at?: string;
           updated_at?: string;
         };
@@ -136,6 +138,7 @@ export type Database = {
           sort_order?: number;
           anchor_type?: string | null;
           anchor_value?: string | null;
+          anchors?: Json;
           created_at?: string;
           updated_at?: string;
         };
@@ -188,6 +191,7 @@ export type Database = {
           custom_barrier: string | null;
           anchor_type: 'at' | 'while' | 'before' | 'after' | null;
           anchor_value: string | null;
+          anchors: Json;
           created_at: string;
           updated_at: string;
         };
@@ -204,6 +208,7 @@ export type Database = {
           custom_barrier?: string | null;
           anchor_type?: 'at' | 'while' | 'before' | 'after' | null;
           anchor_value?: string | null;
+          anchors?: Json;
           created_at?: string;
           updated_at?: string;
         };
@@ -220,6 +225,7 @@ export type Database = {
           custom_barrier?: string | null;
           anchor_type?: 'at' | 'while' | 'before' | 'after' | null;
           anchor_value?: string | null;
+          anchors?: Json;
           created_at?: string;
           updated_at?: string;
         };

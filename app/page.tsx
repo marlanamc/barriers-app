@@ -12,7 +12,7 @@ import { getCategoryEmoji } from "@/lib/categories";
 import { getPlannedItemsForDate, getCheckinByDate, saveCheckinWithFocus } from "@/lib/supabase";
 import { appliesToDate } from "@/lib/recurrence";
 import { getTodayLocalDateString } from "@/lib/date-utils";
-import { anchorValueForDisplay } from "@/lib/anchors";
+import { anchorValueForDisplay, buildMultipleAnchorsPhrase } from "@/lib/anchors";
 import { useEnergySchedule } from "@/lib/useEnergySchedule";
 
 function getGreeting() {
@@ -669,8 +669,10 @@ export default function HomePage() {
               .slice()
               .sort((a, b) => a.sortOrder - b.sortOrder)
               .map((item) => {
-                const anchorDisplayValue = anchorValueForDisplay(item.anchorType, item.anchorValue);
-                const anchorType = item.anchorType && anchorDisplayValue ? item.anchorType : null;
+                // Support both new multiple anchors and legacy single anchor
+                const anchorPhrase = item.anchors && item.anchors.length > 0
+                  ? buildMultipleAnchorsPhrase(item.anchors)
+                  : anchorValueForDisplay(item.anchorType, item.anchorValue);
                 const isDragging = draggedItemId === item.id;
                 const isDragOver = dragOverItemId === item.id;
                 return (
@@ -750,9 +752,9 @@ export default function HomePage() {
                         <span className="text-lg leading-none">{getCategoryEmoji(item.categories[0]) || "•"}</span>
                         <span>{item.description}</span>
                       </p>
-                      {anchorType && anchorDisplayValue && (
+                      {anchorPhrase && (
                         <p className="text-xs font-semibold text-teal-600 dark:text-cyan-400">
-                          {anchorType} {anchorDisplayValue}
+                          {anchorPhrase}
                         </p>
                       )}
                       {item.categories.length > 0 && (
@@ -852,8 +854,10 @@ export default function HomePage() {
                   .slice()
                   .sort((a, b) => a.sortOrder - b.sortOrder)
                   .map((item) => {
-                    const anchorDisplayValue = anchorValueForDisplay(item.anchorType, item.anchorValue);
-                    const anchorType = item.anchorType && anchorDisplayValue ? item.anchorType : null;
+                    // Support both new multiple anchors and legacy single anchor
+                    const anchorPhrase = item.anchors && item.anchors.length > 0
+                      ? buildMultipleAnchorsPhrase(item.anchors)
+                      : anchorValueForDisplay(item.anchorType, item.anchorValue);
                     return (
                       <li
                         key={item.id}
@@ -869,9 +873,9 @@ export default function HomePage() {
                         </button>
                         <div className="flex-1 space-y-1">
                           <p className="text-sm font-semibold text-slate-500 line-through dark:text-slate-400">{item.description}</p>
-                          {anchorType && anchorDisplayValue && (
+                          {anchorPhrase && (
                             <p className="text-xs font-semibold text-teal-600 dark:text-cyan-300">
-                              {anchorType} {anchorDisplayValue}
+                              {anchorPhrase}
                             </p>
                           )}
                         </div>

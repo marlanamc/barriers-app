@@ -7,7 +7,7 @@ import { type TaskAnchorType } from "@/lib/checkin-context";
 import { useSupabaseUser } from "@/lib/useSupabaseUser";
 import { getCheckinsForRange, type CheckinWithRelations } from "@/lib/supabase";
 import { formatDateToLocalString } from "@/lib/date-utils";
-import { anchorLabel } from "@/lib/anchors";
+import { anchorLabel, buildMultipleAnchorsPhrase } from "@/lib/anchors";
 import { getCategoryEmoji } from "@/lib/categories";
 
 const monthNames = [
@@ -302,8 +302,11 @@ export default function CalendarPage() {
                   if (!item) return null;
                   const barrier = item.focus_barriers?.[0];
                   const barrierLabel = barrier?.barrier_types?.label || barrier?.custom_barrier;
-                  const anchorType = (item.anchor_type as TaskAnchorType | null) ?? null;
-                  const anchor = anchorLabel(anchorType, item.anchor_value || null);
+                  // Support both new multiple anchors and legacy single anchor
+                  const anchorsArray = Array.isArray(item.anchors) ? item.anchors : [];
+                  const anchor = anchorsArray.length > 0
+                    ? buildMultipleAnchorsPhrase(anchorsArray as any)
+                    : anchorLabel((item.anchor_type as TaskAnchorType | null) ?? null, item.anchor_value || null);
                   const categoryEmoji = getCategoryEmoji(item.categories?.[0]);
                   return (
                     <div key={item.id} className="rounded-2xl border border-white/40 bg-white px-4 py-3 dark:border-slate-600/40 dark:bg-slate-800/60">
