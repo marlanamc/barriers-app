@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { AppWordmark } from '@/components/AppWordmark';
 import { StatusHeader } from '@/components/command-center/StatusHeader';
 import { FocusSection } from '@/components/command-center/FocusSection';
 import { LifeSection } from '@/components/command-center/LifeSection';
@@ -20,6 +21,13 @@ import {
   getContextualMessage,
   MAX_FOCUS_ITEMS,
 } from '@/lib/capacity';
+
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
+}
 
 interface Task {
   id: string;
@@ -270,11 +278,14 @@ export default function CommandCenterPage() {
   return (
     <>
       <main className="min-h-screen pb-24">
-        {/* App Title */}
-        <div className="border-b border-slate-200 bg-white/80 px-4 py-3 backdrop-blur dark:border-slate-700 dark:bg-slate-800/80">
-          <h1 className="text-center text-2xl font-bold text-slate-900 dark:text-slate-100">
-            ADHD Barrier Tracker
-          </h1>
+        {/* App Header with Greeting */}
+        <div className="border-b border-slate-200 bg-white/80 px-4 py-4 backdrop-blur dark:border-slate-700 dark:bg-slate-800/80">
+          <div className="flex items-center justify-between">
+            <AppWordmark />
+          </div>
+          <h2 className="mt-2 text-3xl font-bold text-slate-800 dark:text-slate-100">
+            {getGreeting()}
+          </h2>
         </div>
 
         {/* Status Header */}
