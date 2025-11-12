@@ -869,7 +869,8 @@ export async function updateUserPreferences(
 export async function getCustomTags(userId: string): Promise<string[]> {
   const profile = await getUserProfile(userId);
   if (!profile?.preferences) return [];
-  return (profile.preferences.customTags as string[]) || [];
+  const prefs = profile.preferences as Record<string, any>;
+  return (prefs.customTags as string[]) || [];
 }
 
 /**
