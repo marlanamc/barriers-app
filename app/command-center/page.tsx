@@ -1,13 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { AppWordmark } from '@/components/AppWordmark';
-import { EnergyCard } from '@/components/command-center/EnergyCard';
-import { StatusHeader } from '@/components/command-center/StatusHeader';
-import { FocusSection } from '@/components/command-center/FocusSection';
-import { LifeSection } from '@/components/command-center/LifeSection';
-import { ContextualMessage } from '@/components/command-center/ContextualMessage';
+import { HeaderStatus } from '@/components/HeaderStatus';
+import { CapacityCard } from '@/components/CapacityCard';
+import { FocusSection } from '@/components/FocusSection';
+import { LifeMaintenance } from '@/components/LifeMaintenance';
 import { EnergyModal } from '@/components/modals/EnergyModal';
 import { TaskModal } from '@/components/modals/TaskModal';
 import { useSupabaseUser } from '@/lib/useSupabaseUser';
@@ -22,14 +20,54 @@ import {
   getContextualMessage,
   MAX_FOCUS_ITEMS,
 } from '@/lib/capacity';
+import { getFlowGreeting } from '@/lib/getFlowGreeting';
 
-function getGreeting() {
-  const hour = new Date().getHours();
-  if (hour >= 4 && hour < 6) return 'Early morning'; // 4am-6am: Early risers
-  if (hour >= 6 && hour < 12) return 'Good morning'; // 6am-12pm
-  if (hour >= 12 && hour < 18) return 'Good afternoon'; // 12pm-6pm
-  if (hour >= 18 && hour < 22) return 'Good evening'; // 6pm-10pm
-  return 'Good night'; // 10pm-4am: Night owls
+const ENERGY_SUPPORT_MESSAGES: Record<EnergyLevel, string> = {
+  sparky: 'Plenty of spark—pick one meaningful win to protect.',
+  steady: 'Steady energy. Take one focused step forward.',
+  flowing: 'Gentle flow. Keep things light and breathable.',
+  foggy: 'Low energy. Aim for one small win tonight.',
+  resting: 'Rest up. Light maintenance only if it feels good.',
+};
+
+type TimeWarningTone = 'soon' | 'urgent' | 'after';
+
+const TIME_WARNING_STYLES: Record<TimeWarningTone, string> = {
+  soon: 'bg-gradient-to-r from-[#fff8e8] to-[#ffeef9] text-amber-900 ring-[#ffe3c5] dark:bg-amber-900/20 dark:text-amber-100 dark:ring-amber-800/40',
+  urgent: 'bg-gradient-to-r from-[#ffeef4] to-[#ffe6ff] text-rose-900 ring-[#ffcfe4] dark:bg-rose-900/30 dark:text-rose-100 dark:ring-rose-800/50',
+  after: 'bg-gradient-to-r from-[#f2edff] to-[#e2f0ff] text-violet-900 ring-[#d7d4ff] dark:bg-violet-900/30 dark:text-violet-100 dark:ring-violet-800/60',
+};
+
+function getTimeWarning(timeInfo: ReturnType<typeof getTimeUntilStop> | null) {
+  if (!timeInfo) return null;
+  if (timeInfo.isPastStop) {
+    return {
+      tone: 'after' as TimeWarningTone,
+      message: 'You are past your hard stop. Start winding down when you can.',
+    };
+  }
+  if (timeInfo.totalMinutes <= 30) {
+    return {
+      tone: 'urgent' as TimeWarningTone,
+      message: `${Math.max(timeInfo.totalMinutes, 1)} min until your hard stop. Time to wrap up for the day.`,
+    };
+  }
+  if (timeInfo.totalMinutes <= 120) {
+    const hours = Math.floor(timeInfo.totalMinutes / 60);
+    const minutes = timeInfo.totalMinutes % 60;
+    const parts = [];
+    if (hours > 0) {
+      parts.push(`${hours} ${hours === 1 ? 'hour' : 'hours'}`);
+    }
+    if (minutes > 0) {
+      parts.push(`${minutes} min`);
+    }
+    return {
+      tone: 'soon' as TimeWarningTone,
+      message: `${parts.join(' ')} until your hard stop. Choose one last focus.`,
+    };
+  }
+  return null;
 }
 
 interface Task {
@@ -47,12 +85,11 @@ interface Task {
 
 export default function CommandCenterPage() {
   const { user } = useSupabaseUser();
-  const router = useRouter();
 
   // State
   const [loading, setLoading] = useState(true);
   const [energyLevel, setEnergyLevel] = useState<EnergyLevel | null>(null);
-  const [hardStopTime, setHardStopTime] = useState<string>('18:00');
+  const [hardStopTime] = useState<string>('18:00');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [checkinId, setCheckinId] = useState<string | null>(null);
 
@@ -167,6 +204,31 @@ export default function CommandCenterPage() {
     !!energyLevel
   );
 
+  const focusPlanned = focusTasks.filter((t) => !t.completed).length;
+  const capacityTarget = energyLevel
+    ? Math.max(1, Math.round(capacityInfo.totalCapacity || 1))
+    : Math.max(focusPlanned || 1, 1);
+  const supportiveMessage = energyLevel
+    ? ENERGY_SUPPORT_MESSAGES[energyLevel]
+    : 'Check your energy to set expectations for today.';
+  const timeWarning = getTimeWarning(timeInfo);
+  const headerTimeInfo = timeInfo
+    ? { totalMinutes: timeInfo.totalMinutes, isPastStop: timeInfo.isPastStop }
+    : null;
+  const planHint = contextual.message || null;
+  const userSchedule = ((user?.user_metadata ?? {}) as {
+    workStart?: string;
+    workEnd?: string;
+    work_start?: string;
+    work_end?: string;
+  }) || {};
+  const scheduleStart = userSchedule.workStart ?? userSchedule.work_start ?? '08:00';
+  const scheduleEnd = userSchedule.workEnd ?? userSchedule.work_end ?? hardStopTime ?? '18:00';
+  const flowGreeting = getFlowGreeting(new Date(), {
+    workStart: scheduleStart,
+    workEnd: scheduleEnd,
+  });
+
   // Handlers
   const handleEnergyChange = () => {
     setShowEnergyModal(true);
@@ -203,6 +265,12 @@ export default function CommandCenterPage() {
     }
   };
 
+  const appendTask = async (newTask: Task) => {
+    const updated = [...tasks, newTask];
+    setTasks(updated);
+    await saveToDatabase(updated);
+  };
+
   const handleTaskSave = async (taskData: {
     id?: string;
     description: string;
@@ -226,31 +294,25 @@ export default function CommandCenterPage() {
       await saveToDatabase(updated);
     } else {
       // Add new task
-      const newTask: Task = {
+      await appendTask({
         id: `temp-${Date.now()}`,
         description: taskData.description,
         completed: false,
         complexity: taskData.complexity,
         type: taskData.taskType,
         anchorTime: taskData.anchorTime,
-      };
-      const updated = [...tasks, newTask];
-      setTasks(updated);
-      await saveToDatabase(updated);
+      });
     }
   };
 
   const handleAddLifeTask = async (description: string) => {
-    const newTask: Task = {
+    await appendTask({
       id: `temp-life-${Date.now()}`,
       description,
       completed: false,
       complexity: 'quick',
       type: 'life',
-    };
-    const updated = [...tasks, newTask];
-    setTasks(updated);
-    await saveToDatabase(updated);
+    });
   };
 
   const handleToggleLifeTask = async (taskId: string) => {
@@ -267,9 +329,6 @@ export default function CommandCenterPage() {
     await saveToDatabase(updated);
   };
 
-  const focusCompleted = focusTasks.filter((t) => t.completed).length;
-  const lifeCompleted = lifeTasks.filter((t) => t.completed).length;
-
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center">
@@ -280,60 +339,58 @@ export default function CommandCenterPage() {
 
   return (
     <>
-      <main className="min-h-screen pb-24">
-        {/* App Header with Greeting */}
-        <div className="space-y-4 bg-white/80 px-4 py-4 backdrop-blur dark:bg-slate-800/80">
+      <main className="relative min-h-screen overflow-hidden bg-gradient-to-b from-[#fff7fb] via-[#f2fbff] to-[#fffef6] pb-24 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-80 blur-[60px] dark:hidden"
+          aria-hidden
+        >
+          <div className="absolute -top-32 left-[-10%] h-72 w-72 rounded-full bg-[#ffdff4]" />
+          <div className="absolute -bottom-40 right-[-5%] h-96 w-96 rounded-full bg-[#dff7ff]" />
+          <div className="absolute top-1/3 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-[#ffeec9]" />
+        </div>
+        <div
+          className="pointer-events-none absolute inset-0 hidden opacity-40 blur-3xl dark:block"
+          aria-hidden
+        >
+          <div className="absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-slate-900/60 to-transparent" />
+        </div>
+        <div className="relative mx-auto flex min-h-screen max-w-2xl flex-col gap-4 px-4 pb-16 pt-6">
           <div className="flex items-center justify-between">
             <AppWordmark />
           </div>
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-            {new Date().toLocaleDateString('en-US', {
-              weekday: 'long',
-              month: 'long',
-              day: 'numeric',
-            })}
-          </h1>
-          <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-100">
-            {getGreeting()}
-          </h2>
 
-          {/* Energy Card */}
-          <EnergyCard energyLevel={energyLevel} onChangeEnergy={handleEnergyChange} />
-        </div>
+          <HeaderStatus
+            energyLevel={energyLevel}
+            focusCount={focusPlanned}
+            capacityTarget={capacityTarget}
+            supportiveMessage={supportiveMessage}
+            flowGreeting={flowGreeting}
+            timeInfo={headerTimeInfo}
+            onEnergyClick={handleEnergyChange}
+          />
 
-        {/* Status Header */}
-        <StatusHeader
-          energyLevel={energyLevel}
-          hardStopTime={hardStopTime}
-          focusCount={focusTasks.length}
-          focusCompleted={focusCompleted}
-          totalCapacity={capacityInfo.totalCapacity}
-          usedCapacity={capacityInfo.usedCapacity}
-          lifeCount={lifeTasks.length}
-          onEnergyChange={handleEnergyChange}
-        />
-
-        {/* Main Content */}
-        <div className="mx-auto max-w-2xl space-y-6 p-4">
-          {/* Contextual Message */}
-          {contextual.action && (
-            <ContextualMessage
-              type={contextual.type}
-              message={contextual.message}
-              action={contextual.action}
-              onAction={handleEnergyChange}
-            />
+          {timeWarning && (
+            <div
+              className={`rounded-2xl px-3 py-2 text-sm font-medium shadow-sm ring-1 backdrop-blur ${TIME_WARNING_STYLES[timeWarning.tone]}`}
+            >
+              {timeWarning.message}
+            </div>
           )}
 
-          {/* Focus Items Section */}
+          <CapacityCard
+            energyLevel={energyLevel}
+            hardStopTime={hardStopTime}
+            focusCount={focusPlanned}
+            capacityInfo={energyLevel ? capacityInfo : null}
+            planHint={planHint}
+          />
+
           <FocusSection
-            tasks={focusTasks.map((t) => ({
-              id: t.id,
-              description: t.description,
-              completed: t.completed,
-              complexity: t.complexity,
-              anchorTime: t.anchorTime,
-              barrier: t.barrier,
+            tasks={focusTasks.map((task) => ({
+              id: task.id,
+              description: task.description,
+              completed: task.completed,
+              complexity: task.complexity,
             }))}
             canAddMore={capacityInfo.canAddTask}
             onAddTask={handleAddFocusTask}
@@ -341,15 +398,11 @@ export default function CommandCenterPage() {
             onTaskClick={handleTaskClick}
           />
 
-          {/* Divider */}
-          <div className="border-t border-slate-200 dark:border-slate-700" />
-
-          {/* Life Maintenance Section */}
-          <LifeSection
-            tasks={lifeTasks.map((t) => ({
-              id: t.id,
-              description: t.description,
-              completed: t.completed,
+          <LifeMaintenance
+            tasks={lifeTasks.map((task) => ({
+              id: task.id,
+              description: task.description,
+              completed: task.completed,
             }))}
             onAddTask={handleAddLifeTask}
             onToggleTask={handleToggleLifeTask}
@@ -358,7 +411,6 @@ export default function CommandCenterPage() {
         </div>
       </main>
 
-      {/* Modals */}
       <EnergyModal
         isOpen={showEnergyModal}
         currentEnergy={energyLevel}

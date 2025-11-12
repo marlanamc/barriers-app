@@ -1,53 +1,96 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Clock, Zap, Target, Sparkles, Settings, AlertTriangle } from 'lucide-react';
-import { EnergyLevel, getTimeUntilStop, getCapacityRangeText } from '@/lib/capacity';
+import {
+  Clock,
+  Zap,
+  Target,
+  Sparkles,
+  Settings,
+  Bell,
+  BellRing,
+  Moon,
+  type LucideIcon,
+} from 'lucide-react';
+import { EnergyLevel, TaskComplexity, getTimeUntilStop } from '@/lib/capacity';
 
-const ENERGY_CONFIG: Record<
+const ENERGY_CHIP: Record<
   EnergyLevel,
-  { emoji: string; label: string; color: string; bgColor: string }
+  { emoji: string; label: string; text: string; bg: string; border: string }
 > = {
   sparky: {
     emoji: '⚡',
     label: 'Sparky',
-    color: 'text-yellow-700 dark:text-yellow-300',
-    bgColor: 'bg-yellow-100 dark:bg-yellow-900/30',
+    text: 'text-yellow-800 dark:text-yellow-200',
+    bg: 'bg-yellow-100/70 dark:bg-yellow-900/30',
+    border: 'border-yellow-200/70 dark:border-yellow-800/50',
   },
   steady: {
     emoji: '☀️',
     label: 'Steady',
-    color: 'text-orange-700 dark:text-orange-300',
-    bgColor: 'bg-orange-100 dark:bg-orange-900/30',
+    text: 'text-orange-800 dark:text-orange-200',
+    bg: 'bg-orange-100/70 dark:bg-orange-900/30',
+    border: 'border-orange-200/70 dark:border-orange-800/50',
   },
   flowing: {
     emoji: '🌊',
     label: 'Flowing',
-    color: 'text-blue-700 dark:text-blue-300',
-    bgColor: 'bg-blue-100 dark:bg-blue-900/30',
+    text: 'text-blue-800 dark:text-blue-200',
+    bg: 'bg-blue-100/70 dark:bg-blue-900/30',
+    border: 'border-blue-200/70 dark:border-blue-800/50',
   },
   foggy: {
     emoji: '🌫️',
     label: 'Foggy',
-    color: 'text-gray-700 dark:text-gray-300',
-    bgColor: 'bg-gray-100 dark:bg-gray-900/30',
+    text: 'text-slate-700 dark:text-slate-200',
+    bg: 'bg-slate-100/80 dark:bg-slate-900/40',
+    border: 'border-slate-200/80 dark:border-slate-700',
   },
   resting: {
     emoji: '🌙',
     label: 'Resting',
-    color: 'text-indigo-700 dark:text-indigo-300',
-    bgColor: 'bg-indigo-100 dark:bg-indigo-900/30',
+    text: 'text-indigo-800 dark:text-indigo-200',
+    bg: 'bg-indigo-100/70 dark:bg-indigo-900/30',
+    border: 'border-indigo-200/70 dark:border-indigo-800/50',
   },
 };
+
+const WARNING_STYLES = {
+  ok: {
+    wrapper: 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800',
+    text: 'text-slate-800 dark:text-slate-200',
+    icon: 'text-slate-500 dark:text-slate-400',
+    sub: 'text-slate-500 dark:text-slate-400',
+  },
+  warning: {
+    wrapper: 'border-amber-100 bg-amber-50 dark:border-amber-800/40 dark:bg-amber-900/20',
+    text: 'text-amber-900 dark:text-amber-100',
+    icon: 'text-amber-500 dark:text-amber-300',
+    sub: 'text-amber-700 dark:text-amber-200',
+  },
+  critical: {
+    wrapper: 'border-rose-100 bg-rose-50 dark:border-rose-800/60 dark:bg-rose-900/30',
+    text: 'text-rose-900 dark:text-rose-100',
+    icon: 'text-rose-500 dark:text-rose-300',
+    sub: 'text-rose-700 dark:text-rose-200',
+  },
+  past: {
+    wrapper: 'border-indigo-200 bg-indigo-50 dark:border-indigo-800/60 dark:bg-indigo-900/20',
+    text: 'text-indigo-900 dark:text-indigo-100',
+    icon: 'text-indigo-500 dark:text-indigo-300',
+    sub: 'text-indigo-700 dark:text-indigo-200',
+  },
+};
+
+type CountdownVariant = keyof typeof WARNING_STYLES;
 
 interface StatusHeaderProps {
   energyLevel: EnergyLevel | null;
   hardStopTime?: string;
   focusCount: number;
   focusCompleted: number;
-  totalCapacity: number;
-  usedCapacity: number;
   lifeCount: number;
+  recommendedComplexity?: TaskComplexity | null;
   onEnergyChange?: () => void;
   onTimeSettings?: () => void;
 }
@@ -57,9 +100,8 @@ export function StatusHeader({
   hardStopTime,
   focusCount,
   focusCompleted,
-  totalCapacity,
-  usedCapacity,
   lifeCount,
+  recommendedComplexity,
   onEnergyChange,
   onTimeSettings,
 }: StatusHeaderProps) {
@@ -86,174 +128,155 @@ export function StatusHeader({
   });
 
   const timeInfo = hardStopTime ? getTimeUntilStop(hardStopTime) : null;
-  const energyConfig = energyLevel ? ENERGY_CONFIG[energyLevel] : null;
+  const energyChip = energyLevel ? ENERGY_CHIP[energyLevel] : null;
 
   // Determine warning level based on time remaining
   const getWarningLevel = () => {
     if (!timeInfo) return null;
-    if (timeInfo.isPastStop) return 'critical';
     if (timeInfo.totalMinutes < 60) return 'critical';
     if (timeInfo.totalMinutes < 120) return 'warning';
     return null;
   };
 
-  const warningLevel = getWarningLevel();
+  const countdownVariant: CountdownVariant | null = timeInfo
+    ? timeInfo.isPastStop
+      ? 'past'
+      : getWarningLevel() ?? 'ok'
+    : null;
+
+  const countdownSubtext =
+    countdownVariant === 'critical'
+      ? "Time to wrap up and finish what you're working on."
+      : countdownVariant === 'warning'
+      ? 'Last focus window—pick one thing to finish.'
+      : countdownVariant === 'past'
+      ? 'Protect your nervous system and give yourself permission to shut down.'
+      : hardStopTime
+      ? `Hard stop at ${hardStopTime}`
+      : 'Stay within your guardrails.';
+
+  const VARIANT_ICONS: Record<CountdownVariant, LucideIcon> = {
+    ok: Clock,
+    warning: Bell,
+    critical: BellRing,
+    past: Moon,
+  };
+  const IndicatorIcon = countdownVariant ? VARIANT_ICONS[countdownVariant] : Clock;
+
+  const COMPLEXITY_SUMMARY: Record<
+    TaskComplexity,
+    { title: string; detail: string }
+  > = {
+    quick: {
+      title: 'Quick win',
+      detail: '2-15 min, keep it light.',
+    },
+    medium: {
+      title: 'Meaningful task',
+      detail: '30-60 min, single-focus block.',
+    },
+    deep: {
+      title: 'Deep work',
+      detail: '60-90 min, protect focus.',
+    },
+  };
+
+  const capacitySummary = (() => {
+    if (!energyLevel) {
+      return {
+        title: 'Capacity',
+        detail: 'Set today’s energy to get guidance.',
+      };
+    }
+    if (!recommendedComplexity) {
+      return {
+        title: 'At capacity',
+        detail: 'Close open loops and wind down.',
+      };
+    }
+    return COMPLEXITY_SUMMARY[recommendedComplexity];
+  })();
 
   return (
-    <div className="space-y-4 border-b border-slate-200 bg-white/80 p-4 backdrop-blur dark:border-slate-700 dark:bg-slate-800/80">
-      {/* Time Row */}
-      <div className="flex items-center justify-between text-sm">
-        <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-          <Clock className="h-4 w-4" />
-          <span>{timeString}</span>
-        </div>
-
-        {/* Time Settings Button */}
-        {onTimeSettings && (
-          <button
-            onClick={onTimeSettings}
-            className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-300"
-          >
-            <Settings className="h-3 w-3" />
-            Time Settings
-          </button>
-        )}
-      </div>
-
-      {/* Time Countdown with Warnings */}
-      {timeInfo && (
-        <div className="space-y-2">
-          {!timeInfo.isPastStop ? (
-            <div
-              className={`rounded-lg p-3 ${
-                warningLevel === 'critical'
-                  ? 'bg-red-100 dark:bg-red-900/30'
-                  : warningLevel === 'warning'
-                  ? 'bg-amber-100 dark:bg-amber-900/30'
-                  : 'bg-blue-100 dark:bg-blue-900/30'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                {warningLevel && (
-                  <AlertTriangle
-                    className={`h-5 w-5 ${
-                      warningLevel === 'critical'
-                        ? 'text-red-600 dark:text-red-400'
-                        : 'text-amber-600 dark:text-amber-400'
-                    }`}
-                  />
-                )}
-                <div className="flex-1">
-                  <p
-                    className={`text-sm font-semibold ${
-                      warningLevel === 'critical'
-                        ? 'text-red-900 dark:text-red-100'
-                        : warningLevel === 'warning'
-                        ? 'text-amber-900 dark:text-amber-100'
-                        : 'text-blue-900 dark:text-blue-100'
-                    }`}
-                  >
-                    {timeInfo.message}
-                  </p>
-                  {warningLevel === 'critical' && (
-                    <p className="mt-1 text-xs text-red-700 dark:text-red-200">
-                      Time to wrap up and finish what you're working on
-                    </p>
-                  )}
-                  {warningLevel === 'warning' && (
-                    <p className="mt-1 text-xs text-amber-700 dark:text-amber-200">
-                      This is your last focus window - choose wisely
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-lg bg-indigo-100 p-3 dark:bg-indigo-900/30">
-              <p className="text-sm font-semibold text-indigo-900 dark:text-indigo-100">
-                🌙 Past your hard stop - Your brain is done with deep work
-              </p>
-              <p className="mt-1 text-xs text-indigo-700 dark:text-indigo-200">
-                Time to rest and recharge for tomorrow
-              </p>
-            </div>
+    <section className="rounded-2xl border border-slate-200 bg-white/80 p-4 text-sm backdrop-blur dark:border-slate-700 dark:bg-slate-800/80">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-slate-600 dark:text-slate-400">
+          <span className="flex items-center gap-1">
+            <Clock className="h-4 w-4" />
+            {timeString}
+          </span>
+          <span className="text-slate-400 dark:text-slate-500">{dateString}</span>
+          {hardStopTime && !timeInfo?.isPastStop && (
+            <span className="text-slate-500 dark:text-slate-400">Hard stop {hardStopTime}</span>
           )}
         </div>
-      )}
+        <div className="flex items-center gap-2">
+          {energyChip && (
+            <button
+              onClick={onEnergyChange}
+              className={`flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold transition hover:opacity-90 ${energyChip.bg} ${energyChip.text} ${energyChip.border}`}
+            >
+              <span>{energyChip.emoji}</span>
+              <span>{energyChip.label}</span>
+            </button>
+          )}
+          {onTimeSettings && (
+            <button
+              onClick={onTimeSettings}
+              className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-500 transition hover:border-slate-400 hover:text-slate-700 dark:border-slate-600 dark:text-slate-300 dark:hover:border-slate-500"
+            >
+              Adjust
+            </button>
+          )}
+        </div>
+      </div>
 
-      {/* Energy Level */}
-      {energyLevel && energyConfig ? (
-        <button
-          onClick={onEnergyChange}
-          className={`flex w-full items-center gap-3 rounded-xl p-3 transition hover:opacity-80 ${energyConfig.bgColor}`}
+      {timeInfo && countdownVariant && (
+        <div
+          className={`mt-3 flex flex-wrap items-start gap-3 rounded-2xl border px-3 py-2 ${WARNING_STYLES[countdownVariant].wrapper}`}
         >
-          <span className="text-3xl">{energyConfig.emoji}</span>
-          <div className="flex-1 text-left">
-            <p className={`font-semibold ${energyConfig.color}`}>
-              {energyConfig.label} energy today
+          <IndicatorIcon className={`mt-0.5 h-4 w-4 ${WARNING_STYLES[countdownVariant].icon}`} />
+          <div className="min-w-[220px] flex-1">
+            <p className={`font-semibold ${WARNING_STYLES[countdownVariant].text}`}>
+              {timeInfo.message}
             </p>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
-              Capacity: {getCapacityRangeText(energyLevel)} meaningful tasks
-            </p>
-          </div>
-        </button>
-      ) : (
-        <button
-          onClick={onEnergyChange}
-          className="flex w-full items-center gap-3 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 p-3 transition hover:border-cyan-500 hover:bg-cyan-50 dark:border-slate-600 dark:bg-slate-900/50 dark:hover:border-cyan-500 dark:hover:bg-cyan-900/20"
-        >
-          <Zap className="h-6 w-6 text-slate-400" />
-          <div className="flex-1 text-left">
-            <p className="font-semibold text-slate-700 dark:text-slate-300">
-              Set your energy level
-            </p>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              How are you feeling today?
-            </p>
-          </div>
-        </button>
-      )}
-
-      {/* Capacity Stats */}
-      {energyLevel && (
-        <div className="grid grid-cols-2 gap-3">
-          {/* Focus Items */}
-          <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-900/50">
-            <div className="flex items-center gap-2">
-              <Target className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Focus
-              </span>
-            </div>
-            <div className="mt-1">
-              <p className="text-lg font-bold text-slate-900 dark:text-slate-100">
-                {focusCompleted}/{focusCount}
-              </p>
-              <p className="text-xs text-slate-600 dark:text-slate-400">
-                {usedCapacity.toFixed(1)}/{totalCapacity} capacity
-              </p>
-            </div>
-          </div>
-
-          {/* Life Maintenance */}
-          <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-900/50">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Life
-              </span>
-            </div>
-            <div className="mt-1">
-              <p className="text-lg font-bold text-slate-900 dark:text-slate-100">
-                {lifeCount}
-              </p>
-              <p className="text-xs text-slate-600 dark:text-slate-400">
-                tasks tracked
-              </p>
-            </div>
+            <p className={`text-xs ${WARNING_STYLES[countdownVariant].sub}`}>{countdownSubtext}</p>
           </div>
         </div>
       )}
-    </div>
+
+      <div className="mt-3 grid gap-3 text-slate-600 dark:text-slate-400 sm:grid-cols-3">
+        <div className="rounded-xl border border-slate-200 bg-white/60 p-3 dark:border-slate-700 dark:bg-slate-900/30">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+            <Target className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+            Focus
+          </div>
+          <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
+            {focusCompleted}/{focusCount || 0}
+          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">done today</p>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white/60 p-3 dark:border-slate-700 dark:bg-slate-900/30">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+            <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            Life
+          </div>
+          <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">{lifeCount}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">essentials tracked</p>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white/60 p-3 dark:border-slate-700 dark:bg-slate-900/30">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+            <Zap className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            Energy Plan
+          </div>
+          <p className="mt-1 text-base font-semibold text-slate-900 dark:text-white">
+            {capacitySummary.title}
+          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{capacitySummary.detail}</p>
+        </div>
+      </div>
+    </section>
   );
 }
