@@ -321,6 +321,30 @@ export type Database = {
         };
         Relationships: [];
       };
+      user_profiles: {
+        Row: {
+          id: string;
+          user_id: string;
+          preferences: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          preferences?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          preferences?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       user_internal_weather_stats: {
