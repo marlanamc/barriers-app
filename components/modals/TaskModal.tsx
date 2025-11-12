@@ -125,9 +125,9 @@ export function TaskModal({ isOpen, mode, taskType, initialData, onClose, onSave
       />
 
       {/* Modal */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4">
         <div
-          className="relative w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-800"
+          className="relative mt-10 mb-10 w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-800"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}

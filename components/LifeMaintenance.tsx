@@ -34,7 +34,7 @@ export function LifeMaintenance({
   };
 
   return (
-    <section className="rounded-3xl bg-gradient-to-br from-white/95 via-[#fff7fd]/90 to-[#f0fff8]/90 p-4 shadow-[0_20px_45px_rgba(163,210,190,0.25)] ring-1 ring-[#f2e3ff] backdrop-blur-sm dark:bg-slate-900/50 dark:ring-slate-800">
+    <section className="rounded-3xl bg-gradient-to-br from-white/95 via-[#fff7fd]/90 to-[#f0fff8]/90 p-4 shadow-[0_20px_45px_rgba(163,210,190,0.25)] ring-1 ring-[#f2e3ff] backdrop-blur-sm dark:bg-none dark:bg-slate-900/50 dark:ring-slate-800">
       <div className="mb-3 flex items-center gap-2 text-slate-900 dark:text-slate-100">
         <Sparkles className="h-4 w-4 text-emerald-500 dark:text-emerald-300" />
         <h2 className="text-base font-semibold">Life</h2>
@@ -46,7 +46,7 @@ export function LifeMaintenance({
             key={task.id}
             className={`flex items-center gap-1 rounded-full border px-3 py-1 text-sm font-medium transition ${
               task.completed
-                ? 'border-transparent bg-gradient-to-r from-[#c9ffe6] to-[#dfffea] text-emerald-700 shadow-[0_5px_15px_rgba(90,199,170,0.35)] dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200'
+                ? 'border-transparent bg-gradient-to-r from-[#c9ffe6] to-[#dfffea] text-emerald-700 shadow-[0_5px_15px_rgba(90,199,170,0.35)] dark:border-emerald-800 dark:bg-none dark:bg-emerald-900/30 dark:text-emerald-200'
                 : 'border-[#dfe6ff] bg-white/80 text-slate-600 hover:border-[#b7d4ff] dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-200 dark:hover:border-emerald-700'
             }`}
           >
@@ -95,7 +95,7 @@ export function LifeMaintenance({
             type="button"
             onClick={handleSubmit}
             disabled={!draft.trim()}
-            className="rounded-xl bg-gradient-to-r from-[#9beedb] to-[#b8f7e7] px-3 py-2 text-sm font-semibold text-emerald-900 transition hover:brightness-105 disabled:opacity-50 dark:bg-emerald-400 dark:hover:bg-emerald-300 dark:text-slate-900"
+            className="rounded-xl bg-gradient-to-r from-[#9beedb] to-[#b8f7e7] px-3 py-2 text-sm font-semibold text-emerald-900 transition hover:brightness-105 disabled:opacity-50 dark:bg-none dark:bg-emerald-400 dark:hover:bg-emerald-300 dark:text-slate-900"
           >
             Save
           </button>

@@ -33,9 +33,9 @@ const ENERGY_SUPPORT_MESSAGES: Record<EnergyLevel, string> = {
 type TimeWarningTone = 'soon' | 'urgent' | 'after';
 
 const TIME_WARNING_STYLES: Record<TimeWarningTone, string> = {
-  soon: 'bg-gradient-to-r from-[#fff8e8] to-[#ffeef9] text-amber-900 ring-[#ffe3c5] dark:bg-amber-900/20 dark:text-amber-100 dark:ring-amber-800/40',
-  urgent: 'bg-gradient-to-r from-[#ffeef4] to-[#ffe6ff] text-rose-900 ring-[#ffcfe4] dark:bg-rose-900/30 dark:text-rose-100 dark:ring-rose-800/50',
-  after: 'bg-gradient-to-r from-[#f2edff] to-[#e2f0ff] text-violet-900 ring-[#d7d4ff] dark:bg-violet-900/30 dark:text-violet-100 dark:ring-violet-800/60',
+  soon: 'bg-gradient-to-r from-[#fff8e8] to-[#ffeef9] text-amber-900 ring-[#ffe3c5] dark:bg-none dark:bg-amber-900/20 dark:text-amber-100 dark:ring-amber-800/40',
+  urgent: 'bg-gradient-to-r from-[#ffeef4] to-[#ffe6ff] text-rose-900 ring-[#ffcfe4] dark:bg-none dark:bg-rose-900/30 dark:text-rose-100 dark:ring-rose-800/50',
+  after: 'bg-gradient-to-r from-[#f2edff] to-[#e2f0ff] text-violet-900 ring-[#d7d4ff] dark:bg-none dark:bg-violet-900/30 dark:text-violet-100 dark:ring-violet-800/60',
 };
 
 function getTimeWarning(timeInfo: ReturnType<typeof getTimeUntilStop> | null) {

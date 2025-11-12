@@ -49,7 +49,7 @@ export function FocusSection({
   };
 
   return (
-    <section className="rounded-3xl bg-gradient-to-br from-white/95 via-[#f6fbff]/90 to-[#fff5fb]/90 p-4 shadow-[0_20px_45px_rgba(153,178,255,0.25)] ring-1 ring-[#e0edff] backdrop-blur-sm dark:bg-slate-900/50 dark:ring-slate-800">
+    <section className="rounded-3xl bg-gradient-to-br from-white/95 via-[#f6fbff]/90 to-[#fff5fb]/90 p-4 shadow-[0_20px_45px_rgba(153,178,255,0.25)] ring-1 ring-[#e0edff] backdrop-blur-sm dark:bg-none dark:bg-slate-900/50 dark:ring-slate-800">
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
           <Target className="h-4 w-4 text-cyan-500 dark:text-cyan-300" />
@@ -61,7 +61,7 @@ export function FocusSection({
           disabled={!canAddMore}
           className={`flex items-center gap-1 rounded-full border px-3 py-1 text-sm font-semibold transition ${
             canAddMore
-              ? 'border-transparent bg-gradient-to-r from-[#bff1ff] to-[#e0f7ff] text-[#046d8b] shadow-[0_10px_25px_rgba(120,210,255,0.45)] hover:brightness-105 dark:border-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-100'
+              ? 'border-transparent bg-gradient-to-r from-[#bff1ff] to-[#e0f7ff] text-[#046d8b] shadow-[0_10px_25px_rgba(120,210,255,0.45)] hover:brightness-105 dark:border-cyan-800 dark:bg-none dark:bg-cyan-900/30 dark:text-cyan-100'
               : 'cursor-not-allowed border-slate-200 bg-white/40 text-slate-400 opacity-70 dark:border-slate-700 dark:text-slate-500'
           }`}
         >

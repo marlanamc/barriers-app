@@ -108,7 +108,7 @@ export function CapacityCard({
   const energyLabel = energyLevel ? ENERGY_LABELS[energyLevel] : 'Not set';
 
   return (
-    <section className="rounded-3xl bg-gradient-to-r from-[#fff8fb]/95 via-[#f4fbff]/95 to-[#f6fff8]/95 px-4 py-3 shadow-[0_25px_50px_rgba(163,181,255,0.3)] ring-1 ring-[#e7e2ff] backdrop-blur-sm dark:bg-slate-900/50 dark:ring-slate-800">
+    <section className="rounded-3xl bg-gradient-to-r from-[#fff8fb]/95 via-[#f4fbff]/95 to-[#f6fff8]/95 px-4 py-3 shadow-[0_25px_50px_rgba(163,181,255,0.3)] ring-1 ring-[#e7e2ff] backdrop-blur-sm dark:bg-none dark:bg-slate-900/50 dark:ring-slate-800">
       <button
         type="button"
         onClick={() => setExpanded((prev) => !prev)}
@@ -157,7 +157,7 @@ export function CapacityCard({
             {hint}
           </p>
           {warningText && (
-            <p className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#fff4da] to-[#ffe8e8] px-3 py-2 text-sm text-amber-900 shadow-[0_10px_25px_rgba(255,188,122,0.35)] dark:bg-amber-900/20 dark:text-amber-100">
+            <p className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#fff4da] to-[#ffe8e8] px-3 py-2 text-sm text-amber-900 shadow-[0_10px_25px_rgba(255,188,122,0.35)] dark:bg-none dark:bg-amber-900/20 dark:text-amber-100">
               <AlertTriangle className="h-4 w-4 flex-shrink-0" />
               {warningText}
             </p>
