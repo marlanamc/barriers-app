@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppWordmark } from '@/components/AppWordmark';
+import { EnergyCard } from '@/components/command-center/EnergyCard';
 import { StatusHeader } from '@/components/command-center/StatusHeader';
 import { FocusSection } from '@/components/command-center/FocusSection';
 import { LifeSection } from '@/components/command-center/LifeSection';
@@ -24,9 +25,11 @@ import {
 
 function getGreeting() {
   const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 18) return 'Good afternoon';
-  return 'Good evening';
+  if (hour >= 4 && hour < 6) return 'Early morning'; // 4am-6am: Early risers
+  if (hour >= 6 && hour < 12) return 'Good morning'; // 6am-12pm
+  if (hour >= 12 && hour < 18) return 'Good afternoon'; // 12pm-6pm
+  if (hour >= 18 && hour < 22) return 'Good evening'; // 6pm-10pm
+  return 'Good night'; // 10pm-4am: Night owls
 }
 
 interface Task {
@@ -279,13 +282,16 @@ export default function CommandCenterPage() {
     <>
       <main className="min-h-screen pb-24">
         {/* App Header with Greeting */}
-        <div className="border-b border-slate-200 bg-white/80 px-4 py-4 backdrop-blur dark:border-slate-700 dark:bg-slate-800/80">
+        <div className="space-y-4 bg-white/80 px-4 py-4 backdrop-blur dark:bg-slate-800/80">
           <div className="flex items-center justify-between">
             <AppWordmark />
           </div>
-          <h2 className="mt-2 text-3xl font-bold text-slate-800 dark:text-slate-100">
+          <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-100">
             {getGreeting()}
           </h2>
+
+          {/* Energy Card */}
+          <EnergyCard energyLevel={energyLevel} onChangeEnergy={handleEnergyChange} />
         </div>
 
         {/* Status Header */}
