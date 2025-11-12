@@ -101,13 +101,11 @@ export function StatusHeader({
 
   return (
     <div className="space-y-4 border-b border-slate-200 bg-white/80 p-4 backdrop-blur dark:border-slate-700 dark:bg-slate-800/80">
-      {/* Date and Time Row */}
+      {/* Time Row */}
       <div className="flex items-center justify-between text-sm">
         <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
           <Clock className="h-4 w-4" />
-          <span>
-            {dateString} • {timeString}
-          </span>
+          <span>{timeString}</span>
         </div>
 
         {/* Time Settings Button */}
