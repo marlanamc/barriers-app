@@ -283,8 +283,15 @@ export default function CommandCenterPage() {
       <main className="min-h-screen pb-24">
         {/* App Header with Greeting */}
         <div className="space-y-4 bg-white/80 px-4 py-4 backdrop-blur dark:bg-slate-800/80">
-          <div className="flex items-center justify-between">
+          <div>
             <AppWordmark />
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+              {new Date().toLocaleDateString('en-US', {
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </p>
           </div>
           <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-100">
             {getGreeting()}
