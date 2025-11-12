@@ -1,991 +1,354 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, CalendarDays, CalendarPlus, CheckCircle2, Circle, GripVertical, LineChart, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
-import { InternalWeatherSelector, internalWeatherOptions, getIconName, getIconComponent, type EnergyTypeOption } from "@/components/InternalWeatherSelector";
-import { AppWordmark } from "@/components/AppWordmark";
-import { useCheckIn, MAX_FOCUS_ITEMS, type FocusItemState, type WeatherSelection } from "@/lib/checkin-context";
-import { useSupabaseUser } from "@/lib/useSupabaseUser";
-import { getCategoryEmoji } from "@/lib/categories";
-import { getPlannedItemsForDate, getCheckinByDate, saveCheckinWithFocus } from "@/lib/supabase";
-import { appliesToDate } from "@/lib/recurrence";
-import { getTodayLocalDateString } from "@/lib/date-utils";
-import { anchorValueForDisplay, buildMultipleAnchorsPhrase } from "@/lib/anchors";
-import { useEnergySchedule } from "@/lib/useEnergySchedule";
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { StatusHeader } from '@/components/command-center/StatusHeader';
+import { FocusSection } from '@/components/command-center/FocusSection';
+import { LifeSection } from '@/components/command-center/LifeSection';
+import { ContextualMessage } from '@/components/command-center/ContextualMessage';
+import { EnergyModal } from '@/components/modals/EnergyModal';
+import { TaskModal } from '@/components/modals/TaskModal';
+import { useSupabaseUser } from '@/lib/useSupabaseUser';
+import { getCheckinByDate, saveCheckinWithFocus, type FocusItemPayload } from '@/lib/supabase';
+import { getTodayLocalDateString } from '@/lib/date-utils';
+import {
+  EnergyLevel,
+  TaskComplexity,
+  TaskType,
+  getCapacityInfo,
+  getTimeUntilStop,
+  getContextualMessage,
+  MAX_FOCUS_ITEMS,
+} from '@/lib/capacity';
 
-function getGreeting() {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Good morning";
-  if (hour < 18) return "Good afternoon";
-  return "Good evening";
+interface Task {
+  id: string;
+  description: string;
+  completed: boolean;
+  complexity: TaskComplexity;
+  type: TaskType;
+  anchorTime?: string;
+  barrier?: {
+    type: string;
+    custom?: string;
+  };
 }
 
-function getTodayLabel() {
-  return new Intl.DateTimeFormat("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  }).format(new Date());
-}
-
-const weatherThemes: Record<
-  string,
-  {
-    gradient: [string, string];
-    darkGradient?: [string, string]; // Optional darker gradient for dark mode
-    textColor: string;
-    darkTextColor?: string; // Text color for dark mode
-    subtleTextColor: string;
-    darkSubtleTextColor?: string; // Subtle text color for dark mode
-  }
-> = {
-  sparky: {
-    gradient: ["#FF6B6B", "#FFE66D"],
-    darkGradient: ["#8B3D3D", "#8B7A3D"], // Much darker, more muted for dark mode
-    textColor: "text-slate-900",
-    darkTextColor: "text-white",
-    subtleTextColor: "text-slate-700",
-    darkSubtleTextColor: "text-slate-200",
-  },
-  steady: {
-    gradient: ["#FFD580", "#FFF9E3"],
-    darkGradient: ["#8B7A3D", "#8B8B6B"], // Much darker, more muted for dark mode
-    textColor: "text-slate-900",
-    darkTextColor: "text-slate-100", // Better contrast on darker gradient
-    subtleTextColor: "text-slate-700",
-    darkSubtleTextColor: "text-slate-300",
-  },
-  flowing: {
-    gradient: ["#4ECDC4", "#95E1D3"],
-    darkGradient: ["#2D6B66", "#4A7A73"], // Much darker, more muted for dark mode
-    textColor: "text-slate-900",
-    darkTextColor: "text-white",
-    subtleTextColor: "text-slate-700",
-    darkSubtleTextColor: "text-slate-200",
-  },
-  foggy: {
-    gradient: ["#9CBED7", "#D1E2EA"],
-    darkGradient: ["#5A6B7A", "#6B7A8A"], // Much darker, more muted for dark mode
-    textColor: "text-slate-900",
-    darkTextColor: "text-white",
-    subtleTextColor: "text-slate-700",
-    darkSubtleTextColor: "text-slate-200",
-  },
-  resting: {
-    gradient: ["#B6B6D8", "#E0D5F2"],
-    darkGradient: ["#6B6B8A", "#7A7A9A"], // Much darker, more muted for dark mode
-    textColor: "text-slate-900",
-    darkTextColor: "text-white",
-    subtleTextColor: "text-slate-700",
-    darkSubtleTextColor: "text-slate-200",
-  },
-  // Legacy support for old weather keys
-  clear: {
-    gradient: ["#FFD580", "#FFF9E3"],
-    darkGradient: ["#CCAA66", "#CCCCB3"],
-    textColor: "text-slate-900",
-    darkTextColor: "text-slate-900",
-    subtleTextColor: "text-slate-700",
-    darkSubtleTextColor: "text-slate-700",
-  },
-  cloudy: {
-    gradient: ["#CDE3F5", "#F2F2F2"],
-    darkGradient: ["#ADC3D5", "#D2D2D2"],
-    textColor: "text-slate-900",
-    darkTextColor: "text-slate-900",
-    subtleTextColor: "text-slate-600",
-    darkSubtleTextColor: "text-slate-600",
-  },
-  rainy: {
-    gradient: ["#9CBED7", "#D1E2EA"],
-    darkGradient: ["#7C9EB7", "#B1C2DA"],
-    textColor: "text-slate-900",
-    darkTextColor: "text-white",
-    subtleTextColor: "text-slate-700",
-    darkSubtleTextColor: "text-slate-100",
-  },
-  stormy: {
-    gradient: ["#B38DCB", "#5D7AA2"],
-    darkGradient: ["#936DAB", "#4D5A82"], // Slightly darker for dark mode
-    textColor: "text-white",
-    darkTextColor: "text-white",
-    subtleTextColor: "text-indigo-100",
-    darkSubtleTextColor: "text-indigo-200",
-  },
-  quiet: {
-    gradient: ["#B6B6D8", "#E0D5F2"],
-    darkGradient: ["#9696B8", "#C0B5D2"],
-    textColor: "text-slate-900",
-    darkTextColor: "text-white",
-    subtleTextColor: "text-slate-700",
-    darkSubtleTextColor: "text-slate-100",
-  },
-};
-
-export default function HomePage() {
+export default function CommandCenterPage() {
+  const { user } = useSupabaseUser();
   const router = useRouter();
-  const {
-    weather,
-    setWeather,
-    forecastNote,
-    setForecastNote,
-    focusItems,
-    loadPlannedItems,
-    loadFocusItemsFromCheckin,
-    updateFocusItem,
-    removeFocusItem,
-    reorderFocusItems,
-    resetCheckIn,
-    clearLocalStorageForDate,
-  } = useCheckIn();
-  const { user, loading, error } = useSupabaseUser();
-  const [loadedPlanned, setLoadedPlanned] = useState(false);
-  const [loadedCheckin, setLoadedCheckin] = useState(false);
-  const [lastLoadedDate, setLastLoadedDate] = useState<string | null>(null);
-  const [suppressAutoSelectWeather, setSuppressAutoSelectWeather] = useState(false);
-  const [shouldScrollToWeather, setShouldScrollToWeather] = useState(false);
-  const [isEditingWeather, setIsEditingWeather] = useState(false);
-  const [savingEnergy, setSavingEnergy] = useState(false);
-  const [saveEnergyError, setSaveEnergyError] = useState<string | null>(null);
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [justCompleted, setJustCompleted] = useState<string | null>(null);
-  const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
-  const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
-  const [autoAdjustedEnergy, setAutoAdjustedEnergy] = useState<string | null>(null);
-  const weatherSectionRef = useRef<HTMLDivElement>(null);
-  const lastLoadedDateRef = useRef<string | null>(null);
-  
-  // Detect dark mode
+
+  // State
+  const [loading, setLoading] = useState(true);
+  const [energyLevel, setEnergyLevel] = useState<EnergyLevel | null>(null);
+  const [hardStopTime, setHardStopTime] = useState<string>('18:00');
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [checkinId, setCheckinId] = useState<string | null>(null);
+
+  // Modal state
+  const [showEnergyModal, setShowEnergyModal] = useState(false);
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [taskModalMode, setTaskModalMode] = useState<'add' | 'edit'>('add');
+  const [taskModalType, setTaskModalType] = useState<TaskType>('focus');
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+
+  // Load today's checkin data
   useEffect(() => {
-    const checkDarkMode = () => {
-      setIsDarkMode(document.documentElement.classList.contains('dark'));
-    };
-    checkDarkMode();
-    const observer = new MutationObserver(checkDarkMode);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => {
-      observer.disconnect();
-    };
-  }, []);
+    if (!user) return;
 
-  const greeting = useMemo(() => getGreeting(), []);
-  const todayLabel = useMemo(() => getTodayLabel(), []);
+    const loadTodayData = async () => {
+      try {
+        setLoading(true);
+        const today = getTodayLocalDateString();
+        const checkin = await getCheckinByDate(user.id, today);
 
-  // Auto-adjust energy based on schedule
-  const { currentEnergy: scheduledEnergy } = useEnergySchedule({
-    onEnergyChange: (energyKey) => {
-      // Only auto-adjust if user hasn't manually set energy today
-      if (!weather && energyKey) {
-        const energyOption = internalWeatherOptions.find((opt) => opt.key === energyKey);
-        if (energyOption) {
-          setWeather({
-            key: energyOption.key,
-            label: energyOption.label,
-            description: energyOption.description,
-            icon: getIconName(energyOption.icon),
-          });
-          setAutoAdjustedEnergy(energyKey);
-        }
-      }
-    },
-    enableNotifications: true,
-  });
-
-  // Memoize the load planned items function to avoid recreating it on every render
-  const loadPlannedItemsIfNeeded = useCallback(async (userId: string, date: string, cancelled: { current: boolean }) => {
-    if (loadedPlanned || cancelled.current) return;
-    
-    try {
-      const plannedItems = await getPlannedItemsForDate(userId, date);
-      if (cancelled.current) return;
-      
-      const applicableItems = plannedItems.filter((item) =>
-        appliesToDate(date, {
-          recurrenceType: item.recurrence_type,
-          startDate: item.start_date,
-          endDate: item.end_date,
-          recurrenceDays: item.recurrence_days,
-        })
-      );
-
-      if (applicableItems.length > 0) {
-        const focusItemsFromPlanned: FocusItemState[] = applicableItems.map((item, index) => ({
-          id: crypto.randomUUID(),
-          description: item.description,
-          categories: item.categories || [],
-          sortOrder: index,
-          plannedItemId: item.id,
-          barrier:
-            item.custom_barrier || item.barrier_type_id
-              ? {
-                  barrierTypeId: item.barrier_type_id,
-                  barrierTypeSlug: item.barrier_types?.slug ?? null,
-                  custom: item.custom_barrier,
-                }
-              : null,
-          anchorType: item.anchor_type as FocusItemState["anchorType"],
-          anchorValue: item.anchor_value,
-          completed: false,
-        }));
-
-        loadPlannedItems(focusItemsFromPlanned);
-      }
-
-      setLoadedPlanned(true);
-    } catch (err) {
-      if (!cancelled.current) {
-        console.error("Error loading planned items:", err);
-      }
-      setLoadedPlanned(true);
-    }
-  }, [loadedPlanned, loadPlannedItems]);
-
-  // Initial check on mount - if we have stale data from a previous day, reset
-  useEffect(() => {
-    const today = getTodayLocalDateString();
-    if (lastLoadedDate && lastLoadedDate !== today) {
-      resetCheckIn();
-      setLoadedCheckin(false);
-      setLoadedPlanned(false);
-      setLastLoadedDate(null);
-      lastLoadedDateRef.current = null;
-    }
-  }, []); // Run only once on mount
-
-  // Check if date has changed (new day) and reset state if needed
-  useEffect(() => {
-    const checkDateChange = () => {
-      const currentDate = getTodayLocalDateString();
-
-      // If we've loaded a check-in before and the date has changed, reset everything
-      if (lastLoadedDateRef.current && lastLoadedDateRef.current !== currentDate) {
-        resetCheckIn(); // This clears weather, forecastNote, focusItems, and resets checkinDate
-        setLoadedCheckin(false);
-        setLoadedPlanned(false);
-        setLastLoadedDate(null);
-        lastLoadedDateRef.current = null;
-      }
-    };
-
-    // Check periodically (every minute) to catch date changes
-    const interval = setInterval(checkDateChange, 60000);
-
-    return () => clearInterval(interval);
-  }, [resetCheckIn]); // Only depend on stable resetCheckIn
-
-  // Load today's checkin first (it takes priority as saved data), then load planned items if no checkin exists
-  // Only load if we don't already have check-in data set (once set, it stays stable for the day)
-  useEffect(() => {
-    if (!user?.id || loadedCheckin) return;
-
-    const cancelled = { current: false };
-    const today = getTodayLocalDateString();
-
-    // If we already have check-in data (weather or focus items), don't reload from database
-    // This ensures once the check-in is set, it stays stable for the day - users can still change it manually
-    if (weather || focusItems.length > 0) {
-      setLoadedCheckin(true);
-      setLastLoadedDate(today);
-      lastLoadedDateRef.current = today;
-      // Still load planned items if we don't have focus items yet (user might have only set weather)
-      if (!focusItems.length) {
-        loadPlannedItemsIfNeeded(user.id, today, cancelled);
-      }
-      return;
-    }
-
-    // Set loadedCheckin immediately to prevent duplicate loads
-    setLoadedCheckin(true);
-    setLastLoadedDate(today);
-    lastLoadedDateRef.current = today;
-
-    getCheckinByDate(user.id, today)
-      .then((checkin) => {
-        if (cancelled.current) return;
-        
-        // Double-check that the check-in is actually for today
-        const currentDate = getTodayLocalDateString();
-        if (checkin && checkin.checkin_date !== currentDate) {
-          // This check-in is not for today, don't load it
-          loadPlannedItemsIfNeeded(user.id, currentDate, cancelled);
-          return;
-        }
-        
-        // Only load if we still don't have check-in data (user might have set it while loading)
-        // Use a function to get current state to avoid stale closure
-        if (cancelled.current) return;
-        
         if (checkin) {
-          // Restore weather if it exists
-          if (checkin.internal_weather) {
-            const weatherOption = internalWeatherOptions.find(
-              (opt) => opt.key === checkin.internal_weather
-            );
+          setCheckinId(checkin.id);
+          setEnergyLevel(checkin.internal_weather as EnergyLevel);
 
-            if (weatherOption) {
-              const weatherSelection: WeatherSelection = {
-                key: weatherOption.key,
-                label: weatherOption.label,
-                description: weatherOption.description,
-                icon: checkin.weather_icon || getIconName(weatherOption.icon),
-              };
-              setWeather(weatherSelection);
-            }
-          }
+          // Convert focus_items to Task format
+          const loadedTasks: Task[] = checkin.focus_items.map((item: any) => ({
+            id: item.id,
+            description: item.description,
+            completed: item.completed || false,
+            complexity: (item.complexity as TaskComplexity) || 'medium',
+            type: (item.task_type as TaskType) || 'focus',
+            anchorTime: item.anchors && Array.isArray(item.anchors) && item.anchors.length > 0
+              ? `${item.anchors[0].type} ${item.anchors[0].value}`
+              : undefined,
+            barrier: item.focus_barriers?.[0]
+              ? {
+                  type: item.focus_barriers[0].barrier_types?.slug || '',
+                  custom: item.focus_barriers[0].custom_barrier || undefined,
+                }
+              : undefined,
+          }));
 
-          // Restore forecast note if it exists
-          if (checkin.forecast_note) {
-            setForecastNote(checkin.forecast_note);
-          }
-
-          // Restore focus items if they exist
-          if (checkin.focus_items && checkin.focus_items.length > 0) {
-            const restoredFocusItems: FocusItemState[] = checkin.focus_items.map((item) => {
-              // Convert FocusItemWithRelations to FocusItemState
-              // Get the first barrier (if any) from focus_barriers array
-              const firstBarrier = item.focus_barriers && item.focus_barriers.length > 0 
-                ? item.focus_barriers[0] 
-                : null;
-
-              return {
-                id: item.id,
-                description: item.description,
-                categories: item.categories || [],
-                sortOrder: item.sort_order,
-                plannedItemId: null, // Saved check-ins don't preserve plannedItemId
-                barrier: firstBarrier
-                  ? {
-                      barrierTypeId: firstBarrier.barrier_type_id ?? null,
-                      barrierTypeSlug: firstBarrier.barrier_types?.slug ?? null,
-                      custom: firstBarrier.custom_barrier ?? null,
-                    }
-                  : null,
-                anchorType: (item.anchor_type as FocusItemState["anchorType"]) ?? null,
-                anchorValue: item.anchor_value ?? null,
-                completed: false, // Always restore as active items
-              };
-            });
-
-            loadFocusItemsFromCheckin(restoredFocusItems);
-          }
-          
-          // IMPORTANT: If a check-in exists (even with 0 items), don't load planned items
-          // A check-in with 0 items means the user explicitly chose to have no focus items today
-          setLoadedPlanned(true);
-        } else {
-          // No checkin exists, load planned items
-          loadPlannedItemsIfNeeded(user.id, today, cancelled);
+          setTasks(loadedTasks);
         }
-      })
-      .catch((err) => {
-        if (!cancelled.current) {
-          console.error("Error loading today's checkin:", err);
-          // On error, still try to load planned items
-          loadPlannedItemsIfNeeded(user.id, today, cancelled);
-        }
-      });
-
-    return () => {
-      cancelled.current = true;
+      } catch (error) {
+        console.error('Error loading checkin:', error);
+      } finally {
+        setLoading(false);
+      }
     };
-  }, [user?.id, loadedCheckin, loadPlannedItems, loadFocusItemsFromCheckin, loadPlannedItemsIfNeeded, weather, focusItems.length]); // Include weather and focusItems to check if already set
 
-  // Scroll to weather section when it appears after reset
-  useEffect(() => {
-    if (shouldScrollToWeather && weatherSectionRef.current) {
-      // Small delay to ensure DOM has updated
-      const timer = setTimeout(() => {
-        weatherSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-        setShouldScrollToWeather(false);
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [shouldScrollToWeather, weather, isEditingWeather]);
+    loadTodayData();
+  }, [user]);
 
-  useEffect(() => {
-    if (!weather) {
-      setIsEditingWeather(false);
-      setSuppressAutoSelectWeather(false);
-    }
-  }, [weather]);
-
-  // All hooks must be called before any conditional returns
-  const activeFocusItems = useMemo(() => focusItems.filter((item) => !item.completed), [focusItems]);
-  const completedFocusItems = useMemo(() => focusItems.filter((item) => item.completed), [focusItems]);
-  const hasFocus = useMemo(() => activeFocusItems.length > 0, [activeFocusItems.length]);
-  const hasWeather = useMemo(() => Boolean(weather), [weather]);
-  const showCompactWeather = hasWeather && !isEditingWeather; // Hide summary while editing
-  const shouldShowWeatherSection = !hasWeather || isEditingWeather;
-
-  const handleAdjustWeather = () => {
-    if (isEditingWeather) {
-      setIsEditingWeather(false);
-      setSuppressAutoSelectWeather(false);
-      setShouldScrollToWeather(false);
-      return;
-    }
-
-    setIsEditingWeather(true);
-    setSuppressAutoSelectWeather(true);
-    setShouldScrollToWeather(true);
-  };
-
-  const handleSelectWeather = (option: EnergyTypeOption) => {
-    const weatherSelection: WeatherSelection = {
-      key: option.key,
-      label: option.label,
-      description: option.description,
-      icon: getIconName(option.icon),
-    };
-    setWeather(weatherSelection);
-    setSuppressAutoSelectWeather(false);
-    if (isEditingWeather) {
-      setIsEditingWeather(false);
-      setShouldScrollToWeather(false);
-    }
-  };
-
-  const handleSetEnergy = async () => {
-    if (!user || !weather) return;
-    
-    setSavingEnergy(true);
-    setSaveEnergyError(null);
+  // Save checkin to database
+  const saveToDatabase = async (updatedTasks: Task[], newEnergy?: EnergyLevel) => {
+    if (!user) return;
 
     try {
-      const checkinDate = getTodayLocalDateString();
-      const activeItems = focusItems.filter((item) => !item.completed);
-      
-      await saveCheckinWithFocus({
+      const today = getTodayLocalDateString();
+      const energyToSave = newEnergy || energyLevel;
+
+      if (!energyToSave) return;
+
+      const focusItemsPayload: FocusItemPayload[] = updatedTasks.map((task, index) => ({
+        id: task.id,
+        description: task.description,
+        categories: [],
+        sortOrder: index,
+        taskType: task.type,
+        complexity: task.complexity,
+        anchorValue: task.anchorTime,
+        barrier: task.barrier ? {
+          barrierTypeSlug: task.barrier.type,
+          custom: task.barrier.custom,
+        } : null,
+      }));
+
+      const id = await saveCheckinWithFocus({
         userId: user.id,
-        internalWeather: weather,
-        forecastNote: forecastNote || undefined,
-        focusItems: activeItems.map((item) => ({
-          id: item.id,
-          description: item.description,
-          categories: item.categories,
-          sortOrder: item.sortOrder,
-          plannedItemId: item.plannedItemId ?? null,
-          anchorType: item.anchorType || null,
-          anchorValue: item.anchorValue || null,
-          barrier: item.barrier || null,
-        })),
-        checkinDate,
+        internalWeather: {
+          key: energyToSave,
+          label: energyToSave,
+          icon: '',
+        },
+        focusItems: focusItemsPayload,
+        checkinDate: today,
       });
 
-      // Clear localStorage after successful save (database is now source of truth)
-      clearLocalStorageForDate(checkinDate);
-
-      // Close the weather section after saving
-      setIsEditingWeather(false);
-      setSuppressAutoSelectWeather(false);
-      setShouldScrollToWeather(false);
-    } catch (err) {
-      console.error('Error saving energy:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to save energy level';
-      setSaveEnergyError(errorMessage);
-    } finally {
-      setSavingEnergy(false);
+      setCheckinId(id);
+    } catch (error) {
+      console.error('Error saving checkin:', error);
     }
   };
+
+  // Separate tasks by type
+  const focusTasks = tasks.filter((t) => t.type === 'focus');
+  const lifeTasks = tasks.filter((t) => t.type === 'life');
+
+  // Calculate capacity
+  const capacityInfo = energyLevel
+    ? getCapacityInfo(energyLevel, tasks)
+    : { totalCapacity: 0, usedCapacity: 0, remainingCapacity: 0, percentUsed: 0, canAddTask: false, recommendedComplexity: null };
+
+  // Time info
+  const timeInfo = hardStopTime ? getTimeUntilStop(hardStopTime) : null;
+
+  // Contextual message
+  const contextual = getContextualMessage(
+    tasks,
+    timeInfo?.isPastStop || false,
+    !!energyLevel
+  );
+
+  // Handlers
+  const handleEnergyChange = () => {
+    setShowEnergyModal(true);
+  };
+
+  const handleEnergySelect = async (energy: EnergyLevel) => {
+    setEnergyLevel(energy);
+    await saveToDatabase(tasks, energy);
+  };
+
+  const handleAddFocusTask = () => {
+    if (focusTasks.length >= MAX_FOCUS_ITEMS) return;
+    setTaskModalMode('add');
+    setTaskModalType('focus');
+    setEditingTask(null);
+    setShowTaskModal(true);
+  };
+
+  const handleToggleFocusTask = async (taskId: string) => {
+    const updated = tasks.map((t) =>
+      t.id === taskId ? { ...t, completed: !t.completed } : t
+    );
+    setTasks(updated);
+    await saveToDatabase(updated);
+  };
+
+  const handleTaskClick = (taskId: string) => {
+    const task = tasks.find((t) => t.id === taskId);
+    if (task && task.type === 'focus') {
+      setTaskModalMode('edit');
+      setTaskModalType('focus');
+      setEditingTask(task);
+      setShowTaskModal(true);
+    }
+  };
+
+  const handleTaskSave = async (taskData: {
+    id?: string;
+    description: string;
+    complexity: TaskComplexity;
+    taskType: TaskType;
+    anchorTime?: string;
+  }) => {
+    if (taskData.id) {
+      // Edit existing task
+      const updated = tasks.map((t) =>
+        t.id === taskData.id
+          ? {
+              ...t,
+              description: taskData.description,
+              complexity: taskData.complexity,
+              anchorTime: taskData.anchorTime,
+            }
+          : t
+      );
+      setTasks(updated);
+      await saveToDatabase(updated);
+    } else {
+      // Add new task
+      const newTask: Task = {
+        id: `temp-${Date.now()}`,
+        description: taskData.description,
+        completed: false,
+        complexity: taskData.complexity,
+        type: taskData.taskType,
+        anchorTime: taskData.anchorTime,
+      };
+      const updated = [...tasks, newTask];
+      setTasks(updated);
+      await saveToDatabase(updated);
+    }
+  };
+
+  const handleAddLifeTask = async (description: string) => {
+    const newTask: Task = {
+      id: `temp-life-${Date.now()}`,
+      description,
+      completed: false,
+      complexity: 'quick',
+      type: 'life',
+    };
+    const updated = [...tasks, newTask];
+    setTasks(updated);
+    await saveToDatabase(updated);
+  };
+
+  const handleToggleLifeTask = async (taskId: string) => {
+    const updated = tasks.map((t) =>
+      t.id === taskId ? { ...t, completed: !t.completed } : t
+    );
+    setTasks(updated);
+    await saveToDatabase(updated);
+  };
+
+  const handleDeleteLifeTask = async (taskId: string) => {
+    const updated = tasks.filter((t) => t.id !== taskId);
+    setTasks(updated);
+    await saveToDatabase(updated);
+  };
+
+  const focusCompleted = focusTasks.filter((t) => t.completed).length;
+  const lifeCompleted = lifeTasks.filter((t) => t.completed).length;
 
   if (loading) {
     return (
-      <main className="min-h-screen flex items-center justify-center px-4">
-        <p className="text-slate-600 dark:text-slate-400">Warming up your companion...</p>
+      <main className="flex min-h-screen items-center justify-center">
+        <p className="text-slate-600 dark:text-slate-400">Loading your day...</p>
       </main>
     );
   }
 
-  const renderWeatherSection = () => (
-    <section ref={weatherSectionRef} className="space-y-4 rounded-3xl border border-lavender-200/50 bg-white/95 p-6 backdrop-blur dark:border-slate-600/40 dark:bg-slate-800/80">
-      <h2 className="text-2xl font-bold text-slate-700 dark:text-slate-100">{todayLabel}</h2>
-      <div>
-        <p className="text-sm font-medium uppercase tracking-wide text-teal-500 dark:text-cyan-400">Energy type</p>
-        <h3 className="text-2xl font-bold text-slate-700 dark:text-slate-100">What kind of energy do you have right now?</h3>
-        {autoAdjustedEnergy && scheduledEnergy === autoAdjustedEnergy ? (
-          <p className="text-slate-500 dark:text-slate-400">
-            Auto-adjusted based on your schedule. Scroll to change if needed.
-          </p>
-        ) : (
-          <p className="text-slate-500 dark:text-slate-400">Scroll to find yours—it selects automatically.</p>
-        )}
-      </div>
+  return (
+    <>
+      <main className="min-h-screen pb-24">
+        {/* Status Header */}
+        <StatusHeader
+          energyLevel={energyLevel}
+          hardStopTime={hardStopTime}
+          focusCount={focusTasks.length}
+          focusCompleted={focusCompleted}
+          totalCapacity={capacityInfo.totalCapacity}
+          usedCapacity={capacityInfo.usedCapacity}
+          lifeCount={lifeTasks.length}
+          onEnergyChange={handleEnergyChange}
+        />
 
-      <InternalWeatherSelector
-        selectedKey={weather?.key}
-        onSelect={handleSelectWeather}
-        suppressAutoSelect={suppressAutoSelectWeather}
-        onUserInteract={() => setSuppressAutoSelectWeather(false)}
+        {/* Main Content */}
+        <div className="mx-auto max-w-2xl space-y-6 p-4">
+          {/* Contextual Message */}
+          {contextual.action && (
+            <ContextualMessage
+              type={contextual.type}
+              message={contextual.message}
+              action={contextual.action}
+              onAction={handleEnergyChange}
+            />
+          )}
+
+          {/* Focus Items Section */}
+          <FocusSection
+            tasks={focusTasks.map((t) => ({
+              id: t.id,
+              description: t.description,
+              completed: t.completed,
+              complexity: t.complexity,
+              anchorTime: t.anchorTime,
+              barrier: t.barrier,
+            }))}
+            canAddMore={capacityInfo.canAddTask}
+            onAddTask={handleAddFocusTask}
+            onToggleTask={handleToggleFocusTask}
+            onTaskClick={handleTaskClick}
+          />
+
+          {/* Divider */}
+          <div className="border-t border-slate-200 dark:border-slate-700" />
+
+          {/* Life Maintenance Section */}
+          <LifeSection
+            tasks={lifeTasks.map((t) => ({
+              id: t.id,
+              description: t.description,
+              completed: t.completed,
+            }))}
+            onAddTask={handleAddLifeTask}
+            onToggleTask={handleToggleLifeTask}
+            onDeleteTask={handleDeleteLifeTask}
+          />
+        </div>
+      </main>
+
+      {/* Modals */}
+      <EnergyModal
+        isOpen={showEnergyModal}
+        currentEnergy={energyLevel}
+        onClose={() => setShowEnergyModal(false)}
+        onSelect={handleEnergySelect}
       />
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-slate-600 dark:text-slate-300" htmlFor="forecast-note">
-          How are your energy or focus levels today?
-        </label>
-        <textarea
-          id="forecast-note"
-          value={forecastNote}
-          onChange={(event) => setForecastNote(event.target.value)}
-          placeholder="Mentally foggy? Overstimulated? Drop a few words."
-          className="w-full rounded-2xl border border-blue-200/50 bg-white/90 px-4 py-3 text-slate-700 placeholder:text-slate-400 focus:border-teal-300 focus:outline-none focus:ring-2 focus:ring-teal-100 dark:border-slate-600/50 dark:bg-slate-700/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-cyan-500 dark:focus:ring-cyan-900/50"
-          rows={3}
-        />
-      </div>
-
-      {error && (
-        <p className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-          {error}. You can still explore the flow, but saving may not work until Supabase is configured.
-        </p>
-      )}
-
-      {saveEnergyError && (
-        <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:bg-rose-900/30 dark:text-rose-300">
-          {saveEnergyError}
-        </p>
-      )}
-
-      <button
-        type="button"
-        onClick={handleSetEnergy}
-        disabled={!weather || savingEnergy}
-        className="flex w-full items-center justify-center gap-2 rounded-2xl bg-teal-400 px-6 py-4 text-lg font-semibold text-white transition hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-700 dark:hover:bg-slate-600"
-      >
-        {savingEnergy ? (
-          <>
-            <span className="animate-spin">⏳</span>
-            Setting Energy...
-          </>
-        ) : (
-          "Set Energy"
-        )}
-      </button>
-    </section>
-  );
-
-  const renderFocusSummary = () => {
-    const theme = weather?.key && weatherThemes[weather.key] ? weatherThemes[weather.key] : null;
-    
-    // Create lighter version of gradient by mixing with white (70% white, 30% original)
-    // In dark mode, create darker version by mixing with dark slate (70% dark, 30% original)
-    const lightenColor = (hex: string, amount: number = 0.7): string => {
-      const r = parseInt(hex.slice(1, 3), 16);
-      const g = parseInt(hex.slice(3, 5), 16);
-      const b = parseInt(hex.slice(5, 7), 16);
-      const newR = Math.round(r + (255 - r) * amount);
-      const newG = Math.round(g + (255 - g) * amount);
-      const newB = Math.round(b + (255 - b) * amount);
-      return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
-    };
-    
-    const darkenColor = (hex: string, amount: number = 0.7): string => {
-      const r = parseInt(hex.slice(1, 3), 16);
-      const g = parseInt(hex.slice(3, 5), 16);
-      const b = parseInt(hex.slice(5, 7), 16);
-      // Mix with dark slate-800 (#1e293b)
-      const darkR = 30;
-      const darkG = 41;
-      const darkB = 59;
-      const newR = Math.round(r * (1 - amount) + darkR * amount);
-      const newG = Math.round(g * (1 - amount) + darkG * amount);
-      const newB = Math.round(b * (1 - amount) + darkB * amount);
-      return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
-    };
-    
-    // Use dark gradient if available and in dark mode
-    const activeGradient = theme && isDarkMode && theme.darkGradient 
-      ? theme.darkGradient 
-      : theme?.gradient;
-    
-    const cardBackground = activeGradient
-      ? isDarkMode
-        ? `linear-gradient(135deg, ${darkenColor(activeGradient[0], 0.7)} 0%, ${darkenColor(activeGradient[1], 0.7)} 100%)`
-        : `linear-gradient(135deg, ${lightenColor(activeGradient[0], 0.9)} 0%, ${lightenColor(activeGradient[1], 0.9)} 100%)`
-      : isDarkMode
-        ? 'linear-gradient(135deg, #1e293b 0%, #334155 100%)' // Dark default
-        : 'linear-gradient(135deg, #faf8ff 0%, #f5f3ff 100%)'; // Very light lavender default
-    
-    // Get gradient for the energy type badge
-    const badgeGradient = theme && isDarkMode && theme.darkGradient
-      ? theme.darkGradient
-      : theme?.gradient;
-    
-    return (
-    <section 
-      className="space-y-3 rounded-3xl border border-lavender-200/50 p-5 shadow-sm dark:border-slate-600/40"
-      style={{ background: cardBackground }}
-    >
-      {showCompactWeather && weather && (
-        <>
-          <h2 className="text-2xl font-bold text-slate-700 dark:text-slate-100">{todayLabel}</h2>
-          {theme && badgeGradient && (
-              <div 
-                className={`rounded-2xl border border-white/40 px-4 py-3 text-sm shadow-sm dark:border-slate-500/40 ${isDarkMode ? (theme.darkTextColor || 'text-white') : (theme.textColor || 'text-slate-900')}`}
-                style={{
-                  background: `linear-gradient(135deg, ${badgeGradient[0]} 0%, ${badgeGradient[1]} 100%)`
-                }}
-              >
-                <div className="flex items-center justify-between gap-x-3 gap-y-1">
-                  <p className={`flex flex-wrap items-center gap-2 text-base font-semibold ${isDarkMode ? (theme.darkTextColor || 'text-white') : (theme.textColor || 'text-slate-900')}`}>
-                    <span className="text-2xl leading-none">
-                      {(() => {
-                        const IconComponent = getIconComponent(weather.icon);
-                        return <IconComponent className="w-8 h-8" />;
-                      })()}
-                    </span>
-                    <span>{weather.label}</span>
-                    <span className={`text-sm font-normal ${isDarkMode ? (theme.darkSubtleTextColor || 'text-slate-100') : (theme.subtleTextColor || 'text-slate-500')}`}>{weather.description}</span>
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleAdjustWeather}
-                    className={`flex-shrink-0 rounded-full border border-slate-200 bg-white/60 p-2 transition hover:bg-white dark:border-slate-500/50 dark:bg-slate-700/50 dark:hover:bg-slate-700/70 ${
-                      isDarkMode 
-                        ? (theme?.darkTextColor === 'text-white' ? 'text-white border-white/30 bg-white/15 hover:bg-white/25' : 'text-slate-200')
-                        : (theme?.textColor === 'text-white' ? 'text-white border-white/40 bg-white/20 hover:bg-white/30' : 'text-slate-600')
-                    }`}
-                    aria-label="Change energy type"
-                  >
-                    <RotateCcw className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-          )}
-        </>
-      )}
-
-      <div className="flex items-center justify-between border-t border-dashed border-blue-200/60 pt-3 text-[0.75rem] font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-500/50 dark:text-slate-300">
-        <span>What matters today</span>
-        <span>
-          {activeFocusItems.length}/{MAX_FOCUS_ITEMS}
-        </span>
-      </div>
-
-      {hasFocus ? (
-        <>
-          <ul className="space-y-2">
-            {activeFocusItems
-              .slice()
-              .sort((a, b) => a.sortOrder - b.sortOrder)
-              .map((item) => {
-                // Support both new multiple anchors and legacy single anchor
-                const anchorPhrase = item.anchors && item.anchors.length > 0
-                  ? buildMultipleAnchorsPhrase(item.anchors)
-                  : anchorValueForDisplay(item.anchorType, item.anchorValue);
-                const isDragging = draggedItemId === item.id;
-                const isDragOver = dragOverItemId === item.id;
-                return (
-                  <li
-                    key={item.id}
-                    draggable
-                    onDragStart={(e) => {
-                      setDraggedItemId(item.id);
-                      e.dataTransfer.effectAllowed = 'move';
-                      e.dataTransfer.setData('text/plain', item.id);
-                      // Add visual feedback
-                      if (e.dataTransfer) {
-                        e.dataTransfer.effectAllowed = 'move';
-                      }
-                    }}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.dataTransfer.dropEffect = 'move';
-                      if (draggedItemId !== item.id) {
-                        setDragOverItemId(item.id);
-                      }
-                    }}
-                    onDragLeave={() => {
-                      setDragOverItemId(null);
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      const draggedId = e.dataTransfer.getData('text/plain');
-                      if (draggedId && draggedId !== item.id) {
-                        reorderFocusItems(draggedId, item.id);
-                      }
-                      setDraggedItemId(null);
-                      setDragOverItemId(null);
-                    }}
-                    onDragEnd={() => {
-                      setDraggedItemId(null);
-                      setDragOverItemId(null);
-                    }}
-                    className={`flex items-start gap-3 rounded-2xl border px-3 py-2 text-sm transition-all duration-300 cursor-move ${
-                        justCompleted === item.id
-                        ? 'border-teal-200 bg-teal-50/50 dark:border-emerald-600/50 dark:bg-emerald-900/30 scale-[1.02]'
-                        : isDragging
-                        ? 'opacity-50 scale-95 border-teal-300 dark:border-cyan-600/50'
-                        : isDragOver
-                        ? 'border-teal-400 bg-teal-50/50 dark:border-cyan-600/50 dark:bg-cyan-900/30 scale-[1.02]'
-                        : 'border-blue-200/50 bg-blue-50/80 dark:border-slate-600/50 dark:bg-slate-800/60 hover:border-teal-200 dark:hover:border-cyan-500/50'
-                    }`}
-                  >
-                    <div className="flex items-center text-slate-300 dark:text-slate-500 cursor-move" aria-hidden="true">
-                      <GripVertical className="h-4 w-4" />
-                    </div>
-                    <button
-                      type="button"
-                      onMouseDown={(e) => e.stopPropagation()}
-                      onClick={() => {
-                        // Add celebration feedback
-                        setJustCompleted(item.id);
-                        updateFocusItem(item.id, { completed: true });
-                        // Clear the celebration state after animation
-                        setTimeout(() => setJustCompleted(null), 600);
-                      }}
-                      className={`rounded-full border border-transparent p-1 transition-all duration-300 ${
-                      justCompleted === item.id
-                        ? 'scale-125 text-teal-500 border-teal-200 dark:border-emerald-700'
-                        : 'text-slate-400 hover:border-teal-200 hover:text-teal-600 dark:text-slate-400 dark:hover:border-cyan-500 dark:hover:text-cyan-300'
-                      }`}
-                      aria-label="Mark focus as done"
-                    >
-                      {justCompleted === item.id ? (
-                        <CheckCircle2 className="h-4 w-4" />
-                      ) : (
-                        <Circle className="h-4 w-4" />
-                      )}
-                    </button>
-                    <div className="flex-1 space-y-1">
-                      <p className="flex flex-wrap items-center gap-2 text-sm font-semibold leading-tight text-slate-700 dark:text-slate-100">
-                        <span className="text-lg leading-none">{getCategoryEmoji(item.categories[0]) || "•"}</span>
-                        <span>{item.description}</span>
-                      </p>
-                      {anchorPhrase && (
-                        <p className="text-xs font-semibold text-teal-600 dark:text-cyan-400">
-                          {anchorPhrase}
-                        </p>
-                      )}
-                      {item.categories.length > 0 && (
-                        <p className="text-[0.65rem] uppercase tracking-wide text-slate-400 dark:text-slate-300">
-                          {item.categories.join(" • ")}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onMouseDown={(e) => e.stopPropagation()}
-                        onClick={() => router.push(`/focus?edit=${item.id}`)}
-                        className="rounded-full border border-transparent p-1 text-slate-400 transition hover:border-teal-200 hover:text-teal-600 dark:hover:border-cyan-600 dark:hover:text-cyan-400"
-                        aria-label="Edit focus"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onMouseDown={(e) => e.stopPropagation()}
-                        onClick={async () => {
-                          console.log('🗑️ Delete button clicked');
-                          console.log('Item to delete:', { id: item.id, description: item.description, plannedItemId: item.plannedItemId });
-                          console.log('Current focusItems count:', focusItems.length);
-                          console.log('User:', user?.id, 'Weather:', weather?.key);
-                          
-                          // Get remaining items before removing
-                          const remainingItems = focusItems
-                            .filter((i) => i.id !== item.id && !i.completed)
-                            .map((i) => ({
-                              id: i.id,
-                              description: i.description,
-                              categories: i.categories,
-                              sortOrder: i.sortOrder,
-                              plannedItemId: i.plannedItemId ?? null,
-                              anchorType: i.anchorType || null,
-                              anchorValue: i.anchorValue || null,
-                              barrier: i.barrier || null,
-                            }));
-                          
-                          console.log('Remaining items after deletion:', remainingItems.length, remainingItems);
-                          
-                          // Remove from context
-                          removeFocusItem(item.id);
-                          console.log('✅ Item removed from context');
-                          
-                          // Save the deletion to the database
-                          if (user && weather) {
-                            try {
-                              const checkinDate = getTodayLocalDateString();
-                              console.log('💾 Saving deletion to database...', { 
-                                userId: user.id, 
-                                checkinDate, 
-                                remainingItemsCount: remainingItems.length,
-                                itemHadPlannedId: !!item.plannedItemId
-                              });
-                              
-                              await saveCheckinWithFocus({
-                                userId: user.id,
-                                internalWeather: weather,
-                                forecastNote: forecastNote || undefined,
-                                focusItems: remainingItems,
-                                checkinDate,
-                              });
-                              
-                              console.log('✅ Deletion saved successfully to database');
-                              
-                              // Clear localStorage to prevent stale data from reloading
-                              clearLocalStorageForDate(checkinDate);
-                              console.log('✅ localStorage cleared');
-                            } catch (err) {
-                              console.error('❌ Error saving deletion:', err);
-                              // Note: Item is already removed from context, but save failed
-                              // User can refresh to see the item again if needed
-                            }
-                          } else {
-                            console.warn('⚠️ Cannot save deletion - missing user or weather', { hasUser: !!user, hasWeather: !!weather });
-                          }
-                        }}
-                        className="rounded-full border border-transparent p-1 text-slate-400 transition hover:border-rose-200 hover:text-rose-600 dark:hover:border-rose-600 dark:hover:text-rose-400"
-                        aria-label="Delete focus"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </li>
-                );
-              })}
-          </ul>
-
-          {completedFocusItems.length > 0 && (
-            <div className="space-y-2 border-t border-dashed border-blue-200/60 pt-3 dark:border-slate-500/50">
-              <p className="text-[0.7rem] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-400">Completed today</p>
-              <ul className="space-y-1">
-                {completedFocusItems
-                  .slice()
-                  .sort((a, b) => a.sortOrder - b.sortOrder)
-                  .map((item) => {
-                    // Support both new multiple anchors and legacy single anchor
-                    const anchorPhrase = item.anchors && item.anchors.length > 0
-                      ? buildMultipleAnchorsPhrase(item.anchors)
-                      : anchorValueForDisplay(item.anchorType, item.anchorValue);
-                    return (
-                      <li
-                        key={item.id}
-                        className="flex items-start gap-3 rounded-2xl border border-transparent bg-lavender-50/80 px-3 py-2 text-sm dark:bg-slate-800/40"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => updateFocusItem(item.id, { completed: false })}
-                          className="rounded-full border border-transparent p-1 text-teal-500 transition hover:border-teal-200 dark:hover:border-emerald-700"
-                          aria-label="Mark focus as not done"
-                        >
-                          <CheckCircle2 className="h-4 w-4" />
-                        </button>
-                        <div className="flex-1 space-y-1">
-                          <p className="text-sm font-semibold text-slate-500 line-through dark:text-slate-400">{item.description}</p>
-                          {anchorPhrase && (
-                            <p className="text-xs font-semibold text-teal-600 dark:text-cyan-300">
-                              {anchorPhrase}
-                            </p>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            // Get remaining items before removing
-                            const remainingItems = focusItems
-                              .filter((i) => i.id !== item.id && !i.completed)
-                              .map((i) => ({
-                                id: i.id,
-                                description: i.description,
-                                categories: i.categories,
-                                sortOrder: i.sortOrder,
-                                plannedItemId: i.plannedItemId ?? null,
-                                anchorType: i.anchorType || null,
-                                anchorValue: i.anchorValue || null,
-                                barrier: i.barrier || null,
-                              }));
-                            
-                            // Remove from context
-                            removeFocusItem(item.id);
-                            
-                            // Save the deletion to the database
-                            if (user && weather) {
-                              try {
-                                const checkinDate = getTodayLocalDateString();
-                                await saveCheckinWithFocus({
-                                  userId: user.id,
-                                  internalWeather: weather,
-                                  forecastNote: forecastNote || undefined,
-                                  focusItems: remainingItems,
-                                  checkinDate,
-                                });
-                                
-                                // Clear localStorage to prevent stale data from reloading
-                                clearLocalStorageForDate(checkinDate);
-                              } catch (err) {
-                                console.error('Error saving deletion:', err);
-                              }
-                            }
-                          }}
-                          className="rounded-full border border-transparent p-1 text-slate-400 transition hover:border-rose-200 hover:text-rose-600 dark:hover:border-rose-600 dark:hover:text-rose-400"
-                          aria-label="Delete completed focus"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </li>
-                    );
-                  })}
-              </ul>
-            </div>
-          )}
-
-          {activeFocusItems.length >= MAX_FOCUS_ITEMS ? (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 text-center text-sm text-amber-800 dark:border-amber-700/40 dark:bg-amber-900/30 dark:text-amber-200">
-              <p className="font-medium">You already have enough on your hands</p>
-              <p className="mt-1 text-xs">Focus on your current things or remove some for another day</p>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => router.push("/focus")}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-blue-200/60 bg-white/90 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-blue-50/80 dark:border-slate-600/50 dark:bg-slate-800/60 dark:text-slate-100 dark:hover:bg-slate-700/60"
-            >
-              <Plus className="h-4 w-4" />
-              Add Focus
-            </button>
-          )}
-        </>
-      ) : (
-        <div className="rounded-2xl border border-dashed border-blue-200/60 bg-white/95 p-4 text-center text-sm text-slate-600 dark:border-slate-600/40 dark:bg-slate-800/60 dark:text-slate-300">
-          <p>No items yet. Add focus item when you&rsquo;re ready.</p>
-          <button
-            type="button"
-            onClick={() => router.push("/focus")}
-            className="mt-3 inline-flex items-center justify-center gap-2 rounded-full border border-blue-200/60 bg-white/90 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-blue-50/80 dark:border-slate-600/50 dark:bg-slate-800/60 dark:text-slate-100 dark:hover:bg-slate-700/60"
-          >
-            <Plus className="h-4 w-4" />
-            Add Focus
-          </button>
-        </div>
-      )}
-    </section>
-    );
-  };
-
-  return (
-    <main className="min-h-screen px-4 pb-16 pt-6">
-      <div className="mx-auto max-w-3xl space-y-8">
-        <header className="flex items-start justify-between">
-          <div>
-            <AppWordmark className="text-base font-semibold" />
-            <h1 className="text-3xl font-bold text-slate-700 dark:text-slate-100">{greeting}</h1>
-          </div>
-        </header>
-
-        {hasFocus ? (
-          <>
-            {renderFocusSummary()}
-            {shouldShowWeatherSection && renderWeatherSection()}
-          </>
-        ) : (
-          <>
-            {shouldShowWeatherSection && renderWeatherSection()}
-            {renderFocusSummary()}
-          </>
-        )}
-
-      </div>
-    </main>
+      <TaskModal
+        isOpen={showTaskModal}
+        mode={taskModalMode}
+        taskType={taskModalType}
+        initialData={editingTask ? {
+          id: editingTask.id,
+          description: editingTask.description,
+          complexity: editingTask.complexity,
+          anchorTime: editingTask.anchorTime,
+          barrier: editingTask.barrier,
+        } : undefined}
+        onClose={() => setShowTaskModal(false)}
+        onSave={handleTaskSave}
+      />
+    </>
   );
 }
