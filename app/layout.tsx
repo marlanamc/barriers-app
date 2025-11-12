@@ -4,6 +4,7 @@ import "./globals.css";
 import { CheckInProvider } from "@/lib/checkin-context";
 import { PlanningProvider } from "@/lib/planning-context";
 import { ThemeProvider } from "@/lib/theme-context";
+import { OnboardingProvider } from "@/lib/onboarding-context";
 import { AuthProvider } from "@/components/AuthProvider";
 import { ThemeColorUpdater } from "@/components/ThemeColorUpdater";
 import { GlobalNavigation } from "@/components/GlobalNavigation";
@@ -60,12 +61,14 @@ export default function RootLayout({
         <ThemeProvider>
           <ThemeColorUpdater />
           <AuthProvider>
-            <CheckInProvider>
-              <PlanningProvider>
-                <GlobalNavigation />
-                {children}
-              </PlanningProvider>
-            </CheckInProvider>
+            <OnboardingProvider>
+              <CheckInProvider>
+                <PlanningProvider>
+                  <GlobalNavigation />
+                  {children}
+                </PlanningProvider>
+              </CheckInProvider>
+            </OnboardingProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>
