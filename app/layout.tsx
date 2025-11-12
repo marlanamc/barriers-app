@@ -8,6 +8,7 @@ import { OnboardingProvider } from "@/lib/onboarding-context";
 import { AuthProvider } from "@/components/AuthProvider";
 import { ThemeColorUpdater } from "@/components/ThemeColorUpdater";
 import { GlobalNavigation } from "@/components/GlobalNavigation";
+import { BottomTabBar } from "@/components/BottomTabBar";
 
 export const metadata: Metadata = {
   title: "ADHD Barrier Tracker",
@@ -66,6 +67,7 @@ export default function RootLayout({
                 <PlanningProvider>
                   <GlobalNavigation />
                   {children}
+                  <BottomTabBar />
                 </PlanningProvider>
               </CheckInProvider>
             </OnboardingProvider>
