@@ -832,10 +832,11 @@ export async function updateUserPreferences(
 
   if (existing) {
     // Update existing profile, merging preferences
+    const existingPrefs = (existing.preferences as Record<string, any>) || {};
     const { error } = await supabase
       .from('user_profiles')
       .update({
-        preferences: { ...existing.preferences, ...preferences },
+        preferences: { ...existingPrefs, ...preferences },
         updated_at: new Date().toISOString(),
       })
       .eq('user_id', userId);
