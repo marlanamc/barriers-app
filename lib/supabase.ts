@@ -889,10 +889,9 @@ export async function getAnchorPresets(
 ): Promise<string[]> {
   const { data, error } = await supabase
     .from('anchor_presets')
-    .select('preset_value')
+    .select('preset_text')
     .eq('user_id', userId)
     .eq('anchor_type', anchorType)
-    .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
 
   if (error) {
@@ -904,7 +903,7 @@ export async function getAnchorPresets(
     return [];
   }
 
-  return data.map((row) => row.preset_value);
+  return data.map((row) => row.preset_text);
 }
 
 /**
@@ -929,11 +928,10 @@ export async function setAnchorPresets(
 
   // Insert new presets
   if (presets.length > 0) {
-    const inserts = presets.map((preset, index) => ({
+    const inserts = presets.map((preset) => ({
       user_id: userId,
       anchor_type: anchorType,
-      preset_value: preset.trim(),
-      sort_order: index,
+      preset_text: preset.trim(),
     }));
 
     const { error: insertError } = await supabase
