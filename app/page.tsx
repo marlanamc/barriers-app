@@ -270,6 +270,13 @@ export default function CommandCenterPage() {
   return (
     <>
       <main className="min-h-screen pb-24">
+        {/* App Title */}
+        <div className="border-b border-slate-200 bg-white/80 px-4 py-3 backdrop-blur dark:border-slate-700 dark:bg-slate-800/80">
+          <h1 className="text-center text-2xl font-bold text-slate-900 dark:text-slate-100">
+            Command Center
+          </h1>
+        </div>
+
         {/* Status Header */}
         <StatusHeader
           energyLevel={energyLevel}
