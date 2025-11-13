@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { AppWordmark } from '@/components/AppWordmark';
 import { HeaderStatus } from '@/components/HeaderStatus';
 import { CapacityCard } from '@/components/CapacityCard';
@@ -8,9 +9,11 @@ import { FocusSection } from '@/components/FocusSection';
 import { LifeMaintenance } from '@/components/LifeMaintenance';
 import { EnergyModal } from '@/components/modals/EnergyModal';
 import { TaskModal } from '@/components/modals/TaskModal';
+import { TimelineBar } from '@/components/command-center/TimelineBar';
 import { useSupabaseUser } from '@/lib/useSupabaseUser';
 import { getCheckinByDate, saveCheckinWithFocus, type FocusItemPayload } from '@/lib/supabase';
 import { getTodayLocalDateString } from '@/lib/date-utils';
+import { usePlanning } from '@/lib/planning-context';
 import {
   EnergyLevel,
   TaskComplexity,
@@ -21,14 +24,6 @@ import {
   MAX_FOCUS_ITEMS,
 } from '@/lib/capacity';
 import { getFlowGreeting } from '@/lib/getFlowGreeting';
-
-const ENERGY_SUPPORT_MESSAGES: Record<EnergyLevel, string> = {
-  sparky: 'Plenty of spark—pick one meaningful win to protect.',
-  steady: 'Steady energy. Take one focused step forward.',
-  flowing: 'Gentle flow. Keep things light and breathable.',
-  foggy: 'Low energy. Aim for one small win tonight.',
-  resting: 'Rest up. Light maintenance only if it feels good.',
-};
 
 type TimeWarningTone = 'soon' | 'urgent' | 'after';
 
@@ -43,13 +38,15 @@ function getTimeWarning(timeInfo: ReturnType<typeof getTimeUntilStop> | null) {
   if (timeInfo.isPastStop) {
     return {
       tone: 'after' as TimeWarningTone,
-      message: 'You are past your hard stop. Start winding down when you can.',
+      message: 'Past your hard stop',
+      showTimeline: true,
     };
   }
   if (timeInfo.totalMinutes <= 30) {
     return {
       tone: 'urgent' as TimeWarningTone,
-      message: `${Math.max(timeInfo.totalMinutes, 1)} min until your hard stop. Time to wrap up for the day.`,
+      message: `${Math.max(timeInfo.totalMinutes, 1)}m remaining - wrap up`,
+      showTimeline: false,
     };
   }
   if (timeInfo.totalMinutes <= 120) {
@@ -57,17 +54,23 @@ function getTimeWarning(timeInfo: ReturnType<typeof getTimeUntilStop> | null) {
     const minutes = timeInfo.totalMinutes % 60;
     const parts = [];
     if (hours > 0) {
-      parts.push(`${hours} ${hours === 1 ? 'hour' : 'hours'}`);
+      parts.push(`${hours}h`);
     }
     if (minutes > 0) {
-      parts.push(`${minutes} min`);
+      parts.push(`${minutes}m`);
     }
     return {
       tone: 'soon' as TimeWarningTone,
-      message: `${parts.join(' ')} until your hard stop. Choose one last focus.`,
+      message: `${parts.join(' ')} remaining - last focus window`,
+      showTimeline: false,
     };
   }
   return null;
+}
+
+interface TaskAnchor {
+  type: 'at' | 'while' | 'before' | 'after';
+  value: string;
 }
 
 interface Task {
@@ -76,7 +79,8 @@ interface Task {
   completed: boolean;
   complexity: TaskComplexity;
   type: TaskType;
-  anchorTime?: string;
+  anchors?: TaskAnchor[];
+  anchorTime?: string; // Legacy format - kept for backwards compatibility
   barrier?: {
     type: string;
     custom?: string;
@@ -85,6 +89,8 @@ interface Task {
 
 export default function CommandCenterPage() {
   const { user } = useSupabaseUser();
+  const router = useRouter();
+  const { setStartDate, setRecurrenceType, setEndDate, setRecurrenceDays } = usePlanning();
 
   // State
   const [loading, setLoading] = useState(true);
@@ -208,9 +214,6 @@ export default function CommandCenterPage() {
   const capacityTarget = energyLevel
     ? Math.max(1, Math.round(capacityInfo.totalCapacity || 1))
     : Math.max(focusPlanned || 1, 1);
-  const supportiveMessage = energyLevel
-    ? ENERGY_SUPPORT_MESSAGES[energyLevel]
-    : 'Check your energy to set expectations for today.';
   const timeWarning = getTimeWarning(timeInfo);
   const headerTimeInfo = timeInfo
     ? { totalMinutes: timeInfo.totalMinutes, isPastStop: timeInfo.isPastStop }
@@ -245,6 +248,21 @@ export default function CommandCenterPage() {
     setTaskModalType('focus');
     setEditingTask(null);
     setShowTaskModal(true);
+  };
+
+  const handlePlanTomorrow = () => {
+    // Set planning context for tomorrow
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+    setStartDate(tomorrowStr);
+    setRecurrenceType('once');
+    setEndDate(null);
+    setRecurrenceDays([]);
+
+    // Navigate to plan ahead
+    router.push('/plan-ahead/focus');
   };
 
   const handleToggleFocusTask = async (taskId: string) => {
@@ -363,7 +381,6 @@ export default function CommandCenterPage() {
             energyLevel={energyLevel}
             focusCount={focusPlanned}
             capacityTarget={capacityTarget}
-            supportiveMessage={supportiveMessage}
             flowGreeting={flowGreeting}
             timeInfo={headerTimeInfo}
             onEnergyClick={handleEnergyChange}
@@ -371,9 +388,17 @@ export default function CommandCenterPage() {
 
           {timeWarning && (
             <div
-              className={`rounded-2xl px-3 py-2 text-sm font-medium shadow-sm ring-1 backdrop-blur ${TIME_WARNING_STYLES[timeWarning.tone]}`}
+              className={`rounded-2xl px-4 py-3 text-sm font-medium shadow-sm ring-1 backdrop-blur ${TIME_WARNING_STYLES[timeWarning.tone]}`}
             >
-              {timeWarning.message}
+              {timeWarning.showTimeline ? (
+                <TimelineBar
+                  workStart="08:00"
+                  hardStop={hardStopTime}
+                  currentTime={new Date()}
+                />
+              ) : (
+                timeWarning.message
+              )}
             </div>
           )}
 
@@ -408,6 +433,14 @@ export default function CommandCenterPage() {
             onToggleTask={handleToggleLifeTask}
             onDeleteTask={handleDeleteLifeTask}
           />
+
+          <button
+            type="button"
+            onClick={handlePlanTomorrow}
+            className="w-full rounded-2xl border border-transparent bg-gradient-to-r from-[#fff8e8] to-[#ffeef9] px-4 py-3 text-sm font-semibold text-amber-900 shadow-[0_10px_25px_rgba(255,188,122,0.35)] transition hover:brightness-105 dark:border-amber-800/60 dark:bg-none dark:bg-amber-900/30 dark:text-amber-100"
+          >
+            🌅 Plan Tomorrow
+          </button>
         </div>
       </main>
 
@@ -426,7 +459,7 @@ export default function CommandCenterPage() {
           id: editingTask.id,
           description: editingTask.description,
           complexity: editingTask.complexity,
-          anchorTime: editingTask.anchorTime,
+          anchors: editingTask.anchors,
           barrier: editingTask.barrier,
         } : undefined}
         onClose={() => setShowTaskModal(false)}

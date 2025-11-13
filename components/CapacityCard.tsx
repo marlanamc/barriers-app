@@ -23,11 +23,11 @@ interface CapacityCardProps {
 }
 
 const ENERGY_COPY: Record<EnergyLevel, string> = {
-  sparky: 'Today you can handle up to 4 meaningful tasks.',
-  steady: 'Today you can handle up to 3 meaningful tasks.',
-  flowing: 'Today you can handle up to 2 lighter tasks.',
-  foggy: 'Today you can handle up to 1 meaningful task.',
-  resting: 'Rest mode—no meaningful tasks required.',
+  sparky: 'Up to 4 tasks today',
+  steady: 'Up to 3 tasks today',
+  flowing: 'Up to 2 lighter tasks',
+  foggy: 'Up to 1 task today',
+  resting: 'Rest mode',
 };
 
 const ENERGY_LABELS: Record<EnergyLevel, string> = {
@@ -60,10 +60,10 @@ function getSummaryCopy(energyLevel: EnergyLevel | null) {
 function getWarning(capacityInfo: CapacityStats | null) {
   if (!capacityInfo) return null;
   if (capacityInfo.remainingCapacity <= 0) {
-    return 'You are past your plan. Close open loops and wind down.';
+    return 'At capacity - time to wind down';
   }
   if (capacityInfo.remainingCapacity <= 0.5) {
-    return 'You are near your limit.';
+    return 'Near your limit';
   }
   return null;
 }
@@ -78,17 +78,17 @@ function getHint({
   capacityInfo: CapacityStats | null;
 }) {
   if (planHint) return planHint;
-  if (!energyLevel) return 'Set your energy to get a plan.';
+  if (!energyLevel) return 'Set energy for guidance';
   if (!capacityInfo?.recommendedComplexity) {
     return getCapacityMessage(energyLevel);
   }
   const complexity = capacityInfo.recommendedComplexity;
   const label =
     complexity === 'deep'
-      ? 'Protect one deep work block.'
+      ? 'One deep work block'
       : complexity === 'medium'
-      ? 'Choose one meaningful task.'
-      : 'Aim for a quick win.';
+      ? 'One meaningful task'
+      : 'Quick win';
   return label;
 }
 
@@ -132,29 +132,14 @@ export function CapacityCard({
 
       {expanded && (
         <div className="mt-3 space-y-2 text-sm text-slate-600 dark:text-slate-300">
-          {capacityRange && (
-            <p className="text-xs uppercase tracking-wide text-[#9aa5ff] dark:text-slate-500">
-              Guide: {capacityRange}
-            </p>
-          )}
-          <p>
-            Focus load: <span className="font-medium">{focusCount}</span>{' '}
-            planned today.
-          </p>
           <p className="text-slate-500 dark:text-slate-400">
-            Energy:{' '}
-            <span className="font-medium text-slate-700 dark:text-slate-100">
-              {energyLabel}
-            </span>
+            {focusCount} focus {focusCount === 1 ? 'item' : 'items'} planned
             {hardStopLabel && (
               <>
                 {' '}
                 • Hard stop: {hardStopLabel}
               </>
             )}
-          </p>
-          <p className="text-slate-500 dark:text-slate-400">
-            {hint}
           </p>
           {warningText && (
             <p className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#fff4da] to-[#ffe8e8] px-3 py-2 text-sm text-amber-900 shadow-[0_10px_25px_rgba(255,188,122,0.35)] dark:bg-none dark:bg-amber-900/20 dark:text-amber-100">

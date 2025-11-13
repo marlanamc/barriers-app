@@ -14,6 +14,8 @@
 4. [Strategic Phases](#strategic-phases)
 5. [Priority Implementation Plan](#priority-implementation-plan)
 6. [Feature Deep Dives](#feature-deep-dives)
+   - [Barrier System & Flow](#barrier-system--flow)
+   - [Anchoring System](#anchoring-system)
    - [Capacity Calculation System](#capacity-calculation-system)
    - [Time-of-Day Windows](#time-of-day-windows)
    - [Medication Tracking](#medication-tracking)
@@ -244,6 +246,209 @@ People with ADHD know exactly what they need to do, but executive dysfunction cr
 ---
 
 ## Feature Deep Dives
+
+### Barrier System & Flow
+
+**Core Concept:** Help users identify what's preventing them from starting tasks, then provide targeted support and interventions.
+
+#### The Check-In Flow (Current Implementation)
+
+The app uses a sequential flow to build up context for each day:
+
+1. **Home/Start** → User begins check-in
+2. **Internal Weather** → Set energy level for the day
+3. **Focus Items** → Add 1-5 meaningful tasks
+4. **Barriers** → Identify what feels hard for each task
+5. **Gentle Support** → Get tips and strategies based on barriers
+
+#### Barrier Types
+
+Standard barriers available (stored in `barrier_types` table):
+
+| Barrier | Icon | Description | Common Interventions |
+|---------|------|-------------|---------------------|
+| **Overwhelm** | 🌊 | Task feels too big | Break it down, 5-min timer, body doubling |
+| **Energy** | 🔋 | Don't have the energy | Rest, easier task, schedule for peak time |
+| **Time** | ⏰ | Not enough time | Time block, protect focus window |
+| **Perfectionism** | ✨ | Fear of not doing it perfectly | "Done is better than perfect", set lower bar |
+| **Shame** | 💭 | Shame spiral about not doing it | Reframe, self-compassion, interrupt pattern |
+| **Unclear** | 🤔 | Don't know where to start | Clarify first step, break down |
+| **External** | 🚧 | Waiting on someone/something | Track dependency, set reminder |
+| **Avoidance** | 🙈 | Just don't want to do it | Understand why, reward after, body doubling |
+
+**Custom Barriers:** Users can also write free-form barrier descriptions for anything not covered.
+
+#### Barrier Selection UI
+
+**Current Implementation (app/barriers/page.tsx):**
+
+```tsx
+// For each focus item:
+<select> // Pick from predefined barriers
+  <option>Overwhelm</option>
+  <option>Energy</option>
+  // etc...
+</select>
+
+<textarea> // Or describe custom barrier
+  placeholder="Overwhelmed, low energy, waiting on a reply..."
+</textarea>
+```
+
+**Your Suggestion: Modal Approach**
+
+Instead of a dedicated `/barriers` page, barriers could be collected in a modal when adding/editing focus items:
+
+```
+[User clicks focus item]
+  ↓
+[Modal opens]
+  ├─ Edit task description
+  ├─ Select difficulty (quick/medium/deep)
+  ├─ Pick barrier (dropdown or chips)
+  ├─ Add custom note
+  └─ Set anchors (time/rhythm)
+
+[Save] → Back to command center
+```
+
+**Benefits of Modal Approach:**
+- ✅ All task info in one place
+- ✅ Faster workflow (no page navigation)
+- ✅ Better for command center experience
+- ✅ More intuitive for quick edits
+
+**Implementation Notes:**
+```tsx
+// components/modals/TaskModal.tsx (already exists!)
+// Can be enhanced to include:
+- Barrier type selector
+- Custom barrier textarea
+- Anchor system (at/while/before/after)
+- Gentle support tip preview
+```
+
+#### Barrier Data Model
+
+```typescript
+interface FocusItemBarrier {
+  barrierTypeId: string | null;      // FK to barrier_types
+  barrierTypeSlug: string | undefined; // e.g., "overwhelm"
+  custom: string;                      // Free-form text
+}
+
+interface FocusItem {
+  id: string;
+  description: string;
+  categories: string[];
+  difficulty: 'quick' | 'medium' | 'deep';
+  barrier?: FocusItemBarrier;
+  anchors?: TaskAnchor[];
+  completed: boolean;
+}
+```
+
+#### Gentle Support Integration
+
+After barriers are identified, the app shows:
+
+1. **Barrier-specific tips** from the database (`tips` table)
+2. **Research-backed strategies** from ADHD First Aid Kit
+3. **Actionable next steps** (e.g., "Set a 5-min timer")
+
+**Example Flow:**
+```
+User selects "Overwhelm" barrier
+  ↓
+Gentle Support shows:
+- 💡 Break it into smaller steps
+- 💡 Just do 5 minutes
+- 💡 Work with a body double
+- 💡 Lower the bar for "done"
+```
+
+---
+
+### Anchoring System
+
+**Core Concept:** Combat time blindness by linking tasks to specific times or daily rhythms.
+
+#### Four Anchor Types
+
+1. **At** → Specific time (`at 10:00 AM`)
+2. **While** → During another activity (`while drinking coffee`)
+3. **Before** → Before an event (`before the kids wake up`)
+4. **After** → After an event (`after dinner cleanup`)
+
+#### Current Implementation
+
+**Multi-anchor support:** Users can add multiple anchors to a single task
+
+```tsx
+// Example task with multiple anchors:
+{
+  description: "Apply to 3 jobs",
+  anchors: [
+    { type: "at", value: "10:00" },
+    { type: "while", value: "listening to music" },
+    { type: "after", value: "morning coffee" }
+  ]
+}
+
+// Displays as: "at 10:00 AM while listening to music after morning coffee"
+```
+
+#### Anchor Suggestions
+
+The system provides smart suggestions based on anchor type:
+
+**While suggestions:**
+- listening to music
+- drinking coffee
+- on the train
+- kids are napping
+
+**Before suggestions:**
+- the kids wake up
+- work starts
+- lunch
+- bed
+
+**After suggestions:**
+- morning coffee
+- breakfast
+- workout
+- dinner cleanup
+
+**User Presets:** Users can save their own frequently-used anchors (stored in `anchor_presets` table).
+
+#### UI/UX
+
+**Collapsible Anchor Section:**
+- Starts collapsed if no anchors set
+- Auto-expands if anchors already exist
+- Shows "Link to time or rhythm? (optional)"
+
+**Adding Anchors:**
+1. Click "+ Add Anchor"
+2. Pick type (At/While/Before/After)
+3. Enter/select value
+4. Click "Add Anchor"
+5. Repeat for multiple anchors
+
+**Removing Anchors:**
+- X button on each anchor chip
+- "Clear all anchors" button
+
+#### Why Anchoring Works for ADHD
+
+1. **Reduces decision fatigue** → No "when should I do this?"
+2. **Creates automatic triggers** → "After coffee = job applications"
+3. **Works with existing routines** → Piggyback on habits
+4. **Provides structure** → Open days are the enemy
+5. **Prevents time blindness** → Concrete temporal markers
+
+---
 
 ### Capacity Calculation System
 

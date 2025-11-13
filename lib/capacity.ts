@@ -117,15 +117,15 @@ export function getCapacityInfo(
 export function getCapacityMessage(energyLevel: EnergyLevel): string {
   switch (energyLevel) {
     case 'sparky':
-      return 'Peak focus - tackle your hardest tasks';
+      return 'Peak focus';
     case 'steady':
-      return 'Good energy for meaningful work';
+      return 'Good energy';
     case 'flowing':
-      return 'Gentle energy - choose lighter tasks';
+      return 'Gentle energy';
     case 'foggy':
-      return 'Low energy - be kind to yourself';
+      return 'Low energy';
     case 'resting':
-      return 'Rest time - no deep work expected';
+      return 'Rest mode';
   }
 }
 
@@ -173,13 +173,13 @@ export function getTimeUntilStop(hardStopTime: string): {
 
   let message = '';
   if (isPastStop) {
-    message = "Past your hard stop - time to rest";
+    message = "Past your hard stop";
   } else if (totalMinutes < 60) {
-    message = `${minutesRemaining}m until stop - wrap up soon`;
+    message = `${minutesRemaining}m remaining`;
   } else if (totalMinutes < 120) {
-    message = `${hoursRemaining}h ${minutesRemaining}m until stop - last focus window`;
+    message = `${hoursRemaining}h ${minutesRemaining}m remaining`;
   } else {
-    message = `${hoursRemaining}h ${minutesRemaining}m until stop`;
+    message = `${hoursRemaining}h ${minutesRemaining}m until hard stop`;
   }
 
   return {

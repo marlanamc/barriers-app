@@ -81,7 +81,6 @@ interface HeaderStatusProps {
   energyLevel: EnergyLevel | null;
   focusCount: number;
   capacityTarget: number;
-  supportiveMessage: string;
   flowGreeting: FlowGreetingResult;
   timeInfo?: {
     totalMinutes: number;
@@ -113,7 +112,6 @@ export function HeaderStatus({
   energyLevel,
   focusCount,
   capacityTarget,
-  supportiveMessage,
   flowGreeting,
   timeInfo,
   onEnergyClick,
@@ -128,6 +126,12 @@ export function HeaderStatus({
   const timeLabel = currentTime.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
+  });
+
+  const dateLabel = currentTime.toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
   });
 
   const energyLabel = energyLevel ? ENERGY_LABELS[energyLevel] : 'Set energy';
@@ -186,10 +190,12 @@ export function HeaderStatus({
         </button>
         {otherCards.map(renderCard)}
       </div>
-      <p className="mt-3 text-base font-semibold text-slate-900 dark:text-slate-100">
+      <p className="mt-3 text-xs font-medium text-slate-500 dark:text-slate-400">
+        {dateLabel}
+      </p>
+      <p className="mt-1 text-base font-semibold text-slate-900 dark:text-slate-100">
         Welcome to your {flowGreeting.emoji} {flowGreeting.flow}.
       </p>
-      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{supportiveMessage}</p>
     </section>
   );
 }

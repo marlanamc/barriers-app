@@ -13,6 +13,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { EnergyLevel, TaskComplexity, getTimeUntilStop } from '@/lib/capacity';
+import { TimelineBar } from './TimelineBar';
 
 const ENERGY_CHIP: Record<
   EnergyLevel,
@@ -146,14 +147,12 @@ export function StatusHeader({
 
   const countdownSubtext =
     countdownVariant === 'critical'
-      ? "Time to wrap up and finish what you're working on."
+      ? "Wrap up what you're working on"
       : countdownVariant === 'warning'
-      ? 'Last focus window—pick one thing to finish.'
+      ? 'Last focus window'
       : countdownVariant === 'past'
-      ? 'Protect your nervous system and give yourself permission to shut down.'
-      : hardStopTime
-      ? `Hard stop at ${hardStopTime}`
-      : 'Stay within your guardrails.';
+      ? 'Light tasks only'
+      : null;
 
   const VARIANT_ICONS: Record<CountdownVariant, LucideIcon> = {
     ok: Clock,
@@ -233,15 +232,27 @@ export function StatusHeader({
 
       {timeInfo && countdownVariant && (
         <div
-          className={`mt-3 flex flex-wrap items-start gap-3 rounded-2xl border px-3 py-2 ${WARNING_STYLES[countdownVariant].wrapper}`}
+          className={`mt-3 rounded-2xl border px-4 py-3 ${WARNING_STYLES[countdownVariant].wrapper}`}
         >
-          <IndicatorIcon className={`mt-0.5 h-4 w-4 ${WARNING_STYLES[countdownVariant].icon}`} />
-          <div className="min-w-[220px] flex-1">
-            <p className={`font-semibold ${WARNING_STYLES[countdownVariant].text}`}>
-              {timeInfo.message}
-            </p>
-            <p className={`text-xs ${WARNING_STYLES[countdownVariant].sub}`}>{countdownSubtext}</p>
-          </div>
+          {countdownVariant === 'past' ? (
+            <TimelineBar
+              workStart={hardStopTime ? '08:00' : undefined}
+              hardStop={hardStopTime}
+              currentTime={currentTime}
+            />
+          ) : (
+            <div className="flex items-start gap-3">
+              <IndicatorIcon className={`mt-0.5 h-4 w-4 ${WARNING_STYLES[countdownVariant].icon}`} />
+              <div className="flex-1">
+                <p className={`font-semibold ${WARNING_STYLES[countdownVariant].text}`}>
+                  {timeInfo.message}
+                </p>
+                {countdownSubtext && (
+                  <p className={`text-xs ${WARNING_STYLES[countdownVariant].sub}`}>{countdownSubtext}</p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

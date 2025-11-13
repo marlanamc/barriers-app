@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { ArrowLeft, ArrowRight, Pencil, Trash2, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -15,6 +16,7 @@ const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function PlanAheadPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const {
     recurrenceType,
     setRecurrenceType,
@@ -30,6 +32,15 @@ export default function PlanAheadPage() {
   const [existingPlannedItems, setExistingPlannedItems] = useState<PlannedItemWithBarrier[]>([]);
   const [loadingPlannedItems, setLoadingPlannedItems] = useState(true);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
+
+  // Initialize from URL query param if present
+  useEffect(() => {
+    const dateParam = searchParams.get('date');
+    if (dateParam) {
+      setStartDate(dateParam);
+      setRecurrenceType('once');
+    }
+  }, [searchParams, setStartDate, setRecurrenceType]);
 
   const handleNext = () => {
     // Validate based on recurrence type

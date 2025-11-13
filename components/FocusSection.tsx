@@ -72,7 +72,7 @@ export function FocusSection({
 
       {!canAddMore && (
         <p className="mb-3 text-xs font-medium text-amber-700 dark:text-amber-200">
-          Capacity is tight, but you can still add something meaningful.
+          You've done enough for today. Time to rest 💙
         </p>
       )}
 

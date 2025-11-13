@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, ChevronLeft, ChevronRight, X, Check } from "lucide-react";
 import Link from "next/link";
 import { type TaskAnchorType } from "@/lib/checkin-context";
@@ -28,6 +29,7 @@ const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default function CalendarPage() {
   const { user, loading: authLoading } = useSupabaseUser();
+  const router = useRouter();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [checkins, setCheckins] = useState<CheckinWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,6 +101,15 @@ export default function CalendarPage() {
   function openModal(date: Date) {
     const iso = date.toISOString().split("T")[0];
     const entry = checkinsByDate[iso];
+    const today = new Date().toISOString().split("T")[0];
+    const isFuture = iso > today;
+
+    if (isFuture) {
+      // Future date - route to plan ahead
+      router.push(`/plan-ahead?date=${iso}`);
+      return;
+    }
+
     if (!entry) return;
     setSelectedDate(iso);
     setSelectedCheckin(entry);
@@ -230,6 +241,9 @@ export default function CalendarPage() {
               const iso = date.toISOString().split("T")[0];
               const entry = checkinsByDate[iso];
               const isToday = new Date().toDateString() === date.toDateString();
+              const today = new Date().toISOString().split("T")[0];
+              const isFuture = iso > today;
+              const isPast = iso < today && !entry;
 
               return (
                 <button
@@ -239,10 +253,18 @@ export default function CalendarPage() {
                   className={`aspect-square rounded-xl sm:rounded-2xl border px-1.5 sm:px-2 py-1.5 sm:py-2 text-left transition [touch-action:manipulation] relative ${
                     entry
                       ? "border-cyan-200 bg-white shadow-sm hover:-translate-y-0.5 active:scale-95 dark:border-cyan-600/50 dark:bg-slate-800/60 dark:hover:bg-slate-700/60"
+                      : isFuture
+                      ? "border-amber-200/50 bg-amber-50/30 hover:bg-amber-50/50 hover:border-amber-300 cursor-pointer dark:border-amber-800/30 dark:bg-amber-900/10 dark:hover:bg-amber-900/20"
                       : "border-white/40 bg-white/60 dark:border-slate-600/40 dark:bg-slate-800/40"
-                  } ${isToday ? "ring-2 ring-cyan-200 ring-offset-1 dark:ring-cyan-500/50" : ""} disabled:cursor-not-allowed disabled:opacity-60`}
-                  disabled={!entry}
-                  aria-label={entry ? `View check-in for ${date.toLocaleDateString()}` : `No check-in for ${date.toLocaleDateString()}`}
+                  } ${isToday ? "ring-2 ring-cyan-200 ring-offset-1 dark:ring-cyan-500/50" : ""} ${isPast ? "opacity-60 cursor-not-allowed" : ""}`}
+                  disabled={isPast}
+                  aria-label={
+                    entry
+                      ? `View check-in for ${date.toLocaleDateString()}`
+                      : isFuture
+                      ? `Plan ahead for ${date.toLocaleDateString()}`
+                      : `No check-in for ${date.toLocaleDateString()}`
+                  }
                   aria-pressed={selectedDate === iso}
                 >
                   <div className="flex items-start justify-between gap-1">
