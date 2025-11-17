@@ -9,6 +9,10 @@ import { AuthProvider } from "@/components/AuthProvider";
 import { ThemeColorUpdater } from "@/components/ThemeColorUpdater";
 import { GlobalNavigation } from "@/components/GlobalNavigation";
 import { BottomTabBar } from "@/components/BottomTabBar";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
+import { PWAStatus } from "@/components/PWAStatus";
+import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 
 export const metadata: Metadata = {
   title: "ADHD Barrier Tracker",
@@ -59,20 +63,25 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} bg-app-gradient text-slate-900 dark:text-slate-100`}>
-        <ThemeProvider>
-          <ThemeColorUpdater />
-          <AuthProvider>
-            <OnboardingProvider>
-              <CheckInProvider>
-                <PlanningProvider>
-                  <GlobalNavigation />
-                  {children}
-                  <BottomTabBar />
-                </PlanningProvider>
-              </CheckInProvider>
-            </OnboardingProvider>
-          </AuthProvider>
-        </ThemeProvider>
+        <ErrorBoundary>
+          <ThemeProvider>
+            <ThemeColorUpdater />
+            <AuthProvider>
+              <OnboardingProvider>
+                <CheckInProvider>
+                  <PlanningProvider>
+                    <GlobalNavigation />
+                    {children}
+                    <BottomTabBar />
+                    <PWAInstallPrompt />
+                    <PWAStatus />
+                    <ServiceWorkerRegister />
+                  </PlanningProvider>
+                </CheckInProvider>
+              </OnboardingProvider>
+            </AuthProvider>
+          </ThemeProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );

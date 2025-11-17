@@ -83,11 +83,6 @@ export function CustomTagsEditor({ onTagsChange }: CustomTagsEditorProps) {
   return (
     <div className="space-y-4">
       <div>
-        <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-          Create custom category tags that will appear alongside the default tags (Health, Errands, Home, Work, School) 
-          when adding focus items.
-        </p>
-        
         <div className="flex gap-2 mb-4">
           <input
             type="text"

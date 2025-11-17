@@ -9,6 +9,7 @@ A lightweight companion app to [ADHD First Aid](https://adhd-first-aid.vercel.ap
 - **Gentle Support** – Automatic tips are pulled from the Supabase `tips` table for each focus/barrier pair
 - **Calendar with Icons** – Every check-in drops a weather emoji on the calendar; tap a date to see focus items and forecast notes
 - **Pattern Insights** – Weekly summary card + micro chart highlighting the most common internal weather for the past seven days
+- **Progressive Web App** – Install as a native app with offline functionality, push notifications, and home screen access
 
 ## Tech Stack
 
@@ -16,6 +17,31 @@ A lightweight companion app to [ADHD First Aid](https://adhd-first-aid.vercel.ap
 - **Supabase** - Authentication and database (shared with ADHD First Aid)
 - **Tailwind CSS** - Styling
 - **Lucide React** - Icons
+- **Next-PWA** - Progressive Web App functionality
+
+## Progressive Web App (PWA)
+
+This app can be installed as a native mobile/desktop app with full offline functionality:
+
+### Installation
+- **Chrome/Edge**: Look for "Install Barrier Tracker" in the address bar or app menu
+- **Safari**: Tap the share button and select "Add to Home Screen"
+- **Firefox**: Click the install button in the address bar
+- **Mobile**: You'll see an install prompt when visiting the app
+
+### PWA Features
+- **Offline Access**: Continue using the app without internet connection
+- **Home Screen Icon**: Launch directly from your device's home screen
+- **Native App Feel**: Runs in its own window without browser UI
+- **Automatic Updates**: Gets updated automatically when new versions are available
+- **Push Notifications**: Receive gentle reminders and updates (future feature)
+- **Background Sync**: Your data syncs when connection is restored
+
+### Offline Functionality
+- View and edit previously loaded check-ins
+- Access cached barrier information
+- Use all core features without internet
+- Data automatically syncs when back online
 
 ## Getting Started
 

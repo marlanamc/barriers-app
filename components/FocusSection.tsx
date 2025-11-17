@@ -119,10 +119,7 @@ export function FocusSection({
         </div>
       ) : (
         <div className="rounded-2xl border border-dashed border-[#dbe9ff] bg-[#f6fbff] px-4 py-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-400">
-          <p className="font-medium text-slate-700 dark:text-slate-200">No focus items yet.</p>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            Add one meaningful task for today.
-          </p>
+          <p className="font-medium text-slate-700 dark:text-slate-200">Start with one meaningful task.</p>
         </div>
       )}
 

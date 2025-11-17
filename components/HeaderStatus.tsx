@@ -1,59 +1,54 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Clock, Zap, Hourglass, Target } from 'lucide-react';
+import { Clock, Target, Zap } from 'lucide-react';
 import type { EnergyLevel } from '@/lib/capacity';
 import type { FlowGreetingResult } from '@/lib/getFlowGreeting';
 
-const ENERGY_LABELS: Record<EnergyLevel, string> = {
-  sparky: 'Sparky',
-  steady: 'Steady',
-  flowing: 'Flowing',
-  foggy: 'Foggy',
-  resting: 'Resting',
-};
-
-const ENERGY_CARD_STYLES: Record<
+const ENERGY_CHIP: Record<
   EnergyLevel,
-  { bg: string; text: string; ring: string; iconColor: string }
+  { emoji: string; label: string; bg: string; text: string; ring: string; iconColor: string }
 > = {
   sparky: {
-    bg: 'from-amber-50/90 to-yellow-100/90 dark:from-amber-900/30 dark:to-yellow-900/20',
-    text: 'text-amber-900 dark:text-amber-100',
-    ring: 'ring-amber-100 dark:ring-amber-800/60',
-    iconColor: 'text-amber-600 dark:text-amber-300',
+    emoji: '⚡',
+    label: 'Sparky',
+    bg: 'from-yellow-50 via-yellow-100/80 to-amber-50 dark:from-yellow-900/40 dark:via-yellow-900/30 dark:to-amber-900/40',
+    text: 'text-yellow-900 dark:text-yellow-100',
+    ring: 'ring-yellow-200/70 dark:ring-yellow-800/50',
+    iconColor: 'text-yellow-600 dark:text-yellow-400',
   },
   steady: {
-    bg: 'from-orange-50/90 to-orange-100/90 dark:from-orange-900/30 dark:to-orange-900/20',
+    emoji: '☀️',
+    label: 'Steady',
+    bg: 'from-orange-50 via-orange-100/80 to-amber-50 dark:from-orange-900/40 dark:via-orange-900/30 dark:to-amber-900/40',
     text: 'text-orange-900 dark:text-orange-100',
-    ring: 'ring-orange-100 dark:ring-orange-800/60',
-    iconColor: 'text-orange-500 dark:text-orange-300',
+    ring: 'ring-orange-200/70 dark:ring-orange-800/50',
+    iconColor: 'text-orange-600 dark:text-orange-400',
   },
   flowing: {
-    bg: 'from-sky-50/90 to-cyan-100/90 dark:from-sky-900/30 dark:to-cyan-900/20',
-    text: 'text-sky-900 dark:text-cyan-100',
-    ring: 'ring-sky-100 dark:ring-cyan-900/50',
-    iconColor: 'text-sky-500 dark:text-cyan-300',
+    emoji: '🌊',
+    label: 'Flowing',
+    bg: 'from-blue-50 via-blue-100/80 to-cyan-50 dark:from-blue-900/40 dark:via-blue-900/30 dark:to-cyan-900/40',
+    text: 'text-blue-900 dark:text-blue-100',
+    ring: 'ring-blue-200/70 dark:ring-blue-800/50',
+    iconColor: 'text-blue-600 dark:text-blue-400',
   },
   foggy: {
-    bg: 'from-slate-50/95 to-slate-200/90 dark:from-slate-900/40 dark:to-slate-800/30',
+    emoji: '🌫️',
+    label: 'Foggy',
+    bg: 'from-slate-50 via-slate-100/80 to-slate-50 dark:from-slate-900/60 dark:via-slate-800/50 dark:to-slate-900/60',
     text: 'text-slate-900 dark:text-slate-100',
-    ring: 'ring-slate-200 dark:ring-slate-700',
-    iconColor: 'text-slate-600 dark:text-slate-200',
+    ring: 'ring-slate-200/80 dark:ring-slate-700',
+    iconColor: 'text-slate-600 dark:text-slate-400',
   },
   resting: {
-    bg: 'from-indigo-50/90 to-violet-100/90 dark:from-indigo-900/30 dark:to-violet-900/20',
+    emoji: '🌙',
+    label: 'Resting',
+    bg: 'from-indigo-50 via-indigo-100/80 to-purple-50 dark:from-indigo-900/40 dark:via-indigo-900/30 dark:to-purple-900/40',
     text: 'text-indigo-900 dark:text-indigo-100',
-    ring: 'ring-indigo-100 dark:ring-indigo-800/60',
-    iconColor: 'text-indigo-600 dark:text-indigo-300',
+    ring: 'ring-indigo-200/70 dark:ring-indigo-800/50',
+    iconColor: 'text-indigo-600 dark:text-indigo-400',
   },
-};
-
-const DEFAULT_CARD_STYLE = {
-  bg: 'from-slate-50/90 to-white/90 dark:from-slate-900/40 dark:to-slate-900/20',
-  text: 'text-slate-700 dark:text-slate-200',
-  ring: 'ring-slate-100 dark:ring-slate-800',
-  iconColor: 'text-slate-500 dark:text-slate-300',
 };
 
 const STATIC_CARD_STYLES = {
@@ -62,12 +57,6 @@ const STATIC_CARD_STYLES = {
     text: 'text-indigo-900 dark:text-white',
     ring: 'ring-[#d9e3ff] dark:ring-slate-900/40',
     iconColor: 'text-[#7a88ff] dark:text-slate-200',
-  },
-  remaining: {
-    bg: 'from-[#fdefff] via-[#f7e7ff] to-[#f2e5ff] dark:from-violet-900/50 dark:via-purple-900/40 dark:to-fuchsia-900/40',
-    text: 'text-purple-900 dark:text-violet-100',
-    ring: 'ring-[#f3d8ff] dark:ring-violet-800/60',
-    iconColor: 'text-[#b05cd6] dark:text-violet-300',
   },
   capacity: {
     bg: 'from-[#e7fff4] via-[#edfff8] to-[#f2fff3] dark:from-emerald-900/40 dark:via-teal-900/40 dark:to-cyan-900/40',
@@ -89,25 +78,6 @@ interface HeaderStatusProps {
   onEnergyClick?: () => void;
 }
 
-function formatTimeLeft(timeInfo?: HeaderStatusProps['timeInfo']) {
-  if (!timeInfo) {
-    return 'Set hard stop';
-  }
-  if (timeInfo.isPastStop) {
-    return 'Past stop';
-  }
-  if (timeInfo.totalMinutes >= 60) {
-    const hours = Math.floor(timeInfo.totalMinutes / 60);
-    const minutes = timeInfo.totalMinutes % 60;
-    if (minutes === 0) {
-      return `${hours} ${hours === 1 ? 'hr' : 'hrs'} left`;
-    }
-    return `${hours}h ${minutes}m left`;
-  }
-  const minutes = Math.max(timeInfo.totalMinutes, 1);
-  return `${minutes} min left`;
-}
-
 export function HeaderStatus({
   energyLevel,
   focusCount,
@@ -126,6 +96,7 @@ export function HeaderStatus({
   const timeLabel = currentTime.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
+    hour12: true,
   });
 
   const dateLabel = currentTime.toLocaleDateString('en-US', {
@@ -134,39 +105,28 @@ export function HeaderStatus({
     day: 'numeric',
   });
 
-  const energyLabel = energyLevel ? ENERGY_LABELS[energyLevel] : 'Set energy';
-  const timeRemaining = formatTimeLeft(timeInfo);
   const capacityLabel = `Capacity ${focusCount}/${Math.max(capacityTarget, 1)}`;
 
-  const energyCard = energyLevel ? ENERGY_CARD_STYLES[energyLevel] : DEFAULT_CARD_STYLE;
+  const energyChip = energyLevel ? ENERGY_CHIP[energyLevel] : null;
+  const energyLabel = energyChip ? `${energyChip.emoji} ${energyChip.label}` : 'Set energy';
 
-  const staticCards = [
-    {
-      key: 'time',
-      label: timeLabel,
-      Icon: Clock,
-      style: STATIC_CARD_STYLES.time,
-      minWidth: 'min-w-[120px]',
-    },
-    {
-      key: 'remaining',
-      label: timeRemaining,
-      Icon: Hourglass,
-      style: STATIC_CARD_STYLES.remaining,
-      minWidth: 'min-w-[150px]',
-    },
-    {
-      key: 'capacity',
-      label: capacityLabel,
-      Icon: Target,
-      style: STATIC_CARD_STYLES.capacity,
-      minWidth: 'min-w-[140px]',
-    },
-  ];
+  const timeCard = {
+    key: 'time',
+    label: timeLabel,
+    Icon: Clock,
+    style: STATIC_CARD_STYLES.time,
+    minWidth: 'min-w-[120px]',
+  };
 
-  const [timeCard, ...otherCards] = staticCards;
+  const capacityCard = {
+    key: 'capacity',
+    label: capacityLabel,
+    Icon: Target,
+    style: STATIC_CARD_STYLES.capacity,
+    minWidth: 'min-w-[140px]',
+  };
 
-  const renderCard = ({ key, label, Icon, style, minWidth }: typeof staticCards[number]) => (
+  const renderCard = ({ key, label, Icon, style, minWidth }: typeof timeCard) => (
     <div
       key={key}
       className={`${minWidth} flex flex-shrink-0 items-center gap-2 rounded-2xl bg-gradient-to-br px-3 py-2 text-sm font-semibold shadow-sm ring-1 backdrop-blur ${style.bg} ${style.text} ${style.ring}`}
@@ -176,26 +136,47 @@ export function HeaderStatus({
     </div>
   );
 
+  const renderEnergyCard = () => {
+    if (!energyChip) {
+      return (
+        <button
+          type="button"
+          onClick={onEnergyClick}
+          className="min-w-[140px] flex flex-shrink-0 items-center gap-2 rounded-2xl bg-gradient-to-br from-slate-50 via-slate-100/80 to-slate-50 px-3 py-2 text-sm font-semibold shadow-sm ring-1 ring-slate-200/80 backdrop-blur text-slate-600 dark:from-slate-900/60 dark:via-slate-800/50 dark:to-slate-900/60 dark:ring-slate-700 dark:text-slate-400 transition hover:opacity-90"
+        >
+          <Zap className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+          {energyLabel}
+        </button>
+      );
+    }
+
+    const CardComponent = onEnergyClick ? 'button' : 'div';
+    const cardProps = onEnergyClick
+      ? {
+          type: 'button' as const,
+          onClick: onEnergyClick,
+          className: 'transition hover:opacity-90',
+        }
+      : {};
+
+    return (
+      <CardComponent
+        {...cardProps}
+        className={`min-w-[140px] flex flex-shrink-0 items-center gap-2 rounded-2xl bg-gradient-to-br px-3 py-2 text-sm font-semibold shadow-sm ring-1 backdrop-blur ${energyChip.bg} ${energyChip.text} ${energyChip.ring} ${cardProps.className || ''}`}
+      >
+        <span className="text-base leading-none">{energyChip.emoji}</span>
+        <span>{energyChip.label}</span>
+      </CardComponent>
+    );
+  };
+
   return (
     <section className="rounded-3xl bg-transparent">
       <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1">
         {renderCard(timeCard)}
-        <button
-          type="button"
-          onClick={onEnergyClick}
-          className={`min-w-[130px] flex flex-shrink-0 items-center gap-2 rounded-2xl bg-gradient-to-br px-3 py-2 text-sm font-semibold shadow-sm ring-1 transition hover:opacity-90 ${energyCard.bg} ${energyCard.text} ${energyCard.ring}`}
-        >
-          <Zap className={`h-4 w-4 ${energyCard.iconColor}`} />
-          {energyLabel}
-        </button>
-        {otherCards.map(renderCard)}
+        {renderEnergyCard()}
+        {renderCard(capacityCard)}
       </div>
-      <p className="mt-3 text-xs font-medium text-slate-500 dark:text-slate-400">
-        {dateLabel}
-      </p>
-      <p className="mt-1 text-base font-semibold text-slate-900 dark:text-slate-100">
-        Welcome to your {flowGreeting.emoji} {flowGreeting.flow}.
-      </p>
     </section>
   );
 }

@@ -143,114 +143,46 @@ export function EnergyScheduleEditor({ onScheduleChange }: EnergyScheduleEditorP
 
   const sortedSchedules = [...schedules].sort((a, b) => a.start_time_minutes - b.start_time_minutes);
 
+  // Split schedules into daytime (6am-10pm) and nighttime (10pm-6am)
+  const daytimeSchedules = sortedSchedules.filter(s => {
+    const hours = Math.floor(s.start_time_minutes / 60);
+    return hours >= 6 && hours < 22;
+  });
+
+  const nighttimeSchedules = sortedSchedules.filter(s => {
+    const hours = Math.floor(s.start_time_minutes / 60);
+    return hours >= 22 || hours < 6;
+  });
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Energy Schedule</h3>
-          <p className="text-sm text-slate-600 dark:text-slate-400">
-            Set your energy levels throughout the day. Energy will auto-adjust based on time.
-          </p>
-        </div>
-        {!newSchedule && (
-          <button
-            onClick={handleAddSchedule}
-            className="flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-white transition hover:bg-cyan-700"
-          >
-            <Plus className="h-4 w-4" />
-            Add Time
-          </button>
-        )}
-      </div>
-
-      {newSchedule && (
-        <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
-          <div className="space-y-4">
+    <div className="space-y-6">
+      {/* Daytime Timeline */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="text-2xl">☀️</div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                Time
-              </label>
-              <input
-                type="time"
-                value={newSchedule.time}
-                onChange={(e) => setNewSchedule({ ...newSchedule, time: e.target.value })}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-700"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Energy Level
-              </label>
-              <InternalWeatherSelector
-                selectedKey={newSchedule.energyKey}
-                onSelect={(option) => setNewSchedule({ ...newSchedule, energyKey: option.key })}
-                suppressAutoSelect={false}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                Label (optional)
-              </label>
-              <input
-                type="text"
-                value={newSchedule.label}
-                onChange={(e) => setNewSchedule({ ...newSchedule, label: e.target.value })}
-                placeholder="e.g., meds wearing off, peak focus time"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-700"
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setNewSchedule({ ...newSchedule, notify: !newSchedule.notify })}
-                className={`flex items-center gap-2 rounded-lg px-3 py-2 transition ${
-                  newSchedule.notify
-                    ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300'
-                    : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400'
-                }`}
-              >
-                {newSchedule.notify ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
-                Notify on transition
-              </button>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={handleSaveNewSchedule}
-                className="flex-1 rounded-lg bg-cyan-600 px-4 py-2 text-white transition hover:bg-cyan-700"
-              >
-                Save
-              </button>
-              <button
-                onClick={() => setNewSchedule(null)}
-                className="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
-              >
-                Cancel
-              </button>
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Daytime</h3>
+              <p className="text-xs text-slate-600 dark:text-slate-400">6am - 10pm</p>
             </div>
           </div>
+          {!newSchedule && (
+            <button
+              onClick={handleAddSchedule}
+              className="flex items-center gap-2 rounded-lg bg-cyan-600 px-3 py-1.5 text-sm text-white transition hover:bg-cyan-700"
+            >
+              <Plus className="h-4 w-4" />
+              Add
+            </button>
+          )}
         </div>
-      )}
 
-      {sortedSchedules.length === 0 && !newSchedule && (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-8 text-center dark:border-slate-700 dark:bg-slate-800/50">
-          <Clock className="mx-auto h-12 w-12 text-slate-400 mb-3" />
-          <p className="text-slate-600 dark:text-slate-400 mb-4">
-            No energy schedule set. Add time slots to automatically adjust your energy throughout the day.
-          </p>
-          <button
-            onClick={handleAddSchedule}
-            className="rounded-lg bg-cyan-600 px-4 py-2 text-white transition hover:bg-cyan-700"
-          >
-            Create Schedule
-          </button>
-        </div>
-      )}
-
-      {sortedSchedules.map((schedule) => {
+        {daytimeSchedules.length === 0 && !newSchedule ? (
+          <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-400">
+            No daytime energy schedules yet
+          </div>
+        ) : (
+          daytimeSchedules.map((schedule) => {
         const isEditing = editingId === schedule.id;
         const energyOption = internalWeatherOptions.find((opt) => opt.key === schedule.energy_key);
 
@@ -359,7 +291,212 @@ export function EnergyScheduleEditor({ onScheduleChange }: EnergyScheduleEditorP
             )}
           </div>
         );
-      })}
+      })
+        )}
+      </div>
+
+      {/* Nighttime Timeline */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="text-2xl">🌙</div>
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Nighttime</h3>
+              <p className="text-xs text-slate-600 dark:text-slate-400">10pm - 6am</p>
+            </div>
+          </div>
+        </div>
+
+        {nighttimeSchedules.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-400">
+            No nighttime energy schedules yet
+          </div>
+        ) : (
+          nighttimeSchedules.map((schedule) => {
+        const isEditing = editingId === schedule.id;
+        const energyOption = internalWeatherOptions.find((opt) => opt.key === schedule.energy_key);
+
+        return (
+          <div
+            key={schedule.id}
+            className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800"
+          >
+            {isEditing ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Time
+                  </label>
+                  <input
+                    type="time"
+                    value={minutesToTimeString(schedule.start_time_minutes)}
+                    onChange={(e) => handleUpdateSchedule(schedule.id, { time: e.target.value })}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-700"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Energy Level
+                  </label>
+                  <InternalWeatherSelector
+                    selectedKey={schedule.energy_key}
+                    onSelect={(option) => handleUpdateSchedule(schedule.id, { energyKey: option.key })}
+                    suppressAutoSelect={false}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Label (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={schedule.label || ''}
+                    onChange={(e) => handleUpdateSchedule(schedule.id, { label: e.target.value })}
+                    placeholder="e.g., bed time"
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-700"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateSchedule(schedule.id, { notify: !schedule.notify_on_transition })}
+                    className={`flex items-center gap-2 rounded-lg px-3 py-2 transition ${
+                      schedule.notify_on_transition
+                        ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300'
+                        : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400'
+                    }`}
+                  >
+                    {schedule.notify_on_transition ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
+                    Notify on transition
+                  </button>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setEditingId(null)}
+                    className="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+                  >
+                    Done
+                  </button>
+                  <button
+                    onClick={() => handleDeleteSchedule(schedule.id)}
+                    className="rounded-lg border border-rose-300 px-4 py-2 text-rose-600 transition hover:bg-rose-50 dark:border-rose-600 dark:text-rose-400 dark:hover:bg-rose-900/20"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-slate-400" />
+                    <span className="font-medium text-slate-900 dark:text-slate-100">
+                      {minutesToDisplayTime(schedule.start_time_minutes)}
+                    </span>
+                  </div>
+                  {energyOption && (
+                    <div className="flex items-center gap-2">
+                      <energyOption.icon className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+                      <span className="text-slate-700 dark:text-slate-300">{energyOption.label}</span>
+                    </div>
+                  )}
+                  {schedule.label && (
+                    <span className="text-sm text-slate-500 dark:text-slate-400">({schedule.label})</span>
+                  )}
+                  {schedule.notify_on_transition && (
+                    <Bell className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+                  )}
+                </div>
+                <button
+                  onClick={() => setEditingId(schedule.id)}
+                  className="rounded-lg border border-slate-300 px-3 py-1 text-sm text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+                >
+                  Edit
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })
+        )}
+      </div>
+
+      {newSchedule && (
+        <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                Time
+              </label>
+              <input
+                type="time"
+                value={newSchedule.time}
+                onChange={(e) => setNewSchedule({ ...newSchedule, time: e.target.value })}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-700"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                Energy Level
+              </label>
+              <InternalWeatherSelector
+                selectedKey={newSchedule.energyKey}
+                onSelect={(option) => setNewSchedule({ ...newSchedule, energyKey: option.key })}
+                suppressAutoSelect={false}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                Label (optional)
+              </label>
+              <input
+                type="text"
+                value={newSchedule.label}
+                onChange={(e) => setNewSchedule({ ...newSchedule, label: e.target.value })}
+                placeholder="e.g., meds wearing off, peak focus time"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-700"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setNewSchedule({ ...newSchedule, notify: !newSchedule.notify })}
+                className={`flex items-center gap-2 rounded-lg px-3 py-2 transition ${
+                  newSchedule.notify
+                    ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300'
+                    : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400'
+                }`}
+              >
+                {newSchedule.notify ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
+                Notify on transition
+              </button>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={handleSaveNewSchedule}
+                className="flex-1 rounded-lg bg-cyan-600 px-4 py-2 text-white transition hover:bg-cyan-700"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => setNewSchedule(null)}
+                className="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

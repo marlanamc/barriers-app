@@ -46,6 +46,18 @@ export const MAX_FOCUS_ITEMS = 5;
 export const LIFE_TASK_COST = 0;
 
 /**
+ * Evening capacity limit - light tasks only
+ * Meant for simple activities like cooking, tidying
+ */
+export const EVENING_CAPACITY_MAX = 0.5;
+
+/**
+ * Deep sleep capacity - no task planning
+ * Rest activities only (reading, bath, no screens)
+ */
+export const SLEEP_CAPACITY = 0;
+
+/**
  * Calculate capacity usage for a set of tasks
  */
 export function calculateCapacityUsage(
@@ -240,6 +252,22 @@ export function getTimeAdjustedCapacity(
     shouldAddTasks: true,
     timeMessage: 'Plenty of time - plan your day',
   };
+}
+
+/**
+ * Get capacity based on flow mode
+ */
+export function getCapacityByFlow(
+  flowMode: 'day' | 'evening' | 'night',
+  energyLevel: EnergyLevel
+): number {
+  if (flowMode === 'night') {
+    return SLEEP_CAPACITY;
+  }
+  if (flowMode === 'evening') {
+    return Math.min(ENERGY_CAPACITY[energyLevel], EVENING_CAPACITY_MAX);
+  }
+  return ENERGY_CAPACITY[energyLevel];
 }
 
 /**

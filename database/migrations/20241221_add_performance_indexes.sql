@@ -20,3 +20,6 @@ ON planned_items(barrier_type_id)
 WHERE barrier_type_id IS NOT NULL;
 
 
+
+
+

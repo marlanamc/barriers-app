@@ -25,6 +25,9 @@ import { getEnergySchedules } from '@/lib/supabase';
 import { timeToMinutes } from '@/components/command-center/timelines/TimeUtils';
 import { getFlowGreeting } from '@/lib/getFlowGreeting';
 import { getCurrentEnergyLevel } from '@/lib/getCurrentEnergy';
+import { Loading } from '@/components/Loading';
+import { useDebounce } from '@/lib/useDebounce';
+import { useCache } from '@/lib/useCache';
 import { Plus } from 'lucide-react';
 
 type TimeWarningTone = 'soon' | 'urgent' | 'after';
@@ -96,6 +99,7 @@ export default function CommandCenterPage() {
 
   // State
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [energyLevel, setEnergyLevel] = useState<EnergyLevel | null>(null);
   const [hardStopTime] = useState<string>('18:00');
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -122,6 +126,7 @@ export default function CommandCenterPage() {
     const loadTodayData = async () => {
       try {
         setLoading(true);
+        setError(null);
         const today = getTodayLocalDateString();
         const checkin = await getCheckinByDate(user.id, today);
 
@@ -152,6 +157,7 @@ export default function CommandCenterPage() {
         }
       } catch (error) {
         console.error('Error loading checkin:', error);
+        setError('Failed to load your check-in data. Please try refreshing the page.');
       } finally {
         setLoading(false);
       }
@@ -196,8 +202,10 @@ export default function CommandCenterPage() {
       });
 
       setCheckinId(id);
+      setError(null); // Clear any previous errors on successful save
     } catch (error) {
       console.error('Error saving checkin:', error);
+      setError('Failed to save your changes. Please check your connection and try again.');
     }
   };
 
@@ -243,11 +251,31 @@ export default function CommandCenterPage() {
     workEnd: scheduleEnd,
   });
 
+  // Cache for energy schedules to avoid repeated API calls
+  const energyScheduleCache = useCache(10 * 60 * 1000); // 10 minutes cache
+  const debouncedScheduleStart = useDebounce(scheduleStart, 1000);
+  const debouncedScheduleEnd = useDebounce(scheduleEnd, 1000);
+
   // Energy schedule for timeline blocks
   useEffect(() => {
     let active = true;
     const loadEnergySchedule = async () => {
       if (!user?.id) return;
+
+      const cacheKey = `energy-schedule-${user.id}-${debouncedScheduleStart}-${debouncedScheduleEnd}`;
+
+      // Check cache first
+      if (energyScheduleCache.has(cacheKey)) {
+        const cachedData = energyScheduleCache.get(cacheKey);
+        if (cachedData && active) {
+          setEnergyScheduleBlocks(cachedData.blocks);
+          if (cachedData.energyLevel) {
+            setEnergyLevel(cachedData.energyLevel);
+          }
+          return;
+        }
+      }
+
       try {
         const schedules = await getEnergySchedules(user.id);
         if (!active) return;
@@ -259,11 +287,11 @@ export default function CommandCenterPage() {
         };
 
         const wakeMinutes = (() => {
-          const [h, m] = scheduleStart.split(':').map(Number);
+          const [h, m] = debouncedScheduleStart.split(':').map(Number);
           return (h ?? 0) * 60 + (m ?? 0);
         })();
         const stopMinutes = (() => {
-          const [h, m] = scheduleEnd.split(':').map(Number);
+          const [h, m] = debouncedScheduleEnd.split(':').map(Number);
           return (h ?? 0) * 60 + (m ?? 0);
         })();
 
@@ -290,8 +318,8 @@ export default function CommandCenterPage() {
         // Fallback single block if schedules empty
         if (!blocks.length) {
           blocks.push({
-            start: scheduleStart,
-            end: scheduleEnd,
+            start: debouncedScheduleStart,
+            end: debouncedScheduleEnd,
             level: energyLevel || 'steady',
           });
         }
@@ -299,11 +327,18 @@ export default function CommandCenterPage() {
         setEnergyScheduleBlocks(blocks);
 
         // Set current energy level from schedule (this takes precedence over checkin)
+        let currentEnergy: EnergyLevel | null = null;
         if (schedules && schedules.length > 0) {
-          const currentEnergy = getCurrentEnergyLevel(schedules);
+          currentEnergy = getCurrentEnergyLevel(schedules);
           console.log('Setting energy level from schedule:', currentEnergy, 'schedules:', schedules.map(s => ({ time: s.start_time_minutes, level: s.energy_key, day: (s as any).day_type })));
           setEnergyLevel(currentEnergy);
         }
+
+        // Cache the results
+        energyScheduleCache.set(cacheKey, {
+          blocks,
+          energyLevel: currentEnergy,
+        });
       } catch (err) {
         console.error('Error loading energy schedule for timeline:', err);
         setEnergyScheduleBlocks([]);
@@ -312,16 +347,16 @@ export default function CommandCenterPage() {
 
     loadEnergySchedule();
 
-    // Update energy level every minute
+    // Update energy level every 5 minutes (reduced frequency)
     const interval = setInterval(() => {
       loadEnergySchedule();
-    }, 60000); // 1 minute
+    }, 300000); // 5 minutes
 
     return () => {
       active = false;
       clearInterval(interval);
     };
-  }, [user?.id, scheduleStart, scheduleEnd]);
+  }, [user?.id, debouncedScheduleStart, debouncedScheduleEnd, energyScheduleCache, energyLevel]);
 
   // Handlers
   const handleEnergyChange = () => {
@@ -461,8 +496,46 @@ export default function CommandCenterPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center">
-        <p className="text-slate-600 dark:text-slate-400">Loading your day...</p>
+      <Loading
+        fullScreen
+        text="Loading your day..."
+        size="lg"
+      />
+    );
+  }
+
+  if (error) {
+    return (
+      <main className="min-h-screen flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white dark:bg-slate-900 rounded-3xl p-8 shadow-lg border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center justify-center mb-4">
+            <div className="text-red-500">
+              <svg className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+          </div>
+          <h2 className="text-xl font-semibold text-center text-slate-900 dark:text-slate-100 mb-2">
+            Something went wrong
+          </h2>
+          <p className="text-center text-slate-600 dark:text-slate-400 mb-6">
+            {error}
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => window.location.reload()}
+              className="flex-1 bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-3 rounded-2xl font-medium transition"
+            >
+              Refresh Page
+            </button>
+            <button
+              onClick={() => setError(null)}
+              className="flex-1 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-900 dark:text-slate-100 px-4 py-3 rounded-2xl font-medium transition"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
       </main>
     );
   }

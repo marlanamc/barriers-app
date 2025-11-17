@@ -1,13 +1,14 @@
 {
   "name": "adhd-barrier-tracker",
-  "version": "0.1.0",
+  "version": "0.1.3",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "generate-icons": "node scripts/generate-icons.js"
+    "generate-icons": "node scripts/generate-icons.js",
+    "clean": "rm -rf .next node_modules package-lock.json && npm install"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.50.4",
@@ -17,10 +18,13 @@
     "next": "15.3.5",
     "next-pwa": "^5.6.0",
     "react": "^19.0.0",
+    "react-confetti-explosion": "^3.0.3",
     "react-dom": "^19.0.0",
     "react-markdown": "^10.1.0"
   },
   "devDependencies": {
+    "@babel/core": "^7.26.0",
+    "@babel/preset-env": "^7.26.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -30,6 +34,7 @@
     "postcss": "^8",
     "sharp": "^0.34.5",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "typescript": "^5",
+    "webpack": "^5.97.1"
   }
 }

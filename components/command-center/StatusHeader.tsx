@@ -120,6 +120,7 @@ export function StatusHeader({
   const timeString = currentTime.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
+    hour12: true,
   });
   const dateString = currentTime.toLocaleDateString('en-US', {
     weekday: 'long',
@@ -239,6 +240,8 @@ export function StatusHeader({
               workStart={hardStopTime ? '08:00' : undefined}
               hardStop={hardStopTime}
               currentTime={currentTime}
+              energyLevel={energyLevel}
+              timeInfo={timeInfo}
             />
           ) : (
             <div className="flex items-start gap-3">

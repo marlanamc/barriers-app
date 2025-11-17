@@ -38,3 +38,6 @@ CREATE POLICY "Users can delete their own anchor presets"
     ON anchor_presets FOR DELETE
     USING (auth.uid() = user_id);
 
+
+
+

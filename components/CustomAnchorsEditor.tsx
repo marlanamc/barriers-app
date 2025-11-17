@@ -115,11 +115,6 @@ export function CustomAnchorsEditor({ onAnchorsChange }: CustomAnchorsEditorProp
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-slate-600 dark:text-slate-400">
-        Create custom anchor suggestions that will appear when linking tasks to time or rhythm. 
-        These will appear alongside the default suggestions.
-      </p>
-
       {(['while', 'before', 'after'] as const).map((type) => (
         <div key={type} className="space-y-3">
           <div>
@@ -188,4 +183,7 @@ export function CustomAnchorsEditor({ onAnchorsChange }: CustomAnchorsEditorProp
     </div>
   );
 }
+
+
+
 

@@ -1,387 +1,258 @@
-"use client";
+'use client';
 
-import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, ChevronDown, ChevronUp } from "lucide-react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { useCheckIn, type TaskAnchorType, type TaskAnchor } from "@/lib/checkin-context";
-import { getBarrierTypes, type BarrierType } from "@/lib/supabase";
-import { buildAnchorPhrase, buildMultipleAnchorsPhrase, cleanAnchorInput, getMergedAnchorSuggestions, defaultAnchorSuggestionMap, anchorLabel } from "@/lib/anchors";
-import { getCategoryEmoji } from "@/lib/categories";
-import { hasBarrierSelection } from "@/lib/barrier-helpers";
-import { useSupabaseUser } from "@/lib/useSupabaseUser";
+import { useState } from 'react';
+import { ArrowLeft, Shield, ChevronDown, ChevronUp } from 'lucide-react';
+import Link from 'next/link';
 
-// Default suggestions - will be merged with user presets
-const whileSuggestions = defaultAnchorSuggestionMap.while || [];
-const beforeSuggestions = defaultAnchorSuggestionMap.before || [];
-const afterSuggestions = defaultAnchorSuggestionMap.after || [];
-const anchorOptions: Array<{ type: TaskAnchorType; label: string }> = [
-  { type: "at", label: "At…" },
-  { type: "while", label: "While…" },
-  { type: "before", label: "Before…" },
-  { type: "after", label: "After…" },
+interface Barrier {
+  slug: string;
+  label: string;
+  description: string;
+  examples: string[];
+  tips: string[];
+}
+
+const BARRIER_TYPES: Barrier[] = [
+  {
+    slug: 'too-vague',
+    label: 'Too Vague',
+    description: 'The task isn\'t specific enough - you don\'t know where to start.',
+    examples: [
+      '"Clean the house" → too big and unclear',
+      '"Work on project" → what part? what\'s the first step?',
+      '"Exercise" → when? what type? for how long?',
+    ],
+    tips: [
+      'Break it into tiny, concrete steps',
+      'Ask yourself: What\'s the very first physical action?',
+      'Use the 2-minute rule: What can you do in 2 minutes?',
+    ],
+  },
+  {
+    slug: 'boring',
+    label: 'Boring',
+    description: 'Your brain can\'t engage - there\'s not enough stimulation.',
+    examples: [
+      'Data entry tasks',
+      'Routine administrative work',
+      'Repetitive chores',
+    ],
+    tips: [
+      'Add stimulation: music, body doubling, change location',
+      'Gamify it: race the clock, create mini-challenges',
+      'Pair with something interesting (podcast while folding laundry)',
+      'Do it with someone else (body doubling)',
+    ],
+  },
+  {
+    slug: 'overwhelming',
+    label: 'Overwhelming',
+    description: 'The task feels too big - your brain shuts down before you start.',
+    examples: [
+      'Major projects with many parts',
+      'Tasks when you\'re already at capacity',
+      'Anything when you\'re in a foggy state',
+    ],
+    tips: [
+      'Break it into ridiculously small pieces',
+      'Do just one tiny part (not the whole thing)',
+      'Lower the bar: "good enough" is better than perfect',
+      'Ask for help - you don\'t have to do it alone',
+    ],
+  },
+  {
+    slug: 'boring-and-hard',
+    label: 'Boring & Hard',
+    description: 'The worst combo - requires focus but provides no reward.',
+    examples: [
+      'Taxes and paperwork',
+      'Insurance phone calls',
+      'Complex administrative tasks',
+    ],
+    tips: [
+      'Schedule during peak energy (not foggy/resting)',
+      'Use external accountability (body double, deadline)',
+      'Build in rewards after completion',
+      'Consider: can someone else do this?',
+    ],
+  },
+  {
+    slug: 'requires-focus',
+    label: 'Requires Deep Focus',
+    description: 'Needs sustained attention - hard when you\'re distractible.',
+    examples: [
+      'Writing reports',
+      'Complex problem-solving',
+      'Learning new skills',
+    ],
+    tips: [
+      'Save for sparky/steady energy times',
+      'Eliminate distractions (phone away, close tabs)',
+      'Use Pomodoro: 25 min focus, 5 min break',
+      'Don\'t schedule back-to-back deep work',
+    ],
+  },
+  {
+    slug: 'anxiety-inducing',
+    label: 'Anxiety-Inducing',
+    description: 'Triggers worry, fear of failure, or emotional overwhelm.',
+    examples: [
+      'Difficult conversations',
+      'Tasks with high stakes',
+      'Things you\'ve procrastinated on',
+    ],
+    tips: [
+      'Acknowledge the feeling - it\'s valid',
+      'Do it with support (text a friend first)',
+      'Lower stakes: what\'s the smallest version?',
+      'Self-compassion: you\'re not "bad" for feeling anxious',
+    ],
+  },
 ];
-const anchorTextLabels: Record<Exclude<TaskAnchorType, "at">, string> = {
-  while: "Pair it with",
-  before: "Before what?",
-  after: "After what?",
-};
-const anchorPlaceholders: Record<Exclude<TaskAnchorType, "at">, string> = {
-  while: "listening to music...",
-  before: "the kids wake up...",
-  after: "dinner cleanup...",
-};
-const anchorSuggestionMap: Partial<Record<TaskAnchorType, string[]>> = {
-  while: whileSuggestions,
-  before: beforeSuggestions,
-  after: afterSuggestions,
-};
 
-export default function BarrierScreen() {
-  const router = useRouter();
-  const { focusItems, setBarrierForFocusItem, setAnchorForFocusItem, addAnchorToFocusItem, removeAnchorFromFocusItem, setAnchorsForFocusItem } = useCheckIn();
-  const { user } = useSupabaseUser();
-  const activeFocusItems = focusItems.filter((item) => !item.completed);
-  const [barrierTypes, setBarrierTypes] = useState<BarrierType[]>([]);
-  const [expandedAnchors, setExpandedAnchors] = useState<Record<string, boolean>>({});
-  const [addingAnchor, setAddingAnchor] = useState<Record<string, boolean>>({});
-  const [newAnchorType, setNewAnchorType] = useState<Record<string, TaskAnchorType | null>>({});
-  const [newAnchorValue, setNewAnchorValue] = useState<Record<string, string>>({});
-  const [mergedAnchorSuggestions, setMergedAnchorSuggestions] = useState<Partial<Record<TaskAnchorType, string[]>>>({
-    while: whileSuggestions,
-    before: beforeSuggestions,
-    after: afterSuggestions,
-  });
-  const barrierBySlug = useMemo(() => {
-    return barrierTypes.reduce<Record<string, BarrierType>>((acc, barrier) => {
-      acc[barrier.slug] = barrier;
-      return acc;
-    }, {});
-  }, [barrierTypes]);
+export default function BarriersPage() {
+  const [expandedBarrier, setExpandedBarrier] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!activeFocusItems.length) {
-      router.replace("/focus");
-    }
-  }, [activeFocusItems.length, router]);
-
-  useEffect(() => {
-    getBarrierTypes().then(setBarrierTypes);
-  }, []);
-
-  // Load user anchor presets and merge with defaults
-  useEffect(() => {
-    if (!user?.id) return;
-    
-    const loadMergedSuggestions = async () => {
-      try {
-        const [whileMerged, beforeMerged, afterMerged] = await Promise.all([
-          getMergedAnchorSuggestions('while', user.id),
-          getMergedAnchorSuggestions('before', user.id),
-          getMergedAnchorSuggestions('after', user.id),
-        ]);
-        setMergedAnchorSuggestions({
-          while: whileMerged,
-          before: beforeMerged,
-          after: afterMerged,
-        });
-      } catch (error) {
-        console.error('Error loading merged anchor suggestions:', error);
-      }
-    };
-    
-    loadMergedSuggestions();
-  }, [user?.id]);
-
-  const canProceed = useMemo(
-    () =>
-      activeFocusItems.length > 0 &&
-      activeFocusItems.every((item) => {
-        return hasBarrierSelection(item.barrier);
-      }),
-    [activeFocusItems]
-  );
-
-  if (!activeFocusItems.length) {
-    return null;
-  }
+  const toggleBarrier = (slug: string) => {
+    setExpandedBarrier(expandedBarrier === slug ? null : slug);
+  };
 
   return (
-    <main className="min-h-screen px-4 pb-16 pt-6">
-      <div className="mx-auto max-w-3xl space-y-6">
-        <header className="flex items-center gap-4">
+    <main className="relative min-h-screen overflow-hidden bg-gradient-to-b from-[#fff5f5] via-[#fffafa] to-[#fffff8] pb-24 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900">
+      {/* Background decoration */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-80 blur-[60px] dark:hidden"
+        aria-hidden
+      >
+        <div className="absolute -top-32 left-[-10%] h-72 w-72 rounded-full bg-[#ffe0e0]" />
+        <div className="absolute -bottom-40 right-[-5%] h-96 w-96 rounded-full bg-[#ffe8e8]" />
+      </div>
+
+      <div className="relative mx-auto flex min-h-screen max-w-2xl flex-col gap-4 px-4 pb-16 pt-6">
+        {/* Header */}
+        <div className="flex items-center gap-4">
           <Link
-            href="/focus"
-            className="rounded-full border border-white/40 bg-white/70 p-2 text-slate-600 transition hover:-translate-y-0.5 dark:border-slate-600/40 dark:bg-slate-800/70 dark:text-slate-300"
+            href="/"
+            className="rounded-full p-2 text-slate-600 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <div>
-            <p className="text-sm uppercase tracking-wide text-cyan-600 dark:text-cyan-400">Barriers</p>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">What feels hard?</h1>
-            <p className="text-sm text-slate-600 dark:text-slate-400">Match each focus with a barrier or short note.</p>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <Shield className="h-6 w-6 text-rose-600 dark:text-rose-400" />
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Barriers</h1>
+            </div>
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+              Understanding what makes things hard
+            </p>
           </div>
-        </header>
+        </div>
 
-        <section className="space-y-4">
-          {activeFocusItems.map((item) => {
-            const selectedSlug = item.barrier?.barrierTypeSlug || "";
-            const fallbackBarrier = selectedSlug ? barrierBySlug[selectedSlug] : null;
-            const selectedBarrierId = item.barrier?.barrierTypeId || fallbackBarrier?.id || null;
-            const custom = item.barrier?.custom || "";
+        {/* Introduction */}
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 dark:border-rose-800/30 dark:bg-rose-900/20">
+          <p className="text-sm text-rose-900 dark:text-rose-100">
+            🛡️ <strong>ADHD brains encounter invisible barriers</strong> that neurotypical people don't face. Understanding these barriers helps you work with your brain, not against it. You're not lazy - you're facing real obstacles.
+          </p>
+        </div>
 
-            // Auto-expand if anchor is already selected
-            const isAnchorExpanded = expandedAnchors[item.id] ?? Boolean(item.anchors && item.anchors.length > 0);
-            
+        {/* Quick Reference */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          <h2 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-100">
+            Common ADHD Barriers
+          </h2>
+          <p className="mb-4 text-sm text-slate-600 dark:text-slate-400">
+            When a task feels impossible, it's usually one of these:
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {BARRIER_TYPES.map((barrier) => (
+              <button
+                key={barrier.slug}
+                onClick={() => toggleBarrier(barrier.slug)}
+                className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                  expandedBarrier === barrier.slug
+                    ? 'bg-rose-600 text-white shadow-sm dark:bg-rose-500'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+                }`}
+              >
+                {barrier.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Detailed Barrier Cards */}
+        <div className="space-y-3">
+          {BARRIER_TYPES.map((barrier) => {
+            const isExpanded = expandedBarrier === barrier.slug;
             return (
               <div
-                key={item.id}
-                className="space-y-4 rounded-3xl border border-white/30 bg-white/80 p-6 shadow-sm dark:border-slate-600/40 dark:bg-slate-800/60"
+                key={barrier.slug}
+                className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800"
               >
-                <div>
-                  <p className="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400">Focus</p>
-                  <p className="text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                    {item.categories[0] && (
-                      <span className="text-2xl leading-none">
-                        {getCategoryEmoji(item.categories[0])}
-                      </span>
-                    )}
-                    <span>{item.description}</span>
-                  </p>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor={`barrier-select-${item.id}`}>
-                    What feels hard?
-                  </label>
-                  <select
-                    id={`barrier-select-${item.id}`}
-                    value={selectedSlug}
-                    onChange={(event) =>
-                      setBarrierForFocusItem(item.id, {
-                        barrierTypeSlug: event.target.value || undefined,
-                        barrierTypeId: event.target.value ? barrierBySlug[event.target.value]?.id ?? null : null,
-                        custom,
-                      })
-                    }
-                    className="mt-2 w-full rounded-2xl border border-white/40 bg-white/80 px-4 py-3 text-slate-900 focus:border-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-100 dark:border-slate-600/50 dark:bg-slate-700/60 dark:text-slate-100 dark:focus:border-cyan-500 dark:focus:ring-cyan-900/40"
-                  >
-                    <option value="">Pick a barrier</option>
-                    {barrierTypes.map((barrier) => (
-                      <option key={barrier.id} value={barrier.slug}>
-                        {barrier.icon ? `${barrier.icon} ` : ""}{barrier.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor={`barrier-note-${item.id}`}>
-                    Or describe what&rsquo;s in the way
-                  </label>
-                  <textarea
-                    id={`barrier-note-${item.id}`}
-                    rows={2}
-                    value={custom}
-                    onChange={(event) =>
-                      setBarrierForFocusItem(item.id, {
-                        barrierTypeSlug: selectedSlug || undefined,
-                        barrierTypeId: selectedBarrierId,
-                        custom: event.target.value,
-                      })
-                    }
-                    placeholder="Overwhelmed, low energy, waiting on a reply..."
-                    className="mt-2 w-full rounded-2xl border border-white/40 bg-white/80 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-100 dark:border-slate-600/50 dark:bg-slate-700/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-cyan-500 dark:focus:ring-cyan-900/40"
-                  />
-                </div>
-
-                <div className="space-y-3 rounded-2xl border border-dashed border-cyan-100 bg-cyan-50/50 px-4 py-3 dark:border-cyan-600/40 dark:bg-cyan-900/20">
-                  <button
-                    type="button"
-                    onClick={() => setExpandedAnchors(prev => ({ ...prev, [item.id]: !prev[item.id] }))}
-                    className="flex w-full items-center justify-between text-left"
-                  >
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                        {item.anchors && item.anchors.length > 0 ? "Anchors: " + buildMultipleAnchorsPhrase(item.anchors) : "Link to time or rhythm? (optional)"}
-                      </p>
-                      {(!item.anchors || item.anchors.length === 0) && (
-                        <p className="text-xs text-slate-500 dark:text-slate-400">at, while, before, after</p>
-                      )}
-                    </div>
-                    {isAnchorExpanded ? (
-                      <ChevronUp className="h-4 w-4 text-slate-500 dark:text-slate-400" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4 text-slate-500 dark:text-slate-400" />
-                    )}
-                  </button>
-
-                  {isAnchorExpanded && (
-                    <div className="space-y-3 pt-2 border-t border-cyan-200/50 dark:border-cyan-700/30">
-                      {/* Display existing anchors */}
-                      {item.anchors && item.anchors.length > 0 && (
-                        <div className="space-y-2">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Current Anchors</p>
-                          <div className="flex flex-wrap gap-2">
-                            {item.anchors.map((anchor, index) => (
-                              <div
-                                key={index}
-                                className="flex items-center gap-2 rounded-full bg-cyan-600 px-3 py-1.5 text-sm font-semibold text-white dark:bg-cyan-500"
-                              >
-                                <span>{anchorLabel(anchor.type, anchor.value)}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => removeAnchorFromFocusItem(item.id, index)}
-                                  className="rounded-full hover:bg-cyan-700 dark:hover:bg-cyan-600 p-0.5"
-                                  aria-label="Remove anchor"
-                                >
-                                  <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                  </svg>
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Add new anchor */}
-                      {!addingAnchor[item.id] ? (
-                        <button
-                          type="button"
-                          onClick={() => setAddingAnchor(prev => ({ ...prev, [item.id]: true }))}
-                          className="w-full rounded-2xl border border-dashed border-cyan-300 bg-white/50 px-4 py-2 text-sm font-semibold text-cyan-700 transition hover:bg-white dark:border-cyan-600/50 dark:bg-slate-800/40 dark:text-cyan-400 dark:hover:bg-slate-800/60"
-                        >
-                          + Add {item.anchors && item.anchors.length > 0 ? "Another" : "an"} Anchor
-                        </button>
-                      ) : (
-                        <div className="space-y-3 rounded-2xl border border-cyan-200 bg-white p-3 dark:border-cyan-700/50 dark:bg-slate-800/60">
-                          <div className="flex flex-wrap gap-2 text-sm">
-                            {anchorOptions.map(({ type, label }) => {
-                              const active = newAnchorType[item.id] === type;
-                              return (
-                                <button
-                                  type="button"
-                                  key={type}
-                                  onClick={() => {
-                                    setNewAnchorType(prev => ({ ...prev, [item.id]: type }));
-                                    setNewAnchorValue(prev => ({ ...prev, [item.id]: type === "at" ? new Date().toTimeString().slice(0, 5) : "" }));
-                                  }}
-                                  className={`rounded-full px-3 py-1.5 font-semibold transition ${
-                                    active
-                                      ? "bg-cyan-600 text-white shadow dark:bg-cyan-500"
-                                      : "bg-white text-slate-600 hover:bg-cyan-100 dark:bg-slate-700/60 dark:text-slate-300 dark:hover:bg-slate-600/60"
-                                  }`}
-                                >
-                                  {label}
-                                </button>
-                              );
-                            })}
-                          </div>
-
-                          {newAnchorType[item.id] === "at" && (
-                            <div className="space-y-2">
-                              <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                Pick a time
-                              </label>
-                              <input
-                                type="time"
-                                value={newAnchorValue[item.id] || ""}
-                                onChange={(e) => setNewAnchorValue(prev => ({ ...prev, [item.id]: e.target.value }))}
-                                className="w-full rounded-2xl border-2 border-cyan-200 bg-white px-4 py-3 text-lg font-medium text-slate-900 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-100 dark:border-cyan-600/50 dark:bg-slate-700/60 dark:text-slate-100 dark:focus:border-cyan-500 dark:focus:ring-cyan-900/40"
-                              />
-                            </div>
-                          )}
-
-                          {newAnchorType[item.id] && newAnchorType[item.id] !== "at" && (
-                            <div className="space-y-2">
-                              <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                {anchorTextLabels[newAnchorType[item.id] as Exclude<TaskAnchorType, "at">]}
-                              </label>
-                              <input
-                                type="text"
-                                value={newAnchorValue[item.id] || ""}
-                                onChange={(e) => setNewAnchorValue(prev => ({ ...prev, [item.id]: cleanAnchorInput(newAnchorType[item.id]!, e.target.value) }))}
-                                placeholder={anchorPlaceholders[newAnchorType[item.id] as Exclude<TaskAnchorType, "at">]}
-                                className="w-full rounded-2xl border border-cyan-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-100 dark:border-cyan-600/50 dark:bg-slate-700/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-cyan-500 dark:focus:ring-cyan-900/40"
-                              />
-                              {newAnchorType[item.id] && mergedAnchorSuggestions[newAnchorType[item.id] as Exclude<TaskAnchorType, "at">] && (
-                                <div className="flex flex-wrap gap-2 text-xs">
-                                  {(mergedAnchorSuggestions[newAnchorType[item.id] as Exclude<TaskAnchorType, "at">] || []).slice(0, 4).map((suggestion) => (
-                                    <button
-                                      type="button"
-                                      key={suggestion}
-                                      onClick={() => setNewAnchorValue(prev => ({ ...prev, [item.id]: suggestion }))}
-                                      className="rounded-full border border-cyan-200 bg-white px-3 py-1 text-slate-600 transition hover:border-cyan-300 hover:text-cyan-700 dark:border-cyan-700/50 dark:bg-slate-700/60 dark:text-slate-200 dark:hover:border-cyan-600 dark:hover:text-cyan-200"
-                                    >
-                                      {suggestion}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          <div className="flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const type = newAnchorType[item.id];
-                                const value = newAnchorValue[item.id];
-                                if (type && value) {
-                                  addAnchorToFocusItem(item.id, { type, value });
-                                  setAddingAnchor(prev => ({ ...prev, [item.id]: false }));
-                                  setNewAnchorType(prev => ({ ...prev, [item.id]: null }));
-                                  setNewAnchorValue(prev => ({ ...prev, [item.id]: "" }));
-                                }
-                              }}
-                              disabled={!newAnchorType[item.id] || !newAnchorValue[item.id]}
-                              className="flex-1 rounded-2xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-cyan-500 dark:hover:bg-cyan-600"
-                            >
-                              Add Anchor
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setAddingAnchor(prev => ({ ...prev, [item.id]: false }));
-                                setNewAnchorType(prev => ({ ...prev, [item.id]: null }));
-                                setNewAnchorValue(prev => ({ ...prev, [item.id]: "" }));
-                              }}
-                              className="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700/60 dark:text-slate-300 dark:hover:bg-slate-600/60"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Clear all anchors button */}
-                      {item.anchors && item.anchors.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setAnchorsForFocusItem(item.id, [])}
-                          className="text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-                        >
-                          Clear all anchors
-                        </button>
-                      )}
-                    </div>
+                <button
+                  onClick={() => toggleBarrier(barrier.slug)}
+                  className="flex w-full items-center justify-between p-4 text-left transition hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                >
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-slate-900 dark:text-slate-100">
+                      {barrier.label}
+                    </h3>
+                    <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                      {barrier.description}
+                    </p>
+                  </div>
+                  {isExpanded ? (
+                    <ChevronUp className="h-5 w-5 flex-shrink-0 text-slate-400" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 flex-shrink-0 text-slate-400" />
                   )}
-                </div>
+                </button>
+
+                {isExpanded && (
+                  <div className="space-y-4 border-t border-slate-200 p-4 dark:border-slate-700">
+                    {/* Examples */}
+                    <div>
+                      <h4 className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
+                        Examples:
+                      </h4>
+                      <ul className="space-y-1">
+                        {barrier.examples.map((example, idx) => (
+                          <li key={idx} className="text-sm text-slate-600 dark:text-slate-400">
+                            • {example}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Tips */}
+                    <div className="rounded-lg border border-cyan-200 bg-cyan-50 p-3 dark:border-cyan-800/30 dark:bg-cyan-900/20">
+                      <h4 className="mb-2 text-sm font-semibold text-cyan-900 dark:text-cyan-100">
+                        💡 What Helps:
+                      </h4>
+                      <ul className="space-y-1">
+                        {barrier.tips.map((tip, idx) => (
+                          <li key={idx} className="text-sm text-cyan-800 dark:text-cyan-200">
+                            • {tip}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
-        </section>
+        </div>
 
-        <button
-          type="button"
-          onClick={() => router.push("/gentle-support")}
-          disabled={!canProceed}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-6 py-4 text-lg font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-700 dark:hover:bg-slate-600"
-        >
-          Next: Gentle Support
-          <ArrowRight className="h-5 w-5" />
-        </button>
+        {/* Bottom Reminder */}
+        <div className="rounded-2xl border border-purple-200 bg-purple-50 p-4 dark:border-purple-800/30 dark:bg-purple-900/20">
+          <h3 className="mb-2 font-semibold text-purple-900 dark:text-purple-100">
+            💜 Remember
+          </h3>
+          <p className="text-sm text-purple-800 dark:text-purple-200">
+            These barriers are <strong>real neurological differences</strong>, not character flaws. When you identify the barrier, you can choose the right support. Self-compassion is part of the solution.
+          </p>
+        </div>
       </div>
     </main>
   );
