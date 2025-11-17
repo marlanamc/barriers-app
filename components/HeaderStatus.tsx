@@ -58,6 +58,7 @@ interface HeaderStatusProps {
     isPastStop: boolean;
   } | null;
   onEnergyClick?: () => void;
+  compact?: boolean;
 }
 
 export function HeaderStatus({
