@@ -2,18 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { AppWordmark } from '@/components/AppWordmark';
+import ConfettiExplosion from 'react-confetti-explosion';
 import { HeaderStatus } from '@/components/HeaderStatus';
-import { CapacityCard } from '@/components/CapacityCard';
-import { FocusSection } from '@/components/FocusSection';
-import { LifeMaintenance } from '@/components/LifeMaintenance';
-import { EnergyModal } from '@/components/modals/EnergyModal';
+import { TasksCard } from '@/components/TasksCard';
+import { InboxCard } from '@/components/InboxCard';
 import { TaskModal } from '@/components/modals/TaskModal';
-import { TimelineBar } from '@/components/command-center/TimelineBar';
+import { QuickAddModal } from '@/components/modals/QuickAddModal';
+import { EnergyTimeline } from '@/components/command-center/EnergyTimeline';
 import { useSupabaseUser } from '@/lib/useSupabaseUser';
 import { getCheckinByDate, saveCheckinWithFocus, type FocusItemPayload } from '@/lib/supabase';
 import { getTodayLocalDateString } from '@/lib/date-utils';
-import { usePlanning } from '@/lib/planning-context';
 import {
   EnergyLevel,
   TaskComplexity,
@@ -23,7 +21,11 @@ import {
   getContextualMessage,
   MAX_FOCUS_ITEMS,
 } from '@/lib/capacity';
+import { getEnergySchedules } from '@/lib/supabase';
+import { timeToMinutes } from '@/components/command-center/timelines/TimeUtils';
 import { getFlowGreeting } from '@/lib/getFlowGreeting';
+import { getCurrentEnergyLevel } from '@/lib/getCurrentEnergy';
+import { Plus } from 'lucide-react';
 
 type TimeWarningTone = 'soon' | 'urgent' | 'after';
 
@@ -79,6 +81,7 @@ interface Task {
   completed: boolean;
   complexity: TaskComplexity;
   type: TaskType;
+  inInbox?: boolean;
   anchors?: TaskAnchor[];
   anchorTime?: string; // Legacy format - kept for backwards compatibility
   barrier?: {
@@ -90,7 +93,6 @@ interface Task {
 export default function CommandCenterPage() {
   const { user } = useSupabaseUser();
   const router = useRouter();
-  const { setStartDate, setRecurrenceType, setEndDate, setRecurrenceDays } = usePlanning();
 
   // State
   const [loading, setLoading] = useState(true);
@@ -98,13 +100,20 @@ export default function CommandCenterPage() {
   const [hardStopTime] = useState<string>('18:00');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [checkinId, setCheckinId] = useState<string | null>(null);
+  const [timelineOpen, setTimelineOpen] = useState(true);
+  const [energyScheduleBlocks, setEnergyScheduleBlocks] = useState<
+    { start: string; end: string; level: EnergyLevel }[]
+  >([]);
 
   // Modal state
-  const [showEnergyModal, setShowEnergyModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
+  const [showQuickAddModal, setShowQuickAddModal] = useState(false);
   const [taskModalMode, setTaskModalMode] = useState<'add' | 'edit'>('add');
   const [taskModalType, setTaskModalType] = useState<TaskType>('focus');
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+
+  // Celebration state
+  const [showConfetti, setShowConfetti] = useState(false);
 
   // Load today's checkin data
   useEffect(() => {
@@ -118,7 +127,8 @@ export default function CommandCenterPage() {
 
         if (checkin) {
           setCheckinId(checkin.id);
-          setEnergyLevel(checkin.internal_weather as EnergyLevel);
+          // Don't set energy level from checkin - it will be set from schedule below
+          // setEnergyLevel(checkin.internal_weather as EnergyLevel);
 
           // Convert focus_items to Task format
           const loadedTasks: Task[] = checkin.focus_items.map((item: any) => ({
@@ -151,14 +161,14 @@ export default function CommandCenterPage() {
   }, [user]);
 
   // Save checkin to database
-  const saveToDatabase = async (updatedTasks: Task[], newEnergy?: EnergyLevel) => {
+  const saveToDatabase = async (updatedTasks: Task[]) => {
     if (!user) return;
 
     try {
       const today = getTodayLocalDateString();
-      const energyToSave = newEnergy || energyLevel;
 
-      if (!energyToSave) return;
+      // Energy comes from schedule now, use current value
+      if (!energyLevel) return;
 
       const focusItemsPayload: FocusItemPayload[] = updatedTasks.map((task, index) => ({
         id: task.id,
@@ -177,8 +187,8 @@ export default function CommandCenterPage() {
       const id = await saveCheckinWithFocus({
         userId: user.id,
         internalWeather: {
-          key: energyToSave,
-          label: energyToSave,
+          key: energyLevel,
+          label: energyLevel,
           icon: '',
         },
         focusItems: focusItemsPayload,
@@ -191,9 +201,10 @@ export default function CommandCenterPage() {
     }
   };
 
-  // Separate tasks by type
-  const focusTasks = tasks.filter((t) => t.type === 'focus');
+  // Separate tasks by type and inbox status
+  const focusTasks = tasks.filter((t) => t.type === 'focus' && !t.inInbox);
   const lifeTasks = tasks.filter((t) => t.type === 'life');
+  const inboxTasks = tasks.filter((t) => t.inInbox && t.type === 'focus');
 
   // Calculate capacity
   const capacityInfo = energyLevel
@@ -232,14 +243,90 @@ export default function CommandCenterPage() {
     workEnd: scheduleEnd,
   });
 
+  // Energy schedule for timeline blocks
+  useEffect(() => {
+    let active = true;
+    const loadEnergySchedule = async () => {
+      if (!user?.id) return;
+      try {
+        const schedules = await getEnergySchedules(user.id);
+        if (!active) return;
+
+        const toHM = (minutes: number) => {
+          const h = Math.floor(minutes / 60) % 24;
+          const m = minutes % 60;
+          return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+        };
+
+        const wakeMinutes = (() => {
+          const [h, m] = scheduleStart.split(':').map(Number);
+          return (h ?? 0) * 60 + (m ?? 0);
+        })();
+        const stopMinutes = (() => {
+          const [h, m] = scheduleEnd.split(':').map(Number);
+          return (h ?? 0) * 60 + (m ?? 0);
+        })();
+
+        const sorted = [...(schedules || [])].sort(
+          (a, b) => (a.start_time_minutes ?? 0) - (b.start_time_minutes ?? 0)
+        );
+
+        // Build blocks for ALL time periods (not just daytime)
+        const blocks: { start: string; end: string; level: EnergyLevel }[] = [];
+        sorted.forEach((s, idx) => {
+          const startMin = s.start_time_minutes ?? 0;
+          const nextStart = idx < sorted.length - 1 ? sorted[idx + 1].start_time_minutes ?? 1440 : 1440;
+          const endMin = nextStart;
+
+          if (endMin > startMin) {
+            blocks.push({
+              start: toHM(startMin),
+              end: toHM(endMin),
+              level: (s.energy_key as EnergyLevel) || 'steady',
+            });
+          }
+        });
+
+        // Fallback single block if schedules empty
+        if (!blocks.length) {
+          blocks.push({
+            start: scheduleStart,
+            end: scheduleEnd,
+            level: energyLevel || 'steady',
+          });
+        }
+
+        setEnergyScheduleBlocks(blocks);
+
+        // Set current energy level from schedule (this takes precedence over checkin)
+        if (schedules && schedules.length > 0) {
+          const currentEnergy = getCurrentEnergyLevel(schedules);
+          console.log('Setting energy level from schedule:', currentEnergy, 'schedules:', schedules.map(s => ({ time: s.start_time_minutes, level: s.energy_key, day: (s as any).day_type })));
+          setEnergyLevel(currentEnergy);
+        }
+      } catch (err) {
+        console.error('Error loading energy schedule for timeline:', err);
+        setEnergyScheduleBlocks([]);
+      }
+    };
+
+    loadEnergySchedule();
+
+    // Update energy level every minute
+    const interval = setInterval(() => {
+      loadEnergySchedule();
+    }, 60000); // 1 minute
+
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [user?.id, scheduleStart, scheduleEnd]);
+
   // Handlers
   const handleEnergyChange = () => {
-    setShowEnergyModal(true);
-  };
-
-  const handleEnergySelect = async (energy: EnergyLevel) => {
-    setEnergyLevel(energy);
-    await saveToDatabase(tasks, energy);
+    // Energy is now managed via schedule - redirect to energy page
+    router.push('/energy');
   };
 
   const handleAddFocusTask = () => {
@@ -250,25 +337,18 @@ export default function CommandCenterPage() {
     setShowTaskModal(true);
   };
 
-  const handlePlanTomorrow = () => {
-    // Set planning context for tomorrow
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().split('T')[0];
-
-    setStartDate(tomorrowStr);
-    setRecurrenceType('once');
-    setEndDate(null);
-    setRecurrenceDays([]);
-
-    // Navigate to plan ahead
-    router.push('/plan-ahead/focus');
-  };
-
   const handleToggleFocusTask = async (taskId: string) => {
+    const task = tasks.find((t) => t.id === taskId);
     const updated = tasks.map((t) =>
       t.id === taskId ? { ...t, completed: !t.completed } : t
     );
+
+    // Show confetti when completing a focus task (not when uncompleting)
+    if (task && task.type === 'focus' && !task.completed) {
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 2500);
+    }
+
     setTasks(updated);
     await saveToDatabase(updated);
   };
@@ -347,6 +427,38 @@ export default function CommandCenterPage() {
     await saveToDatabase(updated);
   };
 
+  const handleQuickAddSave = async (taskData: {
+    description: string;
+    complexity: TaskComplexity;
+    taskType: TaskType;
+    anchorTime?: string;
+    inInbox?: boolean;
+  }) => {
+    await appendTask({
+      id: `temp-${Date.now()}`,
+      description: taskData.description,
+      completed: false,
+      complexity: taskData.complexity,
+      type: taskData.taskType,
+      anchorTime: taskData.anchorTime,
+      inInbox: taskData.inInbox,
+    });
+  };
+
+  const handlePromoteInboxTask = async (taskId: string) => {
+    const updated = tasks.map((t) =>
+      t.id === taskId ? { ...t, inInbox: false } : t
+    );
+    setTasks(updated);
+    await saveToDatabase(updated);
+  };
+
+  const handleDeleteInboxTask = async (taskId: string) => {
+    const updated = tasks.filter((t) => t.id !== taskId);
+    setTasks(updated);
+    await saveToDatabase(updated);
+  };
+
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center">
@@ -357,6 +469,18 @@ export default function CommandCenterPage() {
 
   return (
     <>
+      {/* Confetti celebration */}
+      {showConfetti && (
+        <div className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2">
+          <ConfettiExplosion
+            force={0.6}
+            duration={2500}
+            particleCount={80}
+            width={1200}
+          />
+        </div>
+      )}
+
       <main className="relative min-h-screen overflow-hidden bg-gradient-to-b from-[#fff7fb] via-[#f2fbff] to-[#fffef6] pb-24 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900">
         <div
           className="pointer-events-none absolute inset-0 opacity-80 blur-[60px] dark:hidden"
@@ -373,8 +497,29 @@ export default function CommandCenterPage() {
           <div className="absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-slate-900/60 to-transparent" />
         </div>
         <div className="relative mx-auto flex min-h-screen max-w-2xl flex-col gap-4 px-4 pb-16 pt-6">
-          <div className="flex items-center justify-between">
-            <AppWordmark />
+          {/* Date header */}
+          <p className="ml-12 text-base font-semibold text-slate-700 dark:text-slate-300 md:ml-0">
+            {new Date().toLocaleDateString('en-US', {
+              weekday: 'long',
+              month: 'long',
+              day: 'numeric',
+            })}
+          </p>
+
+          {/* Visual Timeline - Collapsible */}
+          <div className="rounded-3xl bg-gradient-to-br from-white/95 via-slate-50/90 to-white/95 p-4 shadow-[0_12px_28px_rgba(100,116,139,0.15)] ring-1 ring-slate-200/50 backdrop-blur-sm dark:from-slate-900/70 dark:via-slate-900/60 dark:to-slate-900/70 dark:ring-slate-800">
+            <EnergyTimeline
+              workStartTime={scheduleStart}
+              hardStopTime={scheduleEnd}
+              bedtime="22:00"
+              nextWakeTime={scheduleStart}
+              currentTime={new Date()}
+              currentEnergyLevel={energyLevel}
+              timeRemainingMinutes={headerTimeInfo?.totalMinutes ?? null}
+              energySchedule={energyScheduleBlocks}
+              collapsed={!timelineOpen}
+              onToggleCollapsed={() => setTimelineOpen((prev) => !prev)}
+            />
           </div>
 
           <HeaderStatus
@@ -386,70 +531,53 @@ export default function CommandCenterPage() {
             onEnergyClick={handleEnergyChange}
           />
 
-          {timeWarning && (
-            <div
-              className={`rounded-2xl px-4 py-3 text-sm font-medium shadow-sm ring-1 backdrop-blur ${TIME_WARNING_STYLES[timeWarning.tone]}`}
-            >
-              {timeWarning.showTimeline ? (
-                <TimelineBar
-                  workStart="08:00"
-                  hardStop={hardStopTime}
-                  currentTime={new Date()}
-                />
-              ) : (
-                timeWarning.message
-              )}
-            </div>
+          {timeWarning && !timeWarning.showTimeline && (
+            <div className="my-2 h-px bg-slate-500/10 dark:bg-slate-400/10" />
           )}
 
-          <CapacityCard
-            energyLevel={energyLevel}
-            hardStopTime={hardStopTime}
-            focusCount={focusPlanned}
-            capacityInfo={energyLevel ? capacityInfo : null}
-            planHint={planHint}
-          />
-
-          <FocusSection
-            tasks={focusTasks.map((task) => ({
+          <TasksCard
+            focusTasks={focusTasks.map((task) => ({
               id: task.id,
               description: task.description,
               completed: task.completed,
               complexity: task.complexity,
             }))}
-            canAddMore={capacityInfo.canAddTask}
-            onAddTask={handleAddFocusTask}
-            onToggleTask={handleToggleFocusTask}
-            onTaskClick={handleTaskClick}
-          />
-
-          <LifeMaintenance
-            tasks={lifeTasks.map((task) => ({
+            lifeTasks={lifeTasks.map((task) => ({
               id: task.id,
               description: task.description,
               completed: task.completed,
             }))}
-            onAddTask={handleAddLifeTask}
-            onToggleTask={handleToggleLifeTask}
-            onDeleteTask={handleDeleteLifeTask}
+            canAddMoreFocus={capacityInfo.canAddTask}
+            onAddFocusTask={handleAddFocusTask}
+            onToggleFocusTask={handleToggleFocusTask}
+            onFocusTaskClick={handleTaskClick}
+            onAddLifeTask={handleAddLifeTask}
+            onToggleLifeTask={handleToggleLifeTask}
+            onDeleteLifeTask={handleDeleteLifeTask}
           />
 
-          <button
-            type="button"
-            onClick={handlePlanTomorrow}
-            className="w-full rounded-2xl border border-transparent bg-gradient-to-r from-[#fff8e8] to-[#ffeef9] px-4 py-3 text-sm font-semibold text-amber-900 shadow-[0_10px_25px_rgba(255,188,122,0.35)] transition hover:brightness-105 dark:border-amber-800/60 dark:bg-none dark:bg-amber-900/30 dark:text-amber-100"
-          >
-            🌅 Plan Tomorrow
-          </button>
-        </div>
-      </main>
+          <InboxCard
+            tasks={inboxTasks.map((task) => ({
+              id: task.id,
+              description: task.description,
+              complexity: task.complexity,
+            }))}
+            onPromoteTask={handlePromoteInboxTask}
+            onDeleteTask={handleDeleteInboxTask}
+          />
 
-      <EnergyModal
-        isOpen={showEnergyModal}
-        currentEnergy={energyLevel}
-        onClose={() => setShowEnergyModal(false)}
-        onSelect={handleEnergySelect}
-      />
+        </div>
+
+        {/* Floating Quick Add Button */}
+        <button
+          type="button"
+          onClick={() => setShowQuickAddModal(true)}
+          className="fixed bottom-24 right-8 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-cyan-600 text-white shadow-[0_8px_24px_rgba(6,182,212,0.4)] transition hover:scale-105 hover:shadow-[0_12px_32px_rgba(6,182,212,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 dark:from-cyan-400 dark:to-cyan-500"
+          aria-label="Quick add task"
+        >
+          <Plus className="h-6 w-6" />
+        </button>
+      </main>
 
       <TaskModal
         isOpen={showTaskModal}
@@ -464,6 +592,13 @@ export default function CommandCenterPage() {
         } : undefined}
         onClose={() => setShowTaskModal(false)}
         onSave={handleTaskSave}
+      />
+
+      <QuickAddModal
+        isOpen={showQuickAddModal}
+        defaultType="focus"
+        onClose={() => setShowQuickAddModal(false)}
+        onSave={handleQuickAddSave}
       />
     </>
   );
