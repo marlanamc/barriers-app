@@ -170,12 +170,16 @@ export function HeaderStatus({
     );
   };
 
+  // Hide capacity card during evening/wind-down flow
+  const isEveningFlow = flowGreeting.flow.toLowerCase().includes('evening') || 
+                        flowGreeting.flow.toLowerCase().includes('wind');
+
   return (
     <section className="rounded-3xl bg-transparent">
       <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1">
         {renderCard(timeCard)}
         {renderEnergyCard()}
-        {renderCard(capacityCard)}
+        {!isEveningFlow && renderCard(capacityCard)}
       </div>
     </section>
   );

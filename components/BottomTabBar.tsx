@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { Home, ListChecks, Calendar, Zap } from 'lucide-react';
+import { Home, Calendar, Zap, Brain } from 'lucide-react';
 
 const TABS = [
   {
@@ -11,10 +11,10 @@ const TABS = [
     path: '/',
   },
   {
-    id: 'all-tasks',
-    label: 'All Tasks',
-    icon: ListChecks,
-    path: '/all-tasks',
+    id: 'brain-dump',
+    label: 'Dump',
+    icon: Brain,
+    path: '/brain-dump',
   },
   {
     id: 'calendar',
