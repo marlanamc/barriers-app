@@ -184,8 +184,8 @@ function buildEveningBlocks(hardStop: string, bedtime: string, energySchedule?: 
           start: Math.max(0, segStart),
           end: Math.min(total, segEnd),
           color: ENERGY_GRADIENTS[block.level],
-          label: ENERGY_LABELS[block.level],
-        };
+        label: ENERGY_LABELS[block.level],
+      };
         console.log('Evening segment:', segment, 'from block:', block.start, '-', block.end, block.level);
         segments.push(segment);
       }
@@ -249,29 +249,32 @@ function buildEveningBlocks(hardStop: string, bedtime: string, energySchedule?: 
     }
 
     // If no segments found but we have a block that extends into evening, use its energy level
-    if (lastBlockBeforeEvening && parseHM(lastBlockBeforeEvening.end) >= startMin) {
-      const lastBlockEnd = parseHM(lastBlockBeforeEvening.end) - startMin;
-      const segments: { start: number; end: number; color: string; label: string }[] = [];
-      
-      // Add the last block's energy level from start
-      segments.push({
-        start: 0,
-        end: Math.min(total, lastBlockEnd),
-        color: ENERGY_GRADIENTS[lastBlockBeforeEvening.level],
-        label: ENERGY_LABELS[lastBlockBeforeEvening.level],
-      });
-      
-      // Fill remaining with resting if needed
-      if (lastBlockEnd < total) {
+    if (lastBlockBeforeEvening !== null) {
+      const lastBlock: EnergyBlock = lastBlockBeforeEvening;
+      if (parseHM(lastBlock.end) >= startMin) {
+        const lastBlockEnd = parseHM(lastBlock.end) - startMin;
+        const segments: { start: number; end: number; color: string; label: string }[] = [];
+        
+        // Add the last block's energy level from start
         segments.push({
-          start: lastBlockEnd,
-          end: total,
-          color: EVENING_REST,
-          label: 'Resting',
+          start: 0,
+          end: Math.min(total, lastBlockEnd),
+          color: ENERGY_GRADIENTS[lastBlock.level],
+          label: ENERGY_LABELS[lastBlock.level],
         });
+        
+        // Fill remaining with resting if needed
+        if (lastBlockEnd < total) {
+          segments.push({
+            start: lastBlockEnd,
+            end: total,
+            color: EVENING_REST,
+            label: 'Resting',
+          });
+        }
+        
+        return { total, bedtimeMin, segments };
       }
-      
-      return { total, bedtimeMin, segments };
     }
   }
 
@@ -432,8 +435,8 @@ export function EnergyTimeline({
                   (() => {
                     console.log('Rendering evening segments:', evening.segments, 'total:', evening.total);
                     return evening.segments.map((seg, index) => {
-                      const segMinutes = seg.end - seg.start;
-                      const widthPercent = toPercent(segMinutes, evening.total);
+                    const segMinutes = seg.end - seg.start;
+                    const widthPercent = toPercent(segMinutes, evening.total);
                       const leftPercent = toPercent(seg.start, evening.total);
                       console.log(`Segment ${index}:`, { seg, widthPercent, leftPercent, color: seg.color });
                       if (widthPercent <= 0) return null;

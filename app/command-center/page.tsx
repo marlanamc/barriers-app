@@ -252,7 +252,11 @@ export default function CommandCenterPage() {
   });
 
   // Cache for energy schedules to avoid repeated API calls
-  const energyScheduleCache = useCache(10 * 60 * 1000); // 10 minutes cache
+  type EnergyScheduleCacheData = {
+    blocks: { start: string; end: string; level: EnergyLevel }[];
+    energyLevel: EnergyLevel | null;
+  };
+  const energyScheduleCache = useCache<EnergyScheduleCacheData>(10 * 60 * 1000); // 10 minutes cache
   const debouncedScheduleStart = useDebounce(scheduleStart, 1000);
   const debouncedScheduleEnd = useDebounce(scheduleEnd, 1000);
 
