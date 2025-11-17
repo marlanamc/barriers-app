@@ -161,6 +161,9 @@ export function EnergyScheduleEditor({ onScheduleChange }: EnergyScheduleEditorP
 
     try {
       const minutes = timeStringToMinutes(newSchedule.time);
+      // Use the first selected day, or default to 'all' if 'all' is selected
+      const dayType = selectedDays.includes('all') ? 'all' : selectedDays[0] || 'all';
+      
       await createEnergySchedule({
         user_id: user.id,
         start_time_minutes: minutes,
@@ -168,7 +171,7 @@ export function EnergyScheduleEditor({ onScheduleChange }: EnergyScheduleEditorP
         label: newSchedule.label || null,
         notify_on_transition: newSchedule.notify,
         is_active: true,
-        day_type: selectedDay,
+        day_type: dayType,
       });
       setNewSchedule(null);
       await loadSchedules();
