@@ -341,12 +341,18 @@ export function EnergyTimeline({
     return { ...base, total: base.total || 1 };
   }, [bedtime, nextWakeTime, workStartTime]);
 
-  const currentPos =
+  // Calculate current position, clamping to prevent marker from being cut off
+  // Marker is 20px (h-5 w-5) wide, so we need to account for half-width (10px)
+  // Container has inset-x-3 (12px padding), so we clamp to ~95% to keep marker visible
+  const rawCurrentPos =
     mode === 'day'
       ? toPercent(minutesDiff(parseHM(workStartTime), nowMinutes), dayTotal)
       : mode === 'evening'
         ? toPercent(minutesDiff(parseHM(hardStopTime), nowMinutes), evening.total || 1)
         : toPercent(minutesDiff(bedtimeMin, nowMinutes), night.total || 1);
+  
+  // Clamp position to prevent marker from being cut off at edges
+  const currentPos = Math.max(2, Math.min(98, rawCurrentPos));
 
   const currentLabel =
     mode === 'day'

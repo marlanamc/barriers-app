@@ -21,6 +21,11 @@ const withPWA = require('next-pwa')({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Allow production builds to proceed even if ESLint reports issues.
+  // We rely on local linting/CI to surface these, but Vercel should not block deploys.
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   // Ensure PWA files are properly handled
   async headers() {
     return [

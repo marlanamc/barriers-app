@@ -2,10 +2,52 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, TrendingUp, AlertTriangle, Tag, Zap } from "lucide-react";
+import { ArrowLeft, AlertTriangle, TrendingUp, Lightbulb, Calendar } from "lucide-react";
 import { useSupabaseUser } from "@/lib/useSupabaseUser";
 import { getCheckinsForRange, type CheckinWithRelations } from "@/lib/supabase";
 import { formatDateToLocalString } from "@/lib/date-utils";
+
+interface BarrierPattern {
+  barrierName: string;
+  count: number;
+  energyLevels: Record<string, number>;
+  recentDates: string[];
+}
+
+const BARRIER_STRATEGIES: Record<string, { tip: string; action: string }> = {
+  'too-vague': {
+    tip: 'Break it into tiny, concrete steps',
+    action: 'Ask yourself: What\'s the very first physical action?',
+  },
+  'boring': {
+    tip: 'Add stimulation: music, body doubling, change location',
+    action: 'Gamify it: race the clock, create mini-challenges',
+  },
+  'overwhelming': {
+    tip: 'Break it into ridiculously small pieces',
+    action: 'Do just one tiny part (not the whole thing)',
+  },
+  'boring-and-hard': {
+    tip: 'Schedule during peak energy (not foggy/resting)',
+    action: 'Use external accountability (body double, deadline)',
+  },
+  'requires-focus': {
+    tip: 'Save for sparky/steady energy times',
+    action: 'Eliminate distractions (phone away, close tabs)',
+  },
+  'anxiety-inducing': {
+    tip: 'Start with the smallest possible version',
+    action: 'Have a support person nearby or on call',
+  },
+  'decision-fatigue': {
+    tip: 'Limit yourself to two choices',
+    action: 'Flip a coin and work with whichever side lands first',
+  },
+  'no-motivation': {
+    tip: 'Pair the task with comfort: music, warm drink',
+    action: 'Set a small reward waiting after completion',
+  },
+};
 
 export default function PatternsPage() {
   const { user, loading: authLoading } = useSupabaseUser();
@@ -31,8 +73,8 @@ export default function PatternsPage() {
         );
         setCheckins(data || []);
       } catch (err) {
-        console.error('Error loading patterns:', err);
-        const errorMessage = err instanceof Error ? err.message : 'Failed to load patterns';
+        console.error('Error loading barrier insights:', err);
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load insights';
         setError(errorMessage);
         setCheckins([]);
       } finally {
@@ -43,75 +85,68 @@ export default function PatternsPage() {
     load();
   }, [user]);
 
-  const weatherCounts = useMemo(() => {
-    return checkins.reduce<Record<string, { icon: string | null; count: number }>>((acc, checkin) => {
-      if (!checkin?.internal_weather) return acc;
-      const key = checkin.internal_weather;
-      if (!acc[key]) {
-        acc[key] = { icon: checkin.weather_icon || null, count: 0 };
-      }
-      acc[key].count += 1;
-      return acc;
-    }, {});
-  }, [checkins]);
+  // Analyze barrier patterns
+  const barrierPatterns = useMemo(() => {
+    const barrierMap: Record<string, BarrierPattern> = {};
 
-  const mostCommon = useMemo(() => {
-    const entries = Object.entries(weatherCounts);
-    if (!entries.length) return null;
-    return entries.sort((a, b) => b[1].count - a[1].count)[0];
-  }, [weatherCounts]);
-
-  // Barrier insights
-  const barrierInsights = useMemo(() => {
-    const barrierCounts: Record<string, number> = {};
     checkins.forEach((checkin) => {
+      const energyLevel = checkin.internal_weather || 'unknown';
       checkin.focus_items?.forEach((item) => {
         item.focus_barriers?.forEach((barrier) => {
-          const name = barrier.barrier_types?.label || barrier.custom_barrier || 'Other';
-          barrierCounts[name] = (barrierCounts[name] || 0) + 1;
+          const barrierName = barrier.barrier_types?.label || barrier.custom_barrier || 'Other';
+          
+          if (!barrierMap[barrierName]) {
+            barrierMap[barrierName] = {
+              barrierName,
+              count: 0,
+              energyLevels: {},
+              recentDates: [],
+            };
+          }
+
+          barrierMap[barrierName].count += 1;
+          barrierMap[barrierName].energyLevels[energyLevel] = 
+            (barrierMap[barrierName].energyLevels[energyLevel] || 0) + 1;
+          
+          if (checkin.checkin_date) {
+            barrierMap[barrierName].recentDates.push(checkin.checkin_date);
+          }
         });
       });
     });
-    return Object.entries(barrierCounts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5);
+
+    // Sort by frequency and limit to most recent dates
+    return Object.values(barrierMap)
+      .map(pattern => ({
+        ...pattern,
+        recentDates: [...new Set(pattern.recentDates)].slice(-5).reverse(),
+      }))
+      .sort((a, b) => b.count - a.count);
   }, [checkins]);
 
-  // Category insights
-  const categoryInsights = useMemo(() => {
-    const categoryCounts: Record<string, number> = {};
-    checkins.forEach((checkin) => {
-      checkin.focus_items?.forEach((item) => {
-        item.categories?.forEach((cat) => {
-          categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
-        });
-      });
-    });
-    return Object.entries(categoryCounts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5);
-  }, [checkins]);
+  // Find most common energy level for each barrier
+  const getMostCommonEnergy = (pattern: BarrierPattern): string | null => {
+    const entries = Object.entries(pattern.energyLevels);
+    if (!entries.length) return null;
+    return entries.sort((a, b) => b[1] - a[1])[0][0];
+  };
 
-  // Productivity stats
-  const productivityStats = useMemo(() => {
-    const totalFocusItems = checkins.reduce(
-      (sum, checkin) => sum + (checkin.focus_items?.length || 0),
-      0
-    );
-    const totalDays = checkins.length;
-    const avgPerDay = totalDays > 0 ? (totalFocusItems / totalDays).toFixed(1) : '0';
-
-    return {
-      totalFocusItems,
-      totalDays,
-      avgPerDay,
+  // Get strategy for barrier
+  const getBarrierStrategy = (barrierName: string) => {
+    // Try to match barrier name to strategy
+    const normalized = barrierName.toLowerCase().replace(/\s+/g, '-');
+    return BARRIER_STRATEGIES[normalized] || {
+      tip: 'Notice when this barrier appears',
+      action: 'Try breaking the task into smaller pieces',
     };
-  }, [checkins]);
+  };
 
   if (authLoading || loading) {
     return (
       <main className="min-h-screen flex items-center justify-center px-4">
-        <p className="text-slate-600" role="status" aria-live="polite">Looking for patterns...</p>
+        <p className="text-slate-600 dark:text-slate-400" role="status" aria-live="polite">
+          Analyzing your barriers...
+        </p>
       </main>
     );
   }
@@ -123,23 +158,23 @@ export default function PatternsPage() {
           <header className="flex items-center gap-4">
             <Link
               href="/"
-              className="rounded-full border border-white/40 bg-white/70 p-2 text-slate-600 transition hover:-translate-y-0.5"
+              className="rounded-full border border-white/40 bg-white/70 p-2 text-slate-600 transition hover:-translate-y-0.5 dark:border-slate-600 dark:bg-slate-800/70 dark:text-slate-400"
               aria-label="Go back to home"
             >
               <ArrowLeft className="h-5 w-5" />
             </Link>
             <div>
-              <p className="text-sm uppercase tracking-wide text-cyan-600">Patterns</p>
-              <h1 className="text-2xl font-bold text-slate-900">Patterns</h1>
+              <p className="text-sm uppercase tracking-wide text-amber-600 dark:text-amber-400">Barrier Insights</p>
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Barrier Insights</h1>
             </div>
           </header>
-          <div className="rounded-2xl bg-rose-50 border border-rose-200 p-6" role="alert">
-            <p className="text-sm font-medium text-rose-800 mb-2">Unable to load patterns</p>
-            <p className="text-sm text-rose-700">{error}</p>
+          <div className="rounded-2xl bg-rose-50 border border-rose-200 p-6 dark:bg-rose-900/30 dark:border-rose-700/50" role="alert">
+            <p className="text-sm font-medium text-rose-800 dark:text-rose-200 mb-2">Unable to load insights</p>
+            <p className="text-sm text-rose-700 dark:text-rose-300">{error}</p>
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="mt-4 rounded-full bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700"
+              className="mt-4 rounded-full bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 dark:bg-rose-700 dark:hover:bg-rose-600"
             >
               Try again
             </button>
@@ -161,126 +196,130 @@ export default function PatternsPage() {
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div>
-            <p className="text-sm uppercase tracking-wide text-cyan-600 dark:text-cyan-400">Insights</p>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Your Patterns</h1>
-            <p className="text-sm text-slate-600 dark:text-slate-400">Last 30 days of check-in data</p>
+            <p className="text-sm uppercase tracking-wide text-amber-600 dark:text-amber-400">Insights</p>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Barrier Insights</h1>
+            <p className="text-sm text-slate-600 dark:text-slate-400">Last 30 days of barrier patterns</p>
           </div>
         </header>
 
-        {checkins.length === 0 ? (
+        {barrierPatterns.length === 0 ? (
           <section className="rounded-3xl border border-dashed border-white/40 bg-white/60 p-8 text-center text-slate-600 dark:border-slate-600/40 dark:bg-slate-800/60 dark:text-slate-400">
-            <p className="mb-2">No check-ins yet.</p>
-            <p className="text-sm">Start tracking your energy to see insights here!</p>
+            <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-slate-400 dark:text-slate-500" />
+            <p className="mb-2 font-medium">No barriers tracked yet.</p>
+            <p className="text-sm">Start identifying barriers when planning your focus items to see insights here!</p>
           </section>
         ) : (
           <>
-            {/* Stats Grid */}
-            <div className="grid grid-cols-3 gap-3">
+            {/* Summary Stats */}
+            <div className="grid grid-cols-2 gap-3">
               <div className="rounded-2xl border border-white/20 bg-white/80 p-4 backdrop-blur dark:border-slate-600/40 dark:bg-slate-800/80">
-                <p className="text-sm text-slate-600 dark:text-slate-400">Check-ins</p>
-                <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{productivityStats.totalDays}</p>
+                <p className="text-sm text-slate-600 dark:text-slate-400">Total Barriers</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                  {barrierPatterns.reduce((sum, p) => sum + p.count, 0)}
+                </p>
               </div>
               <div className="rounded-2xl border border-white/20 bg-white/80 p-4 backdrop-blur dark:border-slate-600/40 dark:bg-slate-800/80">
-                <p className="text-sm text-slate-600 dark:text-slate-400">Focus Items</p>
-                <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{productivityStats.totalFocusItems}</p>
-              </div>
-              <div className="rounded-2xl border border-white/20 bg-white/80 p-4 backdrop-blur dark:border-slate-600/40 dark:bg-slate-800/80">
-                <p className="text-sm text-slate-600 dark:text-slate-400">Avg/Day</p>
-                <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{productivityStats.avgPerDay}</p>
+                <p className="text-sm text-slate-600 dark:text-slate-400">Unique Types</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                  {barrierPatterns.length}
+                </p>
               </div>
             </div>
 
-            {/* Energy Patterns */}
-            {mostCommon && (
-              <section className="rounded-3xl border border-white/20 bg-white/80 p-6 backdrop-blur dark:border-slate-600/40 dark:bg-slate-800/80">
-                <div className="mb-4 flex items-center gap-2">
-                  <Zap className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
-                  <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Energy Patterns</h2>
-                </div>
-                <div className="mb-4 flex items-center gap-4 rounded-2xl bg-cyan-50 p-4 dark:bg-cyan-900/20">
-                  <div className="text-4xl">{mostCommon[1].icon || "☁️"}</div>
-                  <div>
-                    <p className="text-sm text-cyan-700 dark:text-cyan-300">Most Common</p>
-                    <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{mostCommon[0]}</p>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">{mostCommon[1].count} days</p>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  {Object.entries(weatherCounts).map(([weatherName, info]) => {
-                    const max = Math.max(...Object.values(weatherCounts).map((value) => value.count));
-                    const width = `${(info.count / max) * 100}%`;
-                    return (
-                      <div key={weatherName} className="space-y-1">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-slate-700 dark:text-slate-300">
-                            {info.icon || "☁️"} {weatherName}
+            {/* Barrier Patterns */}
+            <div className="space-y-4">
+              {barrierPatterns.map((pattern, index) => {
+                const mostCommonEnergy = getMostCommonEnergy(pattern);
+                const strategy = getBarrierStrategy(pattern.barrierName);
+                const maxCount = barrierPatterns[0]?.count || 1;
+                const widthPercent = (pattern.count / maxCount) * 100;
+
+                return (
+                  <section
+                    key={pattern.barrierName}
+                    className="rounded-3xl border border-white/20 bg-white/80 p-6 backdrop-blur dark:border-slate-600/40 dark:bg-slate-800/80"
+                  >
+                    <div className="mb-4 flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="mb-2 flex items-center gap-2">
+                          <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                            {pattern.barrierName}
+                          </h2>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm text-slate-600 dark:text-slate-400">
+                          <span className="flex items-center gap-1">
+                            <TrendingUp className="h-4 w-4" />
+                            {pattern.count} {pattern.count === 1 ? 'time' : 'times'}
                           </span>
-                          <span className="text-slate-600 dark:text-slate-400">{info.count}</span>
-                        </div>
-                        <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-700">
-                          <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-indigo-400" style={{ width }} />
+                          {mostCommonEnergy && (
+                            <span className="flex items-center gap-1">
+                              <span>Most common when:</span>
+                              <span className="font-medium capitalize">{mostCommonEnergy}</span>
+                            </span>
+                          )}
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
+                    </div>
 
-            {/* Top Categories */}
-            {categoryInsights.length > 0 && (
-              <section className="rounded-3xl border border-white/20 bg-white/80 p-6 backdrop-blur dark:border-slate-600/40 dark:bg-slate-800/80">
-                <div className="mb-4 flex items-center gap-2">
-                  <Tag className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                  <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Top Focus Areas</h2>
-                </div>
-                <div className="space-y-2">
-                  {categoryInsights.map(([category, count]) => {
-                    const max = categoryInsights[0][1];
-                    const width = `${(count / max) * 100}%`;
-                    return (
-                      <div key={category} className="space-y-1">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="font-medium text-slate-700 dark:text-slate-300">{category}</span>
-                          <span className="text-slate-600 dark:text-slate-400">{count} items</span>
-                        </div>
-                        <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-700">
-                          <div className="h-full rounded-full bg-gradient-to-r from-purple-400 to-pink-400" style={{ width }} />
-                        </div>
+                    {/* Frequency Bar */}
+                    <div className="mb-4 space-y-1">
+                      <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-700">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-400"
+                          style={{ width: `${widthPercent}%` }}
+                        />
                       </div>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
+                    </div>
 
-            {/* Top Barriers */}
-            {barrierInsights.length > 0 && (
-              <section className="rounded-3xl border border-white/20 bg-white/80 p-6 backdrop-blur dark:border-slate-600/40 dark:bg-slate-800/80">
-                <div className="mb-4 flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                  <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Common Barriers</h2>
-                </div>
-                <p className="mb-4 text-sm text-slate-600 dark:text-slate-400">
-                  These are the challenges you've identified most often
-                </p>
-                <div className="space-y-2">
-                  {barrierInsights.map(([barrier, count]) => {
-                    const max = barrierInsights[0][1];
-                    const width = `${(count / max) * 100}%`;
-                    return (
-                      <div key={barrier} className="space-y-1">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="font-medium text-slate-700 dark:text-slate-300">{barrier}</span>
-                          <span className="text-slate-600 dark:text-slate-400">{count}×</span>
-                        </div>
-                        <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-700">
-                          <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-400" style={{ width }} />
-                        </div>
+                    {/* Strategy */}
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-800/40 dark:bg-amber-900/20">
+                      <div className="mb-2 flex items-center gap-2">
+                        <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                        <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">Strategy</p>
                       </div>
-                    );
-                  })}
-                </div>
+                      <p className="text-sm text-amber-800 dark:text-amber-200 mb-2">
+                        💡 {strategy.tip}
+                      </p>
+                      <p className="text-sm text-amber-700 dark:text-amber-300">
+                        → {strategy.action}
+                      </p>
+                    </div>
+
+                    {/* Recent occurrences */}
+                    {pattern.recentDates.length > 0 && (
+                      <div className="mt-4 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                        <Calendar className="h-3 w-3" />
+                        <span>Recent:</span>
+                        <span className="font-medium">
+                          {pattern.recentDates.slice(0, 3).map(date => {
+                            const d = new Date(date);
+                            return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                          }).join(', ')}
+                        </span>
+                      </div>
+                    )}
+                  </section>
+                );
+              })}
+            </div>
+
+            {/* Insight Summary */}
+            {barrierPatterns.length > 0 && (
+              <section className="rounded-3xl border border-cyan-200 bg-cyan-50/50 p-6 dark:border-cyan-800/40 dark:bg-cyan-900/20">
+                <h2 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                  <Lightbulb className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
+                  Key Insight
+                </h2>
+                {barrierPatterns[0] && (
+                  <p className="text-sm text-slate-700 dark:text-slate-300">
+                    Your most common barrier is <strong>{barrierPatterns[0].barrierName}</strong>, appearing{' '}
+                    {barrierPatterns[0].count} {barrierPatterns[0].count === 1 ? 'time' : 'times'} in the last 30 days.
+                    {getMostCommonEnergy(barrierPatterns[0]) && (
+                      <> It often appears when your energy is <strong className="capitalize">{getMostCommonEnergy(barrierPatterns[0])}</strong>.</>
+                    )}
+                  </p>
+                )}
               </section>
             )}
           </>

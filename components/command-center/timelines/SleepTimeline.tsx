@@ -25,7 +25,7 @@ export function SleepTimeline({ currentTime, bedTime, nextWakeTime, timeRemainin
       <div className="px-4 py-2">
         <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
           <span className="text-base">😴</span>
-          <span>Deep sleep flow</span>
+          <span>Deep Sleep Flow</span>
         </div>
         <div className="mt-1 flex items-center justify-end gap-2">
           <span className="rounded-full bg-slate-800 px-2 py-1 text-[11px] font-semibold text-slate-100">
