@@ -160,6 +160,7 @@ export default function TomorrowPage() {
               onAddFocusTask={() => setShowQuickAddModal(true)}
               onToggleFocusTask={() => {}}
               onFocusTaskClick={handleTaskClick}
+              onDeleteFocusTask={handleDeleteTask}
               onAddLifeTask={() => {}}
               onToggleLifeTask={() => {}}
               onDeleteLifeTask={handleDeleteTask}
