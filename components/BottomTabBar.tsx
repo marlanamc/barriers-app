@@ -47,7 +47,7 @@ export function BottomTabBar() {
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white/80 backdrop-blur dark:border-slate-700 dark:bg-slate-800/80">
+    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] backdrop-blur-sm supports-[padding:env(safe-area-inset-bottom)]:pb-[env(safe-area-inset-bottom)] dark:border-slate-700 dark:bg-slate-800 dark:shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.3)]">
       <div className="mx-auto flex max-w-lg">
         {TABS.map((tab) => {
           const Icon = tab.icon;
