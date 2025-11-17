@@ -89,6 +89,7 @@ interface Task {
   categories?: string[];
   barrier?: {
     type: string;
+    icon?: string;
     custom?: string;
   };
 }
@@ -151,6 +152,7 @@ export default function CommandCenterPage() {
             barrier: item.focus_barriers?.[0]
               ? {
                   type: item.focus_barriers[0].barrier_types?.label || item.focus_barriers[0].barrier_types?.slug || '',
+                  icon: item.focus_barriers[0].barrier_types?.icon || undefined,
                   custom: item.focus_barriers[0].custom_barrier || undefined,
                 }
               : undefined,
