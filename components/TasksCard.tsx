@@ -287,7 +287,7 @@ export function TasksCard({
             <Target className="h-6 w-6 text-cyan-600 dark:text-cyan-400" />
             <h2 className="text-lg font-bold">Focus</h2>
             <span className="rounded-full bg-cyan-100 px-2.5 py-1 text-xs font-bold text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-200">
-              {activeFocusTasks.length}/{Math.max(focusCapacityTarget ?? activeFocusTasks.length || 1, 1)}
+              {activeFocusTasks.length}/{Math.max(focusCapacityTarget ?? (activeFocusTasks.length || 1), 1)}
             </span>
           </div>
         </div>
