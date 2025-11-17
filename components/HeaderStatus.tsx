@@ -76,7 +76,7 @@ export function HeaderStatus({
         <button
           type="button"
           onClick={onEnergyClick}
-          className="min-w-[140px] flex flex-shrink-0 items-center gap-2 rounded-2xl bg-gradient-to-br from-slate-50 via-slate-100/80 to-slate-50 px-3 py-2 text-sm font-semibold shadow-sm ring-1 ring-slate-200/80 backdrop-blur text-slate-600 dark:from-slate-900/60 dark:via-slate-800/50 dark:to-slate-900/60 dark:ring-slate-700 dark:text-slate-400 transition hover:opacity-90"
+          className="min-w-[120px] flex flex-shrink-0 items-center gap-1.5 rounded-2xl bg-gradient-to-br from-slate-50 via-slate-100/80 to-slate-50 px-2.5 py-2 text-sm font-semibold shadow-sm ring-1 ring-slate-200/80 backdrop-blur text-slate-600 dark:from-slate-900/60 dark:via-slate-800/50 dark:to-slate-900/60 dark:ring-slate-700 dark:text-slate-400 transition hover:opacity-90"
         >
           <Zap className="h-4 w-4 text-slate-500 dark:text-slate-400" />
           {energyLabel}
@@ -96,7 +96,7 @@ export function HeaderStatus({
     return (
       <CardComponent
         {...cardProps}
-        className={`min-w-[140px] flex flex-shrink-0 items-center gap-2 rounded-2xl bg-gradient-to-br px-3 py-2 text-sm font-semibold shadow-sm ring-1 backdrop-blur ${energyChip.bg} ${energyChip.text} ${energyChip.ring} ${cardProps.className || ''}`}
+        className={`min-w-[120px] flex flex-shrink-0 items-center gap-1.5 rounded-2xl bg-gradient-to-br px-2.5 py-2 text-sm font-semibold shadow-sm ring-1 backdrop-blur ${energyChip.bg} ${energyChip.text} ${energyChip.ring} ${cardProps.className || ''}`}
       >
         <span className="text-base leading-none">{energyChip.emoji}</span>
         <span>{energyChip.label}</span>

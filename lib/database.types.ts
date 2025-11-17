@@ -113,6 +113,8 @@ export type Database = {
           anchor_type: string | null;
           anchor_value: string | null;
           anchors: Json;
+          task_type: string;
+          complexity: string;
           created_at: string;
           updated_at: string;
         };
@@ -126,6 +128,8 @@ export type Database = {
           anchor_type?: string | null;
           anchor_value?: string | null;
           anchors?: Json;
+          task_type?: string;
+          complexity?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -139,6 +143,8 @@ export type Database = {
           anchor_type?: string | null;
           anchor_value?: string | null;
           anchors?: Json;
+          task_type?: string;
+          complexity?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -192,6 +198,8 @@ export type Database = {
           anchor_type: 'at' | 'while' | 'before' | 'after' | null;
           anchor_value: string | null;
           anchors: Json;
+          task_type: string;
+          complexity: string;
           created_at: string;
           updated_at: string;
         };
@@ -209,6 +217,8 @@ export type Database = {
           anchor_type?: 'at' | 'while' | 'before' | 'after' | null;
           anchor_value?: string | null;
           anchors?: Json;
+          task_type?: string;
+          complexity?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -226,6 +236,8 @@ export type Database = {
           anchor_type?: 'at' | 'while' | 'before' | 'after' | null;
           anchor_value?: string | null;
           anchors?: Json;
+          task_type?: string;
+          complexity?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -276,6 +288,7 @@ export type Database = {
           label: string | null;
           notify_on_transition: boolean;
           is_active: boolean;
+          day_type: string;
           created_at: string;
           updated_at: string;
         };
@@ -287,6 +300,7 @@ export type Database = {
           label?: string | null;
           notify_on_transition?: boolean;
           is_active?: boolean;
+          day_type?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -298,6 +312,7 @@ export type Database = {
           label?: string | null;
           notify_on_transition?: boolean;
           is_active?: boolean;
+          day_type?: string;
           created_at?: string;
           updated_at?: string;
         };
