@@ -152,6 +152,8 @@ export function TimelineBar({
   const indicatorIcon = energyLevel ? '⚡' : window.icon;
   const indicatorLabel = energyLevel ? energyLabel : window.label;
   const indicatorColor = energyBadgeStyle?.text ?? window.color;
+  const indicatorBg = energyBadgeStyle?.bg ?? 'from-slate-50/90 to-slate-200/80 dark:from-slate-900/60 dark:to-slate-800/50';
+  const indicatorRing = energyBadgeStyle?.ring ?? 'ring-slate-200 dark:ring-slate-700';
 
   return (
     <div className="space-y-2">
@@ -206,11 +208,23 @@ export function TimelineBar({
             />
           )}
 
-          {/* Current time indicator */}
+          {/* Current time indicator with badge */}
           <div
-            className="absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-slate-900 shadow-lg dark:border-slate-900 dark:bg-white"
+            className="absolute top-1/2 -translate-y-1/2"
             style={{ left: `${position}%` }}
-          />
+          >
+            <div className="relative flex flex-col items-center gap-1">
+              <div
+                className={`flex items-center gap-2 rounded-2xl bg-gradient-to-br px-3 py-1.5 text-xs font-semibold shadow-sm ring-1 backdrop-blur ${indicatorBg} ${indicatorRing}`}
+              >
+                <span className={`text-sm leading-none ${energyBadgeStyle?.icon || 'text-slate-500 dark:text-slate-300'}`}>
+                  {indicatorIcon}
+                </span>
+                <span className={`${indicatorColor}`}>{indicatorLabel}</span>
+              </div>
+              <div className="h-4 w-4 -translate-x-1/2 rounded-full border-2 border-white bg-slate-900 shadow-lg dark:border-slate-200 dark:bg-white" />
+            </div>
+          </div>
         </div>
 
         {/* Marker ticks aligned to time positions */}

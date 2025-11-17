@@ -1,20 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Zap, Clock, Edit2 } from 'lucide-react';
-import Link from 'next/link';
+import { Zap, Clock, Edit2 } from 'lucide-react';
 import { EnergyPresetSelector } from '@/components/EnergyPresetSelector';
 import { EnergyScheduleEditor } from '@/components/EnergyScheduleEditor';
 import { useSupabaseUser } from '@/lib/useSupabaseUser';
 import { ENERGY_PRESETS, presetToDbSchedule, type EnergySchedulePreset } from '@/lib/energyPresets';
 import { getEnergySchedules, createEnergySchedule, deleteEnergySchedule } from '@/lib/supabase';
-import type { EnergyLevel } from '@/lib/capacity';
-import {
-  ENERGY_CAPACITY,
-  COMPLEXITY_COST,
-  MAX_FOCUS_ITEMS,
-  getCapacityRangeText,
-} from '@/lib/capacity';
 
 type ViewMode = 'presets' | 'editing';
 
@@ -113,14 +105,6 @@ export default function EnergyPage() {
     }
   };
 
-  const energyLevels: Array<{ key: EnergyLevel; label: string; color: string }> = [
-    { key: 'sparky', label: 'Sparky', color: 'bg-yellow-400' },
-    { key: 'steady', label: 'Steady', color: 'bg-green-400' },
-    { key: 'flowing', label: 'Flowing', color: 'bg-blue-400' },
-    { key: 'foggy', label: 'Foggy', color: 'bg-purple-400' },
-    { key: 'resting', label: 'Resting', color: 'bg-slate-400' },
-  ];
-
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center">
@@ -142,13 +126,7 @@ export default function EnergyPage() {
 
       <div className="relative mx-auto flex min-h-screen max-w-2xl flex-col gap-4 px-4 pb-16 pt-6">
         {/* Header */}
-        <div className="flex items-center gap-4">
-          <Link
-            href="/"
-            className="rounded-full p-2 text-slate-600 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
+        <div className="flex items-center gap-4 pl-12 sm:pl-14">
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <Zap className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
@@ -230,76 +208,6 @@ export default function EnergyPage() {
           </div>
         )}
 
-        {/* Energy Levels Reference */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-          <h2 className="mb-4 text-lg font-semibold text-slate-900 dark:text-slate-100">
-            Energy Levels & Capacity
-          </h2>
-          <div className="space-y-3">
-            {energyLevels.map((level) => {
-              const capacity = ENERGY_CAPACITY[level.key];
-              return (
-                <div
-                  key={level.key}
-                  className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/50"
-                >
-                  <div className={`h-4 w-4 rounded-full ${level.color}`} />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold text-slate-900 dark:text-slate-100">{level.label}</p>
-                      <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-bold text-slate-700 dark:bg-slate-700 dark:text-slate-300">
-                        {capacity} pts
-                      </span>
-                    </div>
-                    <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-400">
-                      {getCapacityRangeText(level.key)}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/50">
-            <h3 className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
-              Task Complexity Costs
-            </h3>
-            <div className="space-y-1.5 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-600 dark:text-slate-400">Quick task</span>
-                <span className="font-semibold text-emerald-600 dark:text-emerald-400">{COMPLEXITY_COST.quick} pts</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-600 dark:text-slate-400">Medium task</span>
-                <span className="font-semibold text-blue-600 dark:text-blue-400">{COMPLEXITY_COST.medium} pts</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-600 dark:text-slate-400">Deep task</span>
-                <span className="font-semibold text-purple-600 dark:text-purple-400">{COMPLEXITY_COST.deep} pts</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-3 rounded-lg border border-cyan-200 bg-cyan-50 p-3 dark:border-cyan-800/30 dark:bg-cyan-900/20">
-            <p className="text-xs text-cyan-900 dark:text-cyan-100">
-              💡 Max {MAX_FOCUS_ITEMS} focus items per day regardless of energy. Life tasks have no capacity cost.
-            </p>
-          </div>
-        </div>
-
-        {/* Tips */}
-        <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-4 dark:border-cyan-800/30 dark:bg-cyan-900/20">
-          <h3 className="mb-2 font-semibold text-cyan-900 dark:text-cyan-100">
-            💙 Why This Matters
-          </h3>
-          <ul className="space-y-1 text-sm text-cyan-800 dark:text-cyan-200">
-            <li>• Your timeline will show your current energy automatically</li>
-            <li>• Plan hard tasks during peak hours, not crash times</li>
-            <li>• Low energy isn't laziness - it's your biology</li>
-            <li>• Evening flow = light tasks only (cooking, tidying)</li>
-            <li>• Deep sleep flow = rest activities (reading, bath, no screens)</li>
-          </ul>
-        </div>
       </div>
 
       {/* Day Selection Modal */}

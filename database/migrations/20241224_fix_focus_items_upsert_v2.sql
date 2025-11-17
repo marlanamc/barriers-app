@@ -1,54 +1,8 @@
--- Migration: Add support for multiple anchors per focus item
--- Allows combinations like "at 3pm while listening to music" or "after lunch before opening email"
+-- Migration: Fix focus items upsert to prevent data loss (v2 - with task_type and complexity support)
+-- Instead of DELETE + INSERT, we now UPDATE existing items and only modify what changed
+-- This prevents the appearance of check-ins "disappearing" during save operations
+-- This version properly includes task_type, complexity, and anchors array support
 
--- Add new JSONB column to store multiple anchors
-ALTER TABLE focus_items
-ADD COLUMN IF NOT EXISTS anchors JSONB DEFAULT '[]'::JSONB;
-
--- Add comment explaining the structure
-COMMENT ON COLUMN focus_items.anchors IS
-'Array of anchor objects, each with type and value. Example: [{"type":"at","value":"3pm"},{"type":"while","value":"listening to music"}]';
-
--- Migrate existing single anchor data to new format
-UPDATE focus_items
-SET anchors = CASE
-    WHEN anchor_type IS NOT NULL AND anchor_value IS NOT NULL THEN
-        jsonb_build_array(
-            jsonb_build_object('type', anchor_type, 'value', anchor_value)
-        )
-    ELSE
-        '[]'::JSONB
-END
-WHERE anchors = '[]'::JSONB OR anchors IS NULL;
-
--- Keep old columns for backward compatibility (we'll remove them in a future migration after testing)
--- This allows rollback if needed
-
--- Add index for JSONB queries
-CREATE INDEX IF NOT EXISTS idx_focus_items_anchors ON focus_items USING GIN (anchors);
-
--- Add the same column to planned_items table
-ALTER TABLE planned_items
-ADD COLUMN IF NOT EXISTS anchors JSONB DEFAULT '[]'::JSONB;
-
-COMMENT ON COLUMN planned_items.anchors IS
-'Array of anchor objects, each with type and value. Example: [{"type":"at","value":"3pm"},{"type":"while","value":"listening to music"}]';
-
--- Migrate existing planned_items anchor data
-UPDATE planned_items
-SET anchors = CASE
-    WHEN anchor_type IS NOT NULL AND anchor_value IS NOT NULL THEN
-        jsonb_build_array(
-            jsonb_build_object('type', anchor_type, 'value', anchor_value)
-        )
-    ELSE
-        '[]'::JSONB
-END
-WHERE anchors = '[]'::JSONB OR anchors IS NULL;
-
-CREATE INDEX IF NOT EXISTS idx_planned_items_anchors ON planned_items USING GIN (anchors);
-
--- Update the create_checkin_with_focus function to handle multiple anchors
 CREATE OR REPLACE FUNCTION create_checkin_with_focus(
     p_user_id UUID,
     p_internal_weather TEXT,
@@ -72,11 +26,11 @@ DECLARE
     barrier_type_identifier UUID;
     description TEXT;
     sort_position INTEGER;
-    anchor_selection TEXT;
-    anchor_text TEXT;
     anchors_array JSONB;
     item_task_type TEXT;
     item_complexity TEXT;
+    existing_item_ids UUID[];
+    incoming_item_ids TEXT[];
 BEGIN
     -- Validate and normalize the checkin date
     IF p_checkin_date IS NULL THEN
@@ -107,7 +61,17 @@ BEGIN
 
         RAISE NOTICE 'Updating existing check-in %', existing_checkin_id;
 
+        -- Collect all incoming item IDs (these are temporary client-side UUIDs)
+        SELECT array_agg(value->>'id') INTO incoming_item_ids
+        FROM jsonb_array_elements(p_focus_items);
+
+        -- Collect all existing item IDs from database
+        SELECT array_agg(id) INTO existing_item_ids
+        FROM focus_items
+        WHERE checkin_id = existing_checkin_id;
+
         -- Delete focus items that are no longer in the incoming list
+        -- We match by sort_order and description to identify "same" items
         DELETE FROM focus_items fi
         WHERE fi.checkin_id = existing_checkin_id
         AND NOT EXISTS (
@@ -144,24 +108,41 @@ BEGIN
 
             sort_position := COALESCE((focus_record->>'sortOrder')::INT, 0);
 
-            -- Handle both old single anchor format and new multiple anchors format
+            -- Handle multiple anchors format (new) or single anchor format (old, for backward compatibility)
             IF focus_record ? 'anchors' THEN
-                -- New format: multiple anchors
                 anchors_array := COALESCE(focus_record->'anchors', '[]'::JSONB);
             ELSIF focus_record ? 'anchorType' AND focus_record ? 'anchorValue' THEN
                 -- Old format: single anchor (backward compatibility)
-                anchor_selection := lower(trim(COALESCE(focus_record->>'anchorType', '')));
-                anchor_text := NULLIF(trim(COALESCE(focus_record->>'anchorValue', '')), '');
+                DECLARE
+                    anchor_selection TEXT;
+                    anchor_text TEXT;
+                BEGIN
+                    anchor_selection := lower(trim(COALESCE(focus_record->>'anchorType', '')));
+                    anchor_text := NULLIF(trim(COALESCE(focus_record->>'anchorValue', '')), '');
 
-                IF anchor_selection IN ('at', 'while', 'before', 'after') AND anchor_text IS NOT NULL THEN
-                    anchors_array := jsonb_build_array(
-                        jsonb_build_object('type', anchor_selection, 'value', anchor_text)
-                    );
-                ELSE
-                    anchors_array := '[]'::JSONB;
-                END IF;
+                    IF anchor_selection IN ('at', 'while', 'before', 'after') AND anchor_text IS NOT NULL THEN
+                        anchors_array := jsonb_build_array(
+                            jsonb_build_object('type', anchor_selection, 'value', anchor_text)
+                        );
+                    ELSE
+                        anchors_array := '[]'::JSONB;
+                    END IF;
+                END;
             ELSE
                 anchors_array := '[]'::JSONB;
+            END IF;
+
+            -- Get task type and complexity (default to 'focus' and 'medium' if not provided)
+            item_task_type := COALESCE(focus_record->>'taskType', 'focus');
+            item_complexity := COALESCE(focus_record->>'complexity', 'medium');
+
+            -- Validate task_type and complexity
+            IF item_task_type NOT IN ('focus', 'life') THEN
+                item_task_type := 'focus';
+            END IF;
+
+            IF item_complexity NOT IN ('quick', 'medium', 'deep') THEN
+                item_complexity := 'medium';
             END IF;
 
             SELECT COALESCE(
@@ -176,24 +157,11 @@ BEGIN
 
             -- Try to find existing focus item by description and sort order
             SELECT id INTO new_focus_item_id
-            FROM focus_items fi
-            WHERE fi.checkin_id = new_checkin_id
-              AND fi.description = COALESCE(trim(focus_record->>'description'), '')
-              AND fi.sort_order = sort_position
+            FROM focus_items
+            WHERE checkin_id = new_checkin_id
+              AND description = description
+              AND sort_order = sort_position
             LIMIT 1;
-
-            -- Get task type and complexity (default to 'focus' and 'medium' if not provided)
-            item_task_type := COALESCE(focus_record->>'taskType', 'focus');
-            item_complexity := COALESCE(focus_record->>'complexity', 'medium');
-
-            -- Validate task_type and complexity
-            IF item_task_type NOT IN ('focus', 'life') THEN
-                item_task_type := 'focus';
-            END IF;
-
-            IF item_complexity NOT IN ('quick', 'medium', 'deep') THEN
-                item_complexity := 'medium';
-            END IF;
 
             IF new_focus_item_id IS NOT NULL THEN
                 -- Update existing focus item
@@ -284,5 +252,6 @@ BEGIN
 END;
 $$;
 
+-- Add a comment explaining the improvement
 COMMENT ON FUNCTION create_checkin_with_focus IS
-'Upserts a check-in with focus items. Supports both single anchor (legacy) and multiple anchors per focus item. Includes task_type (focus/life) and complexity (quick/medium/deep) support.';
+'Upserts a check-in with focus items. Uses intelligent upsert logic that updates existing items instead of delete+recreate to prevent data loss and improve performance. Supports task_type (focus/life), complexity (quick/medium/deep), and multiple anchors.';

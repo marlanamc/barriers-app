@@ -4,12 +4,32 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { OnboardingLayout } from '@/components/onboarding/OnboardingLayout';
 import { useOnboarding } from '@/lib/onboarding-context';
+import { useSupabaseUser } from '@/lib/useSupabaseUser';
+import { supabase } from '@/lib/supabase';
 
 export default function CompletePage() {
   const router = useRouter();
-  const { completeOnboarding } = useOnboarding();
+  const { state, completeOnboarding } = useOnboarding();
+  const { user } = useSupabaseUser();
 
-  const handleGetStarted = () => {
+  const handleGetStarted = async () => {
+    // Save daily schedule to user metadata if it was set during onboarding
+    if (user && state.dailySchedule) {
+      try {
+        await supabase.auth.updateUser({
+          data: {
+            wake_time: state.dailySchedule.wake,
+            work_start: state.dailySchedule.workStart,
+            hard_stop: state.dailySchedule.hardStop,
+            bedtime: state.dailySchedule.bedtime,
+          },
+        });
+      } catch (error) {
+        console.error('Error saving daily schedule:', error);
+        // Continue anyway - user can set it later in settings
+      }
+    }
+
     completeOnboarding();
     router.push('/');
   };

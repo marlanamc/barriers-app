@@ -1,0 +1,391 @@
+/* Pastel Dark Theme for Markdown Preview */
+
+/* Base */
+body {
+  background-color: #1b1b2f !important;
+  color: #ffffff !important;
+  font-family: "Fira Code", "Menlo", "Consolas", sans-serif;
+  line-height: 1.6;
+  padding: 1.8rem;
+}
+
+body p {
+  color: #ffffff !important;
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+  color: #eecaff;
+  margin-top: 1.8rem;
+  margin-bottom: 0.6rem;
+  font-weight: 600;
+}
+
+/* Links */
+a {
+  color: #8fdde7;
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+/* Code blocks - comprehensive dark mode override */
+pre,
+pre[class*="language"],
+pre[class*="highlight"],
+.hljs,
+.vscode-dark pre,
+body.vscode-dark pre {
+  background: #2c2c3a !important;
+  background-color: #2c2c3a !important;
+  border-radius: 8px;
+  padding: 14px !important;
+  font-size: 14px;
+  overflow-x: auto;
+  color: #b9e4c9;
+  border: 1px solid #34344a !important;
+}
+
+pre code,
+pre code *,
+code[class*="language"],
+code[class*="language"] *,
+.hljs,
+.hljs *,
+.highlight pre,
+.highlight code,
+.highlight pre *,
+.highlight code * {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #b9e4c9;
+  padding: 0;
+}
+
+/* Code block containers - catch all wrapper divs */
+div[class*="code"],
+div[class*="highlight"],
+div[class*="language"],
+.hljs-wrapper,
+code-block,
+pre > code {
+  background: #2c2c3a !important;
+  background-color: #2c2c3a !important;
+}
+
+/* Force dark background on any element inside pre */
+pre * {
+  background-color: transparent !important;
+}
+
+/* Inline code - only style when not inside pre */
+body > *:not(pre) code,
+p code,
+li code,
+td code,
+dd code,
+dt code,
+h1 code,
+h2 code,
+h3 code,
+h4 code,
+h5 code,
+h6 code {
+  background: #2c2c3a !important;
+  background-color: #2c2c3a !important;
+  padding: 3px 6px;
+  border-radius: 4px;
+  color: #ffd6a5 !important;
+  font-size: 0.95em;
+}
+
+/* Override any white/light backgrounds */
+pre[style*="background"],
+code[style*="background"] {
+  background: #2c2c3a !important;
+  background-color: #2c2c3a !important;
+}
+
+/* Syntax highlighting colors - Pastel theme */
+pre code,
+.hljs {
+  color: #b9e4c9;
+}
+
+/* Keywords (const, let, function, class, if, else, etc.) */
+.hljs-keyword,
+.hljs-built_in,
+.token.keyword,
+code .hljs-keyword,
+code .hljs-built_in {
+  color: #eecaff !important; /* Pastel purple */
+}
+
+/* Strings */
+.hljs-string,
+.hljs-attr,
+.token.string,
+.token.attr-value,
+code .hljs-string,
+code .hljs-attr {
+  color: #ffd6a5 !important; /* Pastel orange */
+}
+
+/* Functions and method names */
+.hljs-title.function_,
+.hljs-title.class_,
+.hljs-name,
+.token.function,
+.token.class-name,
+code .hljs-title,
+code .hljs-name {
+  color: #8fdde7 !important; /* Pastel cyan */
+}
+
+/* Comments */
+.hljs-comment,
+.token.comment,
+code .hljs-comment {
+  color: #6b7280 !important; /* Gray */
+  font-style: italic;
+}
+
+/* Numbers */
+.hljs-number,
+.token.number,
+code .hljs-number {
+  color: #ffcad4 !important; /* Pastel pink */
+}
+
+/* Operators and punctuation */
+.hljs-operator,
+.hljs-punctuation,
+.token.operator,
+.token.punctuation,
+code .hljs-operator {
+  color: #f5f0ff !important; /* Light white */
+}
+
+/* Variables and properties */
+.hljs-variable,
+.hljs-property,
+.token.variable,
+.token.property,
+code .hljs-variable,
+code .hljs-property {
+  color: #b9e4c9 !important; /* Pastel green */
+}
+
+/* Regex and template literals */
+.hljs-regexp,
+.hljs-template-string,
+.token.regexp,
+.token.template-string {
+  color: #ffd6a5 !important; /* Pastel orange */
+}
+
+/* Type annotations (TypeScript) */
+.hljs-type,
+.token.type-name {
+  color: #8fdde7 !important; /* Pastel cyan */
+}
+
+/* Constants */
+.hljs-literal,
+.token.boolean,
+.token.null,
+code .hljs-literal {
+  color: #ffcad4 !important; /* Pastel pink */
+}
+
+/* Lists */
+ul, ol {
+  margin-left: 1.5rem;
+  padding-left: 0.2rem;
+}
+
+/* Blockquote */
+.markdown-preview blockquote,
+blockquote {
+  background: #24243a !important;
+  border-left: 4px solid #ffcad4 !important;
+  padding: 1rem 1.2rem;
+  margin: 1.5rem 0;
+  border-radius: 6px;
+  font-style: italic;
+  color: #f4ddef !important;
+}
+
+/* Tables */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1.5rem 0;
+  background-color: #24243a !important;
+  border-radius: 6px;
+  overflow: hidden;
+}
+th, td {
+  border: 1px solid #34344a !important;
+  padding: 10px;
+}
+th {
+  background: #2c2c3a !important;
+  background-color: #2c2c3a !important;
+  color: #ffffff !important;
+  font-weight: 700;
+  text-align: left;
+}
+td {
+  background: #24243a !important;
+  background-color: #24243a !important;
+  color: #ffffff !important;
+}
+/* Table text elements */
+table p,
+table li,
+table span {
+  color: #ffffff !important;
+}
+
+/* Horizontal Rule */
+hr {
+  border: none;
+  border-top: 1px solid #34344a;
+  margin: 2.2rem 0;
+}
+
+/* Bold text fix */
+strong,
+b {
+  color: #eecaff;
+  font-weight: 700;
+}
+
+/* Nuclear option - override ALL code blocks and prevent white backgrounds */
+pre,
+pre[class],
+pre[id],
+pre[style] {
+  background-color: #2c2c3a !important;
+  background: #2c2c3a !important;
+}
+
+pre * {
+  background-color: transparent !important;
+}
+
+pre code,
+pre code[class],
+pre code[id],
+pre code[style],
+pre code * {
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
+/* Target VS Code specific classes */
+.vscode-body pre,
+.markdown-body pre {
+  background-color: #2c2c3a !important;
+  background: #2c2c3a !important;
+}
+
+/* Print styles - Light mode for printing */
+@media print {
+  body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  body p {
+    color: #000000 !important;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    color: #1a1a1a !important;
+  }
+
+  a {
+    color: #0066cc !important;
+  }
+
+  pre,
+  pre[class*="language"],
+  pre[class*="highlight"],
+  .hljs,
+  .vscode-dark pre,
+  body.vscode-dark pre {
+    background: #f5f5f5 !important;
+    background-color: #f5f5f5 !important;
+    border: 1px solid #ddd !important;
+    color: #000000 !important;
+  }
+
+  pre code,
+  pre code *,
+  code[class*="language"],
+  code[class*="language"] *,
+  .hljs,
+  .hljs * {
+    color: #000000 !important;
+  }
+
+  body > *:not(pre) code,
+  p code,
+  li code,
+  td code,
+  dd code,
+  dt code,
+  h1 code,
+  h2 code,
+  h3 code,
+  h4 code,
+  h5 code,
+  h6 code {
+    background: #f5f5f5 !important;
+    background-color: #f5f5f5 !important;
+    color: #000000 !important;
+  }
+
+  blockquote {
+    background: #f9f9f9 !important;
+    border-left: 4px solid #666 !important;
+    color: #333 !important;
+  }
+
+  table {
+    background-color: #ffffff !important;
+  }
+
+  th {
+    background: #f5f5f5 !important;
+    background-color: #f5f5f5 !important;
+    color: #000000 !important;
+    border: 1px solid #ddd !important;
+  }
+
+  td {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    border: 1px solid #ddd !important;
+  }
+
+  table p,
+  table li,
+  table span {
+    color: #000000 !important;
+  }
+
+  strong,
+  b {
+    color: #000000 !important;
+  }
+
+  hr {
+    border-top: 1px solid #ccc !important;
+  }
+}
+

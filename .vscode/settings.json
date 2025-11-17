@@ -1,0 +1,7 @@
+{
+  "markdown.preview.colorTheme": "dark",
+  "markdown.styles": [
+    ".vscode/markdown-preview-dark.css"
+  ]
+}
+

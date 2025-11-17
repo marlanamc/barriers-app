@@ -167,12 +167,12 @@ export default function TomorrowPage() {
           )}
         </div>
 
-        {/* Floating Quick Add Button */}
+        {/* Floating Add Item Button */}
         <button
           type="button"
           onClick={() => setShowQuickAddModal(true)}
           className="fixed bottom-24 right-8 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-[0_8px_24px_rgba(245,158,11,0.4)] transition hover:scale-105 hover:shadow-[0_12px_32px_rgba(245,158,11,0.5)]"
-          aria-label="Quick add task for tomorrow"
+          aria-label="Add item for tomorrow"
         >
           <Plus className="h-6 w-6" />
         </button>

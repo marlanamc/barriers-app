@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Brain, Plus, ArrowRight, X } from 'lucide-react';
-import Link from 'next/link';
+import { Brain, Plus, ArrowRight, X } from 'lucide-react';
 import { useSupabaseUser } from '@/lib/useSupabaseUser';
 import { getCheckinByDate } from '@/lib/supabase';
 import { getTodayLocalDateString } from '@/lib/date-utils';
@@ -102,13 +101,7 @@ export default function BrainDumpPage() {
 
         <div className="relative mx-auto flex min-h-screen max-w-2xl flex-col gap-4 px-4 pb-16 pt-6">
           {/* Header */}
-          <div className="flex items-center gap-4">
-            <Link
-              href="/"
-              className="rounded-full p-2 text-slate-600 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
+          <div className="flex items-center gap-4 pl-12 sm:pl-14">
             <div className="flex-1">
               <div className="flex items-center gap-2">
                 <Brain className="h-6 w-6 text-pink-600 dark:text-pink-400" />
@@ -123,8 +116,7 @@ export default function BrainDumpPage() {
           {/* Description */}
           <div className="rounded-2xl border border-pink-200 bg-pink-50 p-4 dark:border-pink-800/30 dark:bg-pink-900/20">
             <p className="text-sm text-pink-900 dark:text-pink-100">
-              🧠 <strong>Your Brain Dump</strong> is for those racing thoughts - get them out of your head without pressure.
-              When you're ready, promote them to Today or let them go.
+              🧠 <strong>Your Brain Dump</strong> is for those racing thoughts, get them out of your head without pressure.
             </p>
           </div>
 
@@ -187,12 +179,12 @@ export default function BrainDumpPage() {
           )}
         </div>
 
-        {/* Floating Quick Add Button */}
+        {/* Floating Add Item Button */}
         <button
           type="button"
           onClick={() => setShowAddModal(true)}
           className="fixed bottom-24 right-8 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-pink-600 to-pink-700 text-white shadow-[0_8px_24px_rgba(219,39,119,0.4)] transition hover:scale-105 hover:shadow-[0_12px_32px_rgba(219,39,119,0.5)]"
-          aria-label="Quick add to brain dump"
+          aria-label="Add item to brain dump"
         >
           <Plus className="h-6 w-6" />
         </button>

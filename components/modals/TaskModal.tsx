@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, AlertCircle, ChevronDown, ChevronUp, Tag } from 'lucide-react';
 import { TaskComplexity, TaskType } from '@/lib/capacity';
 import { getBarrierTypes, type BarrierType } from '@/lib/supabase';
 import { type TaskAnchorType, type TaskAnchor } from '@/lib/checkin-context';
 import { cleanAnchorInput, anchorLabel, getMergedAnchorSuggestions, defaultAnchorSuggestionMap } from '@/lib/anchors';
 import { useSupabaseUser } from '@/lib/useSupabaseUser';
+import { getCategoryOptions, getCategoryEmoji, type CategoryOption } from '@/lib/categories';
 
 interface TaskModalProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ interface TaskModalProps {
       barrierTypeId?: string | null;
       custom?: string;
     };
+    categories?: string[];
   };
   onClose: () => void;
   onSave: (task: {
@@ -35,6 +37,7 @@ interface TaskModalProps {
       barrierTypeId?: string | null;
       custom?: string;
     };
+    categories?: string[];
   }) => void;
 }
 
@@ -93,6 +96,11 @@ export function TaskModal({ isOpen, mode, taskType, initialData, onClose, onSave
   const [complexity, setComplexity] = useState<TaskComplexity>('medium');
   const [error, setError] = useState('');
 
+  // Categories/Tags state
+  const [categoryOptions, setCategoryOptions] = useState<CategoryOption[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [showCategories, setShowCategories] = useState(false);
+
   // Barrier state
   const [barrierTypes, setBarrierTypes] = useState<BarrierType[]>([]);
   const [selectedBarrierSlug, setSelectedBarrierSlug] = useState('');
@@ -110,6 +118,13 @@ export function TaskModal({ isOpen, mode, taskType, initialData, onClose, onSave
     before: defaultAnchorSuggestionMap.before || [],
     after: defaultAnchorSuggestionMap.after || [],
   });
+
+  // Load category options
+  useEffect(() => {
+    if (user?.id) {
+      getCategoryOptions(user.id).then(setCategoryOptions);
+    }
+  }, [user?.id]);
 
   // Load barrier types
   useEffect(() => {
@@ -146,16 +161,20 @@ export function TaskModal({ isOpen, mode, taskType, initialData, onClose, onSave
       setDescription(initialData.description);
       setComplexity(initialData.complexity);
       setAnchors(initialData.anchors || []);
+      setSelectedCategories(initialData.categories || []);
       setSelectedBarrierSlug(initialData.barrier?.barrierTypeSlug || '');
       setBarrierCustom(initialData.barrier?.custom || '');
+      setShowCategories(Boolean(initialData.categories && initialData.categories.length > 0));
       setShowBarriers(Boolean(initialData.barrier?.barrierTypeSlug || initialData.barrier?.custom));
       setShowAnchors(Boolean(initialData.anchors && initialData.anchors.length > 0));
     } else {
       setDescription('');
       setComplexity('medium');
       setAnchors([]);
+      setSelectedCategories([]);
       setSelectedBarrierSlug('');
       setBarrierCustom('');
+      setShowCategories(false);
       setShowBarriers(false);
       setShowAnchors(false);
     }
@@ -182,6 +201,7 @@ export function TaskModal({ isOpen, mode, taskType, initialData, onClose, onSave
       description: trimmedDescription,
       complexity,
       taskType,
+      categories: selectedCategories.length > 0 ? selectedCategories : undefined,
       anchors: anchors.length > 0 ? anchors : undefined,
       barrier: (selectedBarrierSlug || barrierCustom.trim()) ? {
         barrierTypeSlug: selectedBarrierSlug || undefined,
@@ -213,6 +233,12 @@ export function TaskModal({ isOpen, mode, taskType, initialData, onClose, onSave
 
   const handleRemoveAnchor = (index: number) => {
     setAnchors(anchors.filter((_, i) => i !== index));
+  };
+
+  const toggleCategory = (category: string) => {
+    setSelectedCategories((prev) =>
+      prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category]
+    );
   };
 
   const isFocusTask = taskType === 'focus';
@@ -279,54 +305,31 @@ export function TaskModal({ isOpen, mode, taskType, initialData, onClose, onSave
               />
             </div>
 
-            {/* Complexity Picker (only for focus tasks) */}
+            {/* Complexity Picker (only for focus tasks) - Condensed */}
             {isFocusTask && (
-              <div className="space-y-3">
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                  How hard is this task?
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Complexity
                 </label>
-                <div className="space-y-2">
+                <div className="grid grid-cols-3 gap-2">
                   {COMPLEXITY_OPTIONS.map((option) => {
                     const isSelected = complexity === option.value;
-
                     return (
                       <button
                         key={option.value}
                         onClick={() => setComplexity(option.value)}
-                        className={`flex w-full items-center justify-between rounded-lg border-2 p-3 text-left transition ${
+                        className={`rounded-lg border-2 p-2.5 text-center transition ${
                           isSelected
                             ? 'border-cyan-500 bg-cyan-50 dark:bg-cyan-900/30'
-                            : option.color
+                            : 'border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-600'
                         }`}
                       >
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-slate-900 dark:text-slate-100">
-                              {option.label}
-                            </span>
-                            <span className="text-xs text-slate-500 dark:text-slate-400">
-                              {option.points}
-                            </span>
-                          </div>
-                          <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-400">
-                            {option.description}
-                          </p>
+                        <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                          {option.label}
                         </div>
-                        {isSelected && (
-                          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-cyan-600 dark:bg-cyan-500">
-                            <svg
-                              className="h-3 w-3 text-white"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                          </div>
-                        )}
+                        <div className="text-xs text-slate-500 dark:text-slate-400">
+                          {option.points}
+                        </div>
                       </button>
                     );
                   })}
@@ -334,101 +337,128 @@ export function TaskModal({ isOpen, mode, taskType, initialData, onClose, onSave
               </div>
             )}
 
-            {/* Barriers Section (only for focus tasks) */}
+            {/* Categories/Tags Section (only for focus tasks) - Condensed */}
             {isFocusTask && (
-              <div className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-800/40 dark:bg-amber-900/20">
+              <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/50 p-3 dark:border-slate-700 dark:bg-slate-800/40">
                 <button
                   type="button"
-                  onClick={() => setShowBarriers(!showBarriers)}
+                  onClick={() => setShowCategories(!showCategories)}
                   className="flex w-full items-center justify-between text-left"
                 >
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                      {selectedBarrierSlug || barrierCustom.trim()
-                        ? `Barrier: ${barrierTypes.find(b => b.slug === selectedBarrierSlug)?.label || barrierCustom}`
-                        : "What feels hard? (optional)"}
-                    </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Identify barriers to get targeted support
-                    </p>
+                  <div className="flex items-center gap-2">
+                    <Tag className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                      {selectedCategories.length > 0
+                        ? `Tags: ${selectedCategories.map(c => getCategoryEmoji(c) + ' ' + c).join(', ')}`
+                        : 'Tags (optional)'}
+                    </span>
                   </div>
-                  {showBarriers ? (
-                    <ChevronUp className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                  {showCategories ? (
+                    <ChevronUp className="h-3 w-3 text-slate-500 dark:text-slate-400" />
                   ) : (
-                    <ChevronDown className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                    <ChevronDown className="h-3 w-3 text-slate-500 dark:text-slate-400" />
                   )}
                 </button>
 
-                {showBarriers && (
-                  <div className="space-y-3 pt-2 border-t border-amber-200/50 dark:border-amber-700/30">
-                    <div>
-                      <label className="text-xs font-medium text-slate-700 dark:text-slate-200">
-                        Pick a barrier
-                      </label>
-                      <select
-                        value={selectedBarrierSlug}
-                        onChange={(e) => setSelectedBarrierSlug(e.target.value)}
-                        className="mt-1.5 w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 dark:border-amber-700/50 dark:bg-slate-700 dark:text-slate-100"
-                      >
-                        <option value="">Choose one...</option>
-                        {barrierTypes.map((barrier) => (
-                          <option key={barrier.id} value={barrier.slug}>
-                            {barrier.icon ? `${barrier.icon} ` : ""}{barrier.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-medium text-slate-700 dark:text-slate-200">
-                        Or describe what's in the way
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={barrierCustom}
-                        onChange={(e) => setBarrierCustom(e.target.value)}
-                        placeholder="Overwhelmed, low energy, waiting on a reply..."
-                        className="mt-1.5 w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 dark:border-amber-700/50 dark:bg-slate-700 dark:text-slate-100"
-                      />
-                    </div>
+                {showCategories && (
+                  <div className="mt-2 flex flex-wrap gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                    {categoryOptions.map((category) => {
+                      const isSelected = selectedCategories.includes(category.label);
+                      return (
+                        <button
+                          key={category.label}
+                          type="button"
+                          onClick={() => toggleCategory(category.label)}
+                          className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition ${
+                            isSelected
+                              ? 'border-cyan-500 bg-cyan-100 text-cyan-700 dark:border-cyan-500 dark:bg-cyan-900/40 dark:text-cyan-200'
+                              : 'border-slate-300 bg-white text-slate-600 hover:border-slate-400 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300 dark:hover:border-slate-500'
+                          }`}
+                        >
+                          {category.emoji && <span>{category.emoji}</span>}
+                          <span>{category.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
             )}
 
-            {/* Anchors Section (optional) */}
-            <div className="space-y-3 rounded-2xl border border-cyan-200 bg-cyan-50/50 p-4 dark:border-cyan-800/40 dark:bg-cyan-900/20">
+            {/* Barriers Section (only for focus tasks) - Condensed */}
+            {isFocusTask && (
+              <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-800/40 dark:bg-amber-900/20">
+                <button
+                  type="button"
+                  onClick={() => setShowBarriers(!showBarriers)}
+                  className="flex w-full items-center justify-between text-left"
+                >
+                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                    {selectedBarrierSlug || barrierCustom.trim()
+                      ? `Barrier: ${barrierTypes.find(b => b.slug === selectedBarrierSlug)?.label || barrierCustom}`
+                      : "Barrier (optional)"}
+                  </span>
+                  {showBarriers ? (
+                    <ChevronUp className="h-3 w-3 text-slate-500 dark:text-slate-400" />
+                  ) : (
+                    <ChevronDown className="h-3 w-3 text-slate-500 dark:text-slate-400" />
+                  )}
+                </button>
+
+                {showBarriers && (
+                  <div className="space-y-2 pt-2 border-t border-amber-200/50 dark:border-amber-700/30">
+                    <select
+                      value={selectedBarrierSlug}
+                      onChange={(e) => setSelectedBarrierSlug(e.target.value)}
+                      className="w-full rounded-lg border border-amber-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 dark:border-amber-700/50 dark:bg-slate-700 dark:text-slate-100"
+                    >
+                      <option value="">Choose one...</option>
+                      {barrierTypes.map((barrier) => (
+                        <option key={barrier.id} value={barrier.slug}>
+                          {barrier.icon ? `${barrier.icon} ` : ""}{barrier.label}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      value={barrierCustom}
+                      onChange={(e) => setBarrierCustom(e.target.value)}
+                      placeholder="Or describe what's in the way..."
+                      className="w-full rounded-lg border border-amber-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 dark:border-amber-700/50 dark:bg-slate-700 dark:text-slate-100"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Anchors Section (optional) - Condensed */}
+            <div className="space-y-2 rounded-xl border border-cyan-200 bg-cyan-50/50 p-3 dark:border-cyan-800/40 dark:bg-cyan-900/20">
               <button
                 type="button"
                 onClick={() => setShowAnchors(!showAnchors)}
                 className="flex w-full items-center justify-between text-left"
               >
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                    {anchors.length > 0
-                      ? `Anchors: ${anchors.map(a => anchorLabel(a.type, a.value)).join(', ')}`
-                      : "Link to time or rhythm? (optional)"}
-                  </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    at, while, before, after
-                  </p>
-                </div>
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                  {anchors.length > 0
+                    ? `Anchors: ${anchors.map(a => anchorLabel(a.type, a.value)).join(', ')}`
+                    : "Time anchor (optional)"}
+                </span>
                 {showAnchors ? (
-                  <ChevronUp className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                  <ChevronUp className="h-3 w-3 text-slate-500 dark:text-slate-400" />
                 ) : (
-                  <ChevronDown className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                  <ChevronDown className="h-3 w-3 text-slate-500 dark:text-slate-400" />
                 )}
               </button>
 
               {showAnchors && (
-                <div className="space-y-3 pt-2 border-t border-cyan-200/50 dark:border-cyan-700/30">
+                <div className="space-y-2 pt-2 border-t border-cyan-200/50 dark:border-cyan-700/30">
                   {/* Display existing anchors */}
                   {anchors.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-1.5">
                       {anchors.map((anchor, index) => (
                         <div
                           key={index}
-                          className="flex items-center gap-2 rounded-full bg-cyan-600 px-3 py-1.5 text-sm font-semibold text-white dark:bg-cyan-500"
+                          className="flex items-center gap-1.5 rounded-full bg-cyan-600 px-2 py-1 text-xs font-semibold text-white dark:bg-cyan-500"
                         >
                           <span>{anchorLabel(anchor.type, anchor.value)}</span>
                           <button
@@ -437,7 +467,7 @@ export function TaskModal({ isOpen, mode, taskType, initialData, onClose, onSave
                             className="rounded-full hover:bg-cyan-700 dark:hover:bg-cyan-600 p-0.5"
                             aria-label="Remove anchor"
                           >
-                            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                             </svg>
                           </button>
@@ -451,13 +481,13 @@ export function TaskModal({ isOpen, mode, taskType, initialData, onClose, onSave
                     <button
                       type="button"
                       onClick={() => setAddingAnchor(true)}
-                      className="w-full rounded-lg border border-dashed border-cyan-300 bg-white/50 px-3 py-2 text-sm font-semibold text-cyan-700 transition hover:bg-white dark:border-cyan-600/50 dark:bg-slate-800/40 dark:text-cyan-400 dark:hover:bg-slate-800/60"
+                      className="w-full rounded-lg border border-dashed border-cyan-300 bg-white/50 px-2.5 py-1.5 text-xs font-semibold text-cyan-700 transition hover:bg-white dark:border-cyan-600/50 dark:bg-slate-800/40 dark:text-cyan-400 dark:hover:bg-slate-800/60"
                     >
                       + Add {anchors.length > 0 ? "Another" : "an"} Anchor
                     </button>
                   ) : (
-                    <div className="space-y-3 rounded-lg border border-cyan-300 bg-white p-3 dark:border-cyan-700/50 dark:bg-slate-800/60">
-                      <div className="flex flex-wrap gap-2 text-sm">
+                    <div className="space-y-2 rounded-lg border border-cyan-300 bg-white p-2.5 dark:border-cyan-700/50 dark:bg-slate-800/60">
+                      <div className="flex flex-wrap gap-1.5 text-xs">
                         {anchorOptions.map(({ type, label }) => {
                           const active = newAnchorType === type;
                           return (
@@ -468,7 +498,7 @@ export function TaskModal({ isOpen, mode, taskType, initialData, onClose, onSave
                                 setNewAnchorType(type);
                                 setNewAnchorValue(type === "at" ? new Date().toTimeString().slice(0, 5) : "");
                               }}
-                              className={`rounded-full px-3 py-1.5 font-semibold transition ${
+                              className={`rounded-full px-2.5 py-1 font-semibold transition ${
                                 active
                                   ? "bg-cyan-600 text-white shadow dark:bg-cyan-500"
                                   : "bg-slate-100 text-slate-600 hover:bg-cyan-100 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
@@ -481,39 +511,31 @@ export function TaskModal({ isOpen, mode, taskType, initialData, onClose, onSave
                       </div>
 
                       {newAnchorType === "at" && (
-                        <div className="space-y-1.5">
-                          <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                            Pick a time
-                          </label>
-                          <input
-                            type="time"
-                            value={newAnchorValue}
-                            onChange={(e) => setNewAnchorValue(e.target.value)}
-                            className="w-full rounded-lg border border-cyan-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 dark:border-cyan-600/50 dark:bg-slate-700 dark:text-slate-100"
-                          />
-                        </div>
+                        <input
+                          type="time"
+                          value={newAnchorValue}
+                          onChange={(e) => setNewAnchorValue(e.target.value)}
+                          className="w-full rounded-lg border border-cyan-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 dark:border-cyan-600/50 dark:bg-slate-700 dark:text-slate-100"
+                        />
                       )}
 
                       {newAnchorType && newAnchorType !== "at" && (
                         <div className="space-y-1.5">
-                          <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                            {anchorTextLabels[newAnchorType as Exclude<TaskAnchorType, "at">]}
-                          </label>
                           <input
                             type="text"
                             value={newAnchorValue}
                             onChange={(e) => setNewAnchorValue(cleanAnchorInput(newAnchorType, e.target.value))}
                             placeholder={anchorPlaceholders[newAnchorType as Exclude<TaskAnchorType, "at">]}
-                            className="w-full rounded-lg border border-cyan-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 dark:border-cyan-600/50 dark:bg-slate-700 dark:text-slate-100"
+                            className="w-full rounded-lg border border-cyan-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 dark:border-cyan-600/50 dark:bg-slate-700 dark:text-slate-100"
                           />
                           {newAnchorType && mergedAnchorSuggestions[newAnchorType as Exclude<TaskAnchorType, "at">] && (
-                            <div className="flex flex-wrap gap-2 text-xs">
+                            <div className="flex flex-wrap gap-1.5 text-xs">
                               {(mergedAnchorSuggestions[newAnchorType as Exclude<TaskAnchorType, "at">] || []).slice(0, 4).map((suggestion) => (
                                 <button
                                   type="button"
                                   key={suggestion}
                                   onClick={() => setNewAnchorValue(suggestion)}
-                                  className="rounded-full border border-cyan-300 bg-white px-2 py-1 text-slate-600 transition hover:border-cyan-400 hover:text-cyan-700 dark:border-cyan-700/50 dark:bg-slate-700 dark:text-slate-200"
+                                  className="rounded-full border border-cyan-300 bg-white px-2 py-0.5 text-slate-600 transition hover:border-cyan-400 hover:text-cyan-700 dark:border-cyan-700/50 dark:bg-slate-700 dark:text-slate-200"
                                 >
                                   {suggestion}
                                 </button>
@@ -528,9 +550,9 @@ export function TaskModal({ isOpen, mode, taskType, initialData, onClose, onSave
                           type="button"
                           onClick={handleAddAnchor}
                           disabled={!newAnchorType || !newAnchorValue}
-                          className="flex-1 rounded-lg bg-cyan-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-cyan-500 dark:hover:bg-cyan-600"
+                          className="flex-1 rounded-lg bg-cyan-600 px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-cyan-500 dark:hover:bg-cyan-600"
                         >
-                          Add Anchor
+                          Add
                         </button>
                         <button
                           type="button"
@@ -539,23 +561,12 @@ export function TaskModal({ isOpen, mode, taskType, initialData, onClose, onSave
                             setNewAnchorType(null);
                             setNewAnchorValue('');
                           }}
-                          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300"
+                          className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300"
                         >
                           Cancel
                         </button>
                       </div>
                     </div>
-                  )}
-
-                  {/* Clear all anchors */}
-                  {anchors.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setAnchors([])}
-                      className="text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-                    >
-                      Clear all anchors
-                    </button>
                   )}
                 </div>
               )}

@@ -6,9 +6,11 @@ export interface OnboardingState {
   completed: boolean;
   currentStep: number;
   skippedSteps: string[];
-  workHours: {
-    start: string;
+  dailySchedule: {
+    wake: string;
+    workStart: string;
     hardStop: string;
+    bedtime: string;
   } | null;
   hasSeenTip: {
     lifeMaintenanceIntro: boolean;
@@ -23,7 +25,7 @@ interface OnboardingContextValue {
   completeOnboarding: () => void;
   setCurrentStep: (step: number) => void;
   skipStep: (stepName: string) => void;
-  setWorkHours: (start: string, hardStop: string) => void;
+  setDailySchedule: (wake: string, workStart: string, hardStop: string, bedtime: string) => void;
   markTipAsSeen: (tipName: keyof OnboardingState['hasSeenTip']) => void;
   resetOnboarding: () => void;
 }
@@ -32,7 +34,7 @@ const defaultState: OnboardingState = {
   completed: false,
   currentStep: 0,
   skippedSteps: [],
-  workHours: null,
+  dailySchedule: null,
   hasSeenTip: {
     lifeMaintenanceIntro: false,
     barriersIntro: false,
@@ -88,10 +90,10 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
-  const setWorkHours = useCallback((start: string, hardStop: string) => {
+  const setDailySchedule = useCallback((wake: string, workStart: string, hardStop: string, bedtime: string) => {
     setState((prev) => ({
       ...prev,
-      workHours: { start, hardStop },
+      dailySchedule: { wake, workStart, hardStop, bedtime },
     }));
   }, []);
 
@@ -115,7 +117,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     completeOnboarding,
     setCurrentStep,
     skipStep,
-    setWorkHours,
+    setDailySchedule,
     markTipAsSeen,
     resetOnboarding,
   };

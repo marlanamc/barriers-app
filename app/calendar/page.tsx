@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ChevronLeft, ChevronRight, X, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Check } from "lucide-react";
 import Link from "next/link";
 import { type TaskAnchorType } from "@/lib/checkin-context";
 import { useSupabaseUser } from "@/lib/useSupabaseUser";
@@ -132,14 +132,7 @@ export default function CalendarPage() {
     return (
       <main className="min-h-screen px-4 pb-16 pt-6">
         <div className="mx-auto max-w-5xl space-y-6">
-          <header className="flex items-center gap-4">
-            <Link
-              href="/"
-              className="rounded-full border border-white/40 bg-white/70 p-2 text-slate-600 transition hover:-translate-y-0.5 dark:border-slate-600/40 dark:bg-slate-800/70 dark:text-slate-300"
-              aria-label="Go back to home"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
+          <header className="flex items-center gap-4 pl-12 sm:pl-14">
             <div className="flex-1">
               <p className="text-sm uppercase tracking-wide text-cyan-600 dark:text-cyan-400">Calendar</p>
               <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Calendar</h1>
@@ -173,14 +166,7 @@ export default function CalendarPage() {
     <main className="min-h-screen px-4 pb-16 pt-6">
       <div className="mx-auto max-w-5xl space-y-6">
         {/* Header Section */}
-        <header className="flex items-start gap-4">
-          <Link
-            href="/"
-            className="mt-1 rounded-full border border-white/40 bg-white/70 p-2 text-slate-600 transition hover:-translate-y-0.5 active:scale-95"
-            aria-label="Go back to home"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
+        <header className="flex items-start gap-4 pl-12 sm:pl-14">
           <div className="flex-1 min-w-0">
             <p className="text-sm uppercase tracking-wide text-cyan-600 dark:text-cyan-400">Calendar</p>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Calendar</h1>
@@ -286,7 +272,7 @@ export default function CalendarPage() {
 
       {selectedCheckin && selectedDate && (
         <div 
-          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/30 px-4 pb-6 pt-12 backdrop-blur-sm sm:items-center"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 px-4 py-4 backdrop-blur-sm overflow-y-auto"
           role="dialog"
           aria-modal="true"
           aria-labelledby="checkin-modal-title"
@@ -294,12 +280,19 @@ export default function CalendarPage() {
             if (e.target === e.currentTarget) closeModal();
           }}
         >
-          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-xl dark:bg-slate-800 dark:border dark:border-slate-700/50">
+          <div className="w-full max-w-lg max-h-[90vh] rounded-3xl bg-white p-6 shadow-xl overflow-y-auto dark:bg-slate-800 dark:border dark:border-slate-700/50 my-auto">
             <div className="mb-4 flex items-start justify-between">
               <div>
-                <p className="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-200">{selectedDate}</p>
                 <p id="checkin-modal-title" className="text-xl font-semibold text-slate-900 dark:text-slate-100">
-                  {selectedCheckin.weather_icon} {selectedCheckin.internal_weather}
+                  {selectedDate ? (() => {
+                    const date = new Date(selectedDate + 'T00:00:00');
+                    return date.toLocaleDateString('en-US', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    });
+                  })() : selectedDate}
                 </p>
               </div>
               <button
@@ -312,49 +305,112 @@ export default function CalendarPage() {
               </button>
             </div>
 
+            {/* Notes Section */}
             {selectedCheckin.forecast_note && (
-              <p className="mb-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:bg-slate-700/50 dark:text-slate-200">
-                {selectedCheckin.forecast_note}
-              </p>
+              <div className="mb-6">
+                <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Notes</h3>
+                <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:bg-slate-700/50 dark:text-slate-200">
+                  {selectedCheckin.forecast_note}
+                </p>
+              </div>
             )}
 
-            <div className="space-y-3">
-              {selectedCheckin.focus_items && selectedCheckin.focus_items.length > 0 ? (
-                selectedCheckin.focus_items.map((item) => {
-                  if (!item) return null;
-                  const barrier = item.focus_barriers?.[0];
-                  const barrierLabel = barrier?.barrier_types?.label || barrier?.custom_barrier;
-                  // Support both new multiple anchors and legacy single anchor
-                  const anchorsArray = Array.isArray(item.anchors) ? item.anchors : [];
-                  const anchor = anchorsArray.length > 0
-                    ? buildMultipleAnchorsPhrase(anchorsArray as any)
-                    : anchorLabel((item.anchor_type as TaskAnchorType | null) ?? null, item.anchor_value || null);
-                  const categoryEmoji = getCategoryEmoji(item.categories?.[0]);
-                  return (
-                    <div key={item.id} className="rounded-2xl border border-white/40 bg-white px-4 py-3 dark:border-slate-600/40 dark:bg-slate-800/60">
-                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                        {categoryEmoji && <span className="text-xl" aria-hidden="true">{categoryEmoji}</span>}
-                        <span>{item.description}</span>
-                      </p>
-                    {anchor && (
-                      <div className="mt-2 rounded-2xl border border-cyan-100 bg-cyan-50/80 px-3 py-2 text-xs text-cyan-800 dark:border-cyan-800/40 dark:bg-cyan-900/25 dark:text-cyan-200">
-                        <p className="font-semibold uppercase tracking-wide text-[10px] text-cyan-600 dark:text-cyan-400">Anchor pairing</p>
-                        <p className="mt-0.5 font-medium">{anchor}</p>
+            {/* Focus Items Section */}
+            {selectedCheckin.focus_items && selectedCheckin.focus_items.length > 0 && (
+              (() => {
+                const focusItems = selectedCheckin.focus_items.filter((item: any) => !item || (item.task_type === 'focus' || !item.task_type));
+                const lifeItems = selectedCheckin.focus_items.filter((item: any) => item && item.task_type === 'life');
+                
+                return (
+                  <div className="space-y-6">
+                    {/* Focus Items */}
+                    {focusItems.length > 0 && (
+                      <div>
+                        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Focus Items</h3>
+                        <div className="space-y-3">
+                          {focusItems.map((item) => {
+                            if (!item) return null;
+                            const barrier = item.focus_barriers?.[0];
+                            const barrierLabel = barrier?.barrier_types?.label || barrier?.custom_barrier;
+                            // Support both new multiple anchors and legacy single anchor
+                            const anchorsArray = Array.isArray(item.anchors) ? item.anchors : [];
+                            const anchor = anchorsArray.length > 0
+                              ? buildMultipleAnchorsPhrase(anchorsArray as any)
+                              : anchorLabel((item.anchor_type as TaskAnchorType | null) ?? null, item.anchor_value || null);
+                            const categoryEmoji = getCategoryEmoji(item.categories?.[0]);
+                            return (
+                              <div key={item.id} className="rounded-2xl border border-white/40 bg-white px-4 py-3 dark:border-slate-600/40 dark:bg-slate-800/60">
+                                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                                  {categoryEmoji && <span className="text-xl" aria-hidden="true">{categoryEmoji}</span>}
+                                  <span>{item.description}</span>
+                                </p>
+                                {anchor && (
+                                  <div className="mt-2 rounded-2xl border border-cyan-100 bg-cyan-50/80 px-3 py-2 text-xs text-cyan-800 dark:border-cyan-800/40 dark:bg-cyan-900/25 dark:text-cyan-200">
+                                    <p className="font-semibold uppercase tracking-wide text-[10px] text-cyan-600 dark:text-cyan-400">Anchor pairing</p>
+                                    <p className="mt-0.5 font-medium">{anchor}</p>
+                                  </div>
+                                )}
+                                {barrierLabel && (
+                                  <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                                    {barrier?.barrier_types?.icon && <span className="mr-1" aria-hidden="true">{barrier.barrier_types.icon}</span>}
+                                    {barrierLabel}
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
-                    {barrierLabel && (
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {barrier?.barrier_types?.icon && <span className="mr-1" aria-hidden="true">{barrier.barrier_types.icon}</span>}
-                        {barrierLabel}
-                      </p>
+
+                    {/* Life Items */}
+                    {lifeItems.length > 0 && (
+                      <div>
+                        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Life Items</h3>
+                        <div className="space-y-3">
+                          {lifeItems.map((item) => {
+                            if (!item) return null;
+                            const barrier = item.focus_barriers?.[0];
+                            const barrierLabel = barrier?.barrier_types?.label || barrier?.custom_barrier;
+                            // Support both new multiple anchors and legacy single anchor
+                            const anchorsArray = Array.isArray(item.anchors) ? item.anchors : [];
+                            const anchor = anchorsArray.length > 0
+                              ? buildMultipleAnchorsPhrase(anchorsArray as any)
+                              : anchorLabel((item.anchor_type as TaskAnchorType | null) ?? null, item.anchor_value || null);
+                            const categoryEmoji = getCategoryEmoji(item.categories?.[0]);
+                            return (
+                              <div key={item.id} className="rounded-2xl border border-white/40 bg-white px-4 py-3 dark:border-slate-600/40 dark:bg-slate-800/60">
+                                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                                  {categoryEmoji && <span className="text-xl" aria-hidden="true">{categoryEmoji}</span>}
+                                  <span>{item.description}</span>
+                                </p>
+                                {anchor && (
+                                  <div className="mt-2 rounded-2xl border border-cyan-100 bg-cyan-50/80 px-3 py-2 text-xs text-cyan-800 dark:border-cyan-800/40 dark:bg-cyan-900/25 dark:text-cyan-200">
+                                    <p className="font-semibold uppercase tracking-wide text-[10px] text-cyan-600 dark:text-cyan-400">Anchor pairing</p>
+                                    <p className="mt-0.5 font-medium">{anchor}</p>
+                                  </div>
+                                )}
+                                {barrierLabel && (
+                                  <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                                    {barrier?.barrier_types?.icon && <span className="mr-1" aria-hidden="true">{barrier.barrier_types.icon}</span>}
+                                    {barrierLabel}
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
                     )}
-                    </div>
-                  );
-                })
-              ) : (
-                <p className="text-sm text-slate-500 dark:text-slate-400">No focus items for this check-in.</p>
-              )}
-            </div>
+                  </div>
+                );
+              })()
+            )}
+
+            {/* Empty State */}
+            {(!selectedCheckin.focus_items || selectedCheckin.focus_items.length === 0) && !selectedCheckin.forecast_note && (
+              <p className="text-sm text-slate-500 dark:text-slate-400">No items or notes for this check-in.</p>
+            )}
           </div>
         </div>
       )}

@@ -33,14 +33,15 @@ export function TimelineWrapper({
   timeRemainingToBed,
   timeRemainingToWake,
 }: TimelineWrapperProps) {
-  const mode = getTimelineMode(currentTime, wakeTime, hardStopTime, bedTime);
+  const safeHardStop = hardStopTime || bedTime;
+  const mode = getTimelineMode(currentTime, wakeTime, safeHardStop, bedTime);
 
   if (mode === 'day') {
     return (
       <DayTimeline
         currentTime={currentTime}
         wakeTime={wakeTime}
-        hardStopTime={hardStopTime}
+        hardStopTime={safeHardStop}
         energySchedule={energySchedule}
         currentEnergyLevel={currentEnergyLevel}
         timeRemaining={timeRemaining}
@@ -52,7 +53,7 @@ export function TimelineWrapper({
     return (
       <EveningTimeline
         currentTime={currentTime}
-        hardStopTime={hardStopTime}
+        hardStopTime={safeHardStop}
         bedTime={bedTime}
         timeRemaining={timeRemainingToBed || timeRemaining}
       />

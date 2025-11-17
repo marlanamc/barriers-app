@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { Home, Sunrise, CalendarRange, Brain, ListChecks, LineChart, CalendarDays, Moon, Sun, LogOut, X, Settings, Zap, Shield } from 'lucide-react';
+import { Home, Sunrise, CalendarRange, Brain, ListChecks, LineChart, CalendarDays, Moon, Sun, LogOut, X, Settings, Zap, Shield, Info, Clock } from 'lucide-react';
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from './AuthProvider';
 import { AppWordmark } from './AppWordmark';
@@ -114,6 +114,14 @@ export function SidePanel({ isOpen, onClose }: SidePanelProps) {
       count: 0,
     },
     {
+      href: '/for-later',
+      label: 'For Later',
+      description: 'Tasks saved for later',
+      icon: Clock,
+      iconColor: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300',
+      count: 0,
+    },
+    {
       href: '/all-tasks',
       label: 'All Tasks',
       description: 'Everything in one place',
@@ -147,6 +155,14 @@ export function SidePanel({ isOpen, onClose }: SidePanelProps) {
     label: 'Settings',
     description: 'Energy schedule & preferences',
     icon: Settings,
+    iconColor: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+  };
+
+  const aboutItem = {
+    href: '/about',
+    label: 'About',
+    description: 'Energy levels & capacity',
+    icon: Info,
     iconColor: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
   };
 
@@ -320,6 +336,26 @@ export function SidePanel({ isOpen, onClose }: SidePanelProps) {
                       pathname === settingsItem.href ? 'text-cyan-700 dark:text-cyan-300' : 'text-slate-900 dark:text-slate-100'
                     }`}>
                       {settingsItem.label}
+                    </p>
+                  </div>
+                </Link>
+                <Link
+                  href={aboutItem.href}
+                  onClick={handleLinkClick}
+                  className={`group flex items-center gap-3 rounded-xl p-3 transition ${
+                    pathname === aboutItem.href
+                      ? 'bg-cyan-100 dark:bg-cyan-900/30'
+                      : 'hover:bg-slate-100 dark:hover:bg-slate-800/50'
+                  }`}
+                >
+                  <span className={`rounded-lg p-2 ${aboutItem.iconColor}`}>
+                    <aboutItem.icon className="h-4 w-4" />
+                  </span>
+                  <div className="flex-1">
+                    <p className={`text-sm font-semibold ${
+                      pathname === aboutItem.href ? 'text-cyan-700 dark:text-cyan-300' : 'text-slate-900 dark:text-slate-100'
+                    }`}>
+                      {aboutItem.label}
                     </p>
                   </div>
                 </Link>
