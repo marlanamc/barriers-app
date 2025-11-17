@@ -10,6 +10,11 @@ import { useSupabaseUser } from '@/lib/useSupabaseUser';
 import { getPlannedItems, deletePlannedItem, type PlannedItemWithBarrier } from '@/lib/supabase';
 import { TaskComplexity, TaskType } from '@/lib/capacity';
 
+interface TaskAnchor {
+  type: 'at' | 'while' | 'before' | 'after';
+  value: string;
+}
+
 export default function TomorrowPage() {
   const { user } = useSupabaseUser();
   const [loading, setLoading] = useState(true);
@@ -59,12 +64,24 @@ export default function TomorrowPage() {
 
   const handleQuickAddSave = async (taskData: {
     description: string;
-    complexity: TaskComplexity;
+    complexity?: TaskComplexity;
     taskType: TaskType;
     anchorTime?: string;
+    anchors?: TaskAnchor[];
+    categories?: string[];
+    barrier?: {
+      barrierTypeSlug?: string;
+      barrierTypeId?: string | null;
+      custom?: string;
+    };
+    inInbox?: boolean;
+    scheduledDate?: string;
+    scheduledTime?: string;
+    focusDate?: string;
   }) => {
     // TODO: Save to planned_items for tomorrow
     console.log('Save to tomorrow:', taskData);
+    setShowQuickAddModal(false);
   };
 
   const handleTaskClick = (taskId: string) => {
