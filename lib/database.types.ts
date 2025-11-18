@@ -391,6 +391,12 @@ export type Database = {
         };
         Returns: string;
       };
+      update_user_metadata: {
+        Args: {
+          p_metadata: Json;
+        };
+        Returns: Json;
+      };
     };
     Enums: {};
     CompositeTypes: {};

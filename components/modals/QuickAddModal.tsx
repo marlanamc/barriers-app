@@ -712,7 +712,12 @@ export function QuickAddModal({ isOpen, defaultType = 'focus', defaultInbox = fa
                     ) : (
                       <>
                         <p className="text-xs text-amber-700 dark:text-amber-300">
-                          Date: {new Date(scheduledDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                          Date: {(() => {
+                            // Parse date string (YYYY-MM-DD) to avoid timezone issues
+                            const [year, month, day] = scheduledDate.split('-').map(Number);
+                            const date = new Date(year, month - 1, day);
+                            return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+                          })()}
                         </p>
                         {scheduledTime && (
                           <p className="text-xs text-amber-700 dark:text-amber-300">

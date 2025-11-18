@@ -9,6 +9,10 @@ ADD COLUMN IF NOT EXISTS day_type TEXT DEFAULT 'all' CHECK (day_type IN ('all', 
 ALTER TABLE energy_schedules
 DROP CONSTRAINT IF EXISTS unique_user_time_slot;
 
+-- Drop the new constraint if it already exists (idempotent reruns)
+ALTER TABLE energy_schedules
+DROP CONSTRAINT IF EXISTS unique_user_time_day;
+
 ALTER TABLE energy_schedules
 ADD CONSTRAINT unique_user_time_day UNIQUE(user_id, start_time_minutes, day_type);
 
@@ -18,6 +22,10 @@ ADD CONSTRAINT unique_user_time_day UNIQUE(user_id, start_time_minutes, day_type
 --   "wake_times": { "monday": "07:00", "tuesday": "07:00", "sunday": "09:00" },
 --   "bedtimes": { "monday": "22:00", "tuesday": "22:00", "sunday": "01:00" }
 -- }
+
+-- Make reruns idempotent by dropping helper functions before recreating
+DROP FUNCTION IF EXISTS get_wake_time_for_day(UUID, TEXT);
+DROP FUNCTION IF EXISTS get_bedtime_for_day(UUID, TEXT);
 
 -- Create a helper function to get wake time for a given day
 CREATE OR REPLACE FUNCTION get_wake_time_for_day(p_user_id UUID, p_day_name TEXT)

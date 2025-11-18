@@ -36,6 +36,12 @@ CREATE INDEX IF NOT EXISTS idx_energy_schedules_active ON energy_schedules(user_
 -- Row Level Security
 ALTER TABLE energy_schedules ENABLE ROW LEVEL SECURITY;
 
+-- Make reruns idempotent by dropping existing policies first
+DROP POLICY IF EXISTS "Users can view own energy schedules" ON energy_schedules;
+DROP POLICY IF EXISTS "Users can insert own energy schedules" ON energy_schedules;
+DROP POLICY IF EXISTS "Users can update own energy schedules" ON energy_schedules;
+DROP POLICY IF EXISTS "Users can delete own energy schedules" ON energy_schedules;
+
 CREATE POLICY "Users can view own energy schedules" ON energy_schedules
     FOR SELECT USING (auth.uid() = user_id);
 
@@ -49,7 +55,9 @@ CREATE POLICY "Users can delete own energy schedules" ON energy_schedules
     FOR DELETE USING (auth.uid() = user_id);
 
 -- Trigger to update updated_at timestamp
-CREATE TRIGGER update_energy_schedules_updated_at BEFORE UPDATE ON energy_schedules
+DROP TRIGGER IF EXISTS update_energy_schedules_updated_at ON energy_schedules;
+CREATE TRIGGER update_energy_schedules_updated_at
+    BEFORE UPDATE ON energy_schedules
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Add comment for documentation
@@ -57,4 +65,3 @@ COMMENT ON TABLE energy_schedules IS 'Time-based energy level schedules that aut
 COMMENT ON COLUMN energy_schedules.start_time_minutes IS 'Minutes since midnight (0-1439) when this energy level starts';
 COMMENT ON COLUMN energy_schedules.energy_key IS 'Energy type key matching internal_weather values';
 COMMENT ON COLUMN energy_schedules.notify_on_transition IS 'Whether to send notification when transitioning into this energy level';
-

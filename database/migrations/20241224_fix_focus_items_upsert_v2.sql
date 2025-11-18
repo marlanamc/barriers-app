@@ -29,6 +29,7 @@ DECLARE
     anchors_array JSONB;
     item_task_type TEXT;
     item_complexity TEXT;
+    item_completed BOOLEAN;
     existing_item_ids UUID[];
     incoming_item_ids TEXT[];
 BEGIN
@@ -136,6 +137,14 @@ BEGIN
             item_task_type := COALESCE(focus_record->>'taskType', 'focus');
             item_complexity := COALESCE(focus_record->>'complexity', 'medium');
 
+            -- Get completed status (default to false if not provided)
+            BEGIN
+                item_completed := COALESCE((focus_record->>'completed')::BOOLEAN, FALSE);
+            EXCEPTION
+                WHEN OTHERS THEN
+                    item_completed := FALSE;
+            END;
+
             -- Validate task_type and complexity
             IF item_task_type NOT IN ('focus', 'life') THEN
                 item_task_type := 'focus';
@@ -171,6 +180,7 @@ BEGIN
                     anchors = anchors_array,
                     task_type = item_task_type,
                     complexity = item_complexity,
+                    completed = item_completed,
                     updated_at = NOW()
                 WHERE id = new_focus_item_id;
 
@@ -188,7 +198,8 @@ BEGIN
                     sort_order,
                     anchors,
                     task_type,
-                    complexity
+                    complexity,
+                    completed
                 )
                 VALUES (
                     new_checkin_id,
@@ -198,7 +209,8 @@ BEGIN
                     sort_position,
                     anchors_array,
                     item_task_type,
-                    item_complexity
+                    item_complexity,
+                    item_completed
                 )
                 RETURNING id INTO new_focus_item_id;
 
