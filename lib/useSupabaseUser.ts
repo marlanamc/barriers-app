@@ -88,9 +88,16 @@ export function useSupabaseUser(options: UseSupabaseUserOptions = defaultOptions
 
     ensureUser();
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!isMounted) return;
-      setUser(session?.user ?? null);
+
+      // When user metadata is updated (USER_UPDATED event), refetch the user
+      if (event === 'USER_UPDATED' || event === 'SIGNED_IN') {
+        const { data } = await supabase.auth.getUser();
+        setUser(data.user ?? session?.user ?? null);
+      } else {
+        setUser(session?.user ?? null);
+      }
     });
 
     return () => {

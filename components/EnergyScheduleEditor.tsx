@@ -110,25 +110,78 @@ export function EnergyScheduleEditor({ onScheduleChange }: EnergyScheduleEditorP
   const handleSaveTimes = async () => {
     if (!user) return;
     setSavingTimes(true);
+
     try {
       const payloadAnchors = anchors;
       const all = payloadAnchors.all || defaultAnchors;
-      const { error } = await supabase.auth.updateUser({
-        data: {
-          wake_time: all.wakeTime,
-          work_start: all.workStart,
-          hard_stop: (all.hardStop || null),
-          bedtime: all.bedtime,
-          anchor_times: payloadAnchors,
-        },
+
+      console.log('💾 Saving anchor times:', {
+        wake_time: all.wakeTime,
+        work_start: all.workStart,
+        hard_stop: all.hardStop,
+        bedtime: all.bedtime,
+        anchor_times: payloadAnchors,
       });
 
-      if (error) throw error;
+      // Check if we have a valid session
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('🔐 Current session:', session ? 'Valid' : 'None');
+
+      if (!session) {
+        throw new Error('No active session. Please refresh the page and try again.');
+      }
+
+      // WORKAROUND: Use RPC function instead of auth.updateUser() which hangs
+      console.log('📝 Using RPC function to update metadata...');
+
+      // If we're viewing "All" tab, propagate changes to all individual days
+      // This ensures day-specific overrides don't prevent "All" changes from taking effect
+      const finalAnchors = { ...payloadAnchors };
+      if (selectedDays.includes('all')) {
+        const allDayValues = finalAnchors.all;
+        DAY_OPTIONS.forEach((day) => {
+          if (day.value !== 'all') {
+            finalAnchors[day.value] = { ...allDayValues };
+          }
+        });
+        console.log('📋 Propagated "All" values to individual days');
+      }
+
+      const metadata = {
+        wake_time: all.wakeTime,
+        work_start: all.workStart,
+        hard_stop: all.hardStop || null,
+        bedtime: all.bedtime,
+        anchor_times: finalAnchors,
+      };
+
+      const { data: rpcData, error: rpcError } = await supabase.rpc('update_user_metadata', {
+        p_metadata: metadata
+      });
+
+      if (rpcError) {
+        console.error('❌ RPC function error:', rpcError);
+        throw rpcError;
+      }
+
+      console.log('✅ Metadata updated via RPC:', rpcData);
+
+      // Clear Supabase auth cache and force refetch
+      await supabase.auth.refreshSession();
+      const { data: { user: updatedUser } } = await supabase.auth.getUser();
+      console.log('🔄 User data refreshed:', updatedUser?.user_metadata);
+
       setTimesSaved(true);
-      setTimeout(() => setTimesSaved(false), 3000);
+
+      // Reload the page after 500ms to reflect changes in all components
+      setTimeout(() => {
+        console.log('🔄 Reloading page to apply changes...');
+        // Use hard reload to bypass cache
+        window.location.href = window.location.href;
+      }, 500);
     } catch (error) {
-      console.error('Error saving times:', error);
-      alert('Failed to save times. Please try again.');
+      console.error('❌ Error saving times:', error);
+      alert(`Failed to save times: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`);
     } finally {
       setSavingTimes(false);
     }

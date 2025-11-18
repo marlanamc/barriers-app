@@ -203,6 +203,7 @@ export default function CommandCenterPage() {
           sortOrder: index,
           taskType: task.type,
           complexity: task.complexity,
+          completed: task.completed,
           anchorType,
           anchorValue,
           barrier: task.barrier ? {
@@ -250,6 +251,19 @@ export default function CommandCenterPage() {
   const scheduleStart = todayAnchors.workStart ?? userSchedule.work_start ?? userSchedule.workStart ?? '09:00';
   const userHardStop = (todayAnchors.hardStop ?? userSchedule.hard_stop ?? userSchedule.workEnd ?? userSchedule.work_end ?? '') || null;
   const userBedtime = todayAnchors.bedtime ?? userSchedule.bedtime ?? '22:00';
+
+  // Debug logging for schedule times
+  console.log('📅 Command Center Schedule Times:', {
+    userMetadata: user?.user_metadata,
+    todayKey,
+    todayAnchors,
+    computed: {
+      userWakeTime,
+      scheduleStart,
+      userHardStop,
+      userBedtime,
+    }
+  });
 
   // Separate tasks by type
   const focusTasks = tasks.filter((t) => t.type === 'focus' && !t.inInbox);

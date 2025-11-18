@@ -48,6 +48,7 @@ export type FocusItemPayload = {
   anchorValue?: string | null;
   taskType?: 'focus' | 'life';
   complexity?: 'quick' | 'medium' | 'deep';
+  completed?: boolean;
   barrier?: {
     barrierTypeId?: string | null;
     barrierTypeSlug?: string | null;
@@ -284,6 +285,8 @@ export async function saveCheckinWithFocus(payload: SaveCheckinPayload): Promise
       : 'medium';
 
     return {
+      // Persist completion status so checked-off tasks stay checked after refresh
+      completed: item.completed ?? false,
       id: item.id,
       description: description,
       categories: categories,
