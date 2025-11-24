@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { Home, Sunrise, CalendarRange, Brain, ListChecks, LineChart, CalendarDays, Moon, Sun, LogOut, X, Settings, Zap, Shield, Info, Clock } from 'lucide-react';
+import { Home, Sunrise, CalendarRange, Brain, ListChecks, LineChart, CalendarDays, Moon, Sun, LogOut, X, Settings, Shield, Info, Clock } from 'lucide-react';
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from './AuthProvider';
 import { AppWordmark } from './AppWordmark';
@@ -63,13 +63,6 @@ export function SidePanel({ isOpen, onClose }: SidePanelProps) {
 
   // ADHD Support - Top priority
   const adhdSupport = [
-    {
-      href: '/energy',
-      label: 'Energy & Capacity',
-      description: 'Understand your limits',
-      icon: Zap,
-      iconColor: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300',
-    },
     {
       href: '/barriers',
       label: 'Barriers',
@@ -139,6 +132,13 @@ export function SidePanel({ isOpen, onClose }: SidePanelProps) {
       description: 'Notice gentle trends',
       icon: LineChart,
       iconColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300',
+    },
+    {
+      href: '/reflect',
+      label: 'Evening Reflect',
+      description: 'End-of-day check-in',
+      icon: Moon,
+      iconColor: 'bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300',
     },
     {
       href: '/calendar',

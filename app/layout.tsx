@@ -1,18 +1,22 @@
+
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Outfit, Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 import { CheckInProvider } from "@/lib/checkin-context";
 import { PlanningProvider } from "@/lib/planning-context";
 import { ThemeProvider } from "@/lib/theme-context";
 import { OnboardingProvider } from "@/lib/onboarding-context";
 import { AuthProvider } from "@/components/AuthProvider";
+import { AppProvider } from "@/app/context/AppContext";
 import { ThemeColorUpdater } from "@/components/ThemeColorUpdater";
+import { ToastProvider } from "@/components/ToastProvider";
 import { GlobalNavigation } from "@/components/GlobalNavigation";
 import { BottomTabBar } from "@/components/BottomTabBar";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
+// import { PWAInstallPrompt } from "@/components/PWAInstallPrompt"; // Removed install prompt
 import { PWAStatus } from "@/components/PWAStatus";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
+import { CoachingFlowManager } from "@/components/CoachingFlowManager";
 
 export const metadata: Metadata = {
   title: "ADHD Barrier Tracker",
@@ -53,6 +57,21 @@ export const viewport: Viewport = {
 const inter = Inter({
   subsets: ["latin"],
   display: "swap",
+  variable: "--font-inter",
+});
+
+const outfit = Outfit({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-outfit",
+  weight: ["400", "500", "600", "700"],
+});
+
+const sourceSans = Source_Sans_3({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-source-sans",
+  weight: ["400", "500", "600", "700"],
 });
 
 export default function RootLayout({
@@ -62,7 +81,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} bg-app-gradient text-slate-900 dark:text-slate-100`}>
+      <body className={`${inter.variable} ${outfit.variable} ${sourceSans.variable} ${inter.className} bg-app-gradient text-slate-900 dark:text-slate-100`}>
         <ErrorBoundary>
           <ThemeProvider>
             <ThemeColorUpdater />
@@ -70,12 +89,16 @@ export default function RootLayout({
               <OnboardingProvider>
                 <CheckInProvider>
                   <PlanningProvider>
-                    <GlobalNavigation />
-                    {children}
-                    <BottomTabBar />
-                    <PWAInstallPrompt />
-                    <PWAStatus />
-                    <ServiceWorkerRegister />
+                    <AppProvider>
+                      <ToastProvider>
+                        <GlobalNavigation />
+                        {children}
+                        <BottomTabBar />
+                        <CoachingFlowManager />
+                        <PWAStatus />
+                        <ServiceWorkerRegister />
+                      </ToastProvider>
+                    </AppProvider>
                   </PlanningProvider>
                 </CheckInProvider>
               </OnboardingProvider>
