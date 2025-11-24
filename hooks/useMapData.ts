@@ -203,10 +203,10 @@ function checkTextModuleHasContent(content: TextModuleContent | null): boolean {
   return Boolean(content?.text?.trim());
 }
 
-function checkArrayModuleHasContent(content: { [key: string]: string[] | unknown } | null, arrayKey: string): boolean {
+function checkArrayModuleHasContent(content: any, arrayKey: string): boolean {
   if (!content) return false;
   const arr = content[arrayKey];
-  return Array.isArray(arr) && arr.length > 0 && arr.some(item => typeof item === 'string' && item.trim());
+  return Array.isArray(arr) && arr.length > 0 && arr.some((item: any) => typeof item === 'string' && item.trim());
 }
 
 export function useMapData(userId: string | undefined): UseMapDataReturn {
@@ -236,27 +236,27 @@ export function useMapData(userId: string | undefined): UseMapDataReturn {
         toolkitResult,
       ] = await Promise.all([
         // Map modules from unified table
-        supabase
+        (supabase as any)
           .from('map_modules')
           .select('module_type, content, updated_at')
           .eq('user_id', userId),
 
         // Life vest tools
-        supabase
+        (supabase as any)
           .from('life_vest_tools')
           .select('*')
           .eq('user_id', userId)
           .order('sort_order', { ascending: true }),
 
         // Crew contacts
-        supabase
+        (supabase as any)
           .from('crew_contacts')
           .select('*')
           .eq('user_id', userId)
           .order('sort_order', { ascending: true }),
 
         // Starlight wins (recent 50)
-        supabase
+        (supabase as any)
           .from('starlight_wins')
           .select('*')
           .eq('user_id', userId)
@@ -264,7 +264,7 @@ export function useMapData(userId: string | undefined): UseMapDataReturn {
           .limit(50),
 
         // User toolkit
-        supabase
+        (supabase as any)
           .from('user_toolkit')
           .select('*')
           .eq('user_id', userId)
@@ -277,7 +277,8 @@ export function useMapData(userId: string | undefined): UseMapDataReturn {
       if (mapModulesResult.data) {
         for (const row of mapModulesResult.data) {
           const moduleType = row.module_type as MapModuleType;
-          newData[moduleType] = row.content as MapData[typeof moduleType];
+          // Type assertion needed because TypeScript can't narrow the union type
+          (newData as any)[moduleType] = row.content;
         }
       }
 
@@ -337,7 +338,7 @@ export function useMapData(userId: string | undefined): UseMapDataReturn {
       setSaving(true);
       setError(null);
 
-      const { error: upsertError } = await supabase
+      const { error: upsertError } = await (supabase as any)
         .from('map_modules')
         .upsert({
           user_id: userId,
@@ -380,7 +381,7 @@ export function useMapData(userId: string | undefined): UseMapDataReturn {
       setError(null);
 
       // Delete existing and insert new
-      await supabase
+      await (supabase as any)
         .from('life_vest_tools')
         .delete()
         .eq('user_id', userId);
@@ -395,7 +396,7 @@ export function useMapData(userId: string | undefined): UseMapDataReturn {
           sort_order: index,
         }));
 
-        const { error: insertError } = await supabase
+        const { error: insertError } = await (supabase as any)
           .from('life_vest_tools')
           .insert(inserts);
 
@@ -424,7 +425,7 @@ export function useMapData(userId: string | undefined): UseMapDataReturn {
 
       const nextSortOrder = data.life_vest.length;
 
-      const { error: insertError } = await supabase
+      const { error: insertError } = await (supabase as any)
         .from('life_vest_tools')
         .insert({
           user_id: userId,
@@ -455,7 +456,7 @@ export function useMapData(userId: string | undefined): UseMapDataReturn {
       setSaving(true);
       setError(null);
 
-      const { error: deleteError } = await supabase
+      const { error: deleteError } = await (supabase as any)
         .from('life_vest_tools')
         .delete()
         .eq('id', toolId);
@@ -483,7 +484,7 @@ export function useMapData(userId: string | undefined): UseMapDataReturn {
       setSaving(true);
       setError(null);
 
-      await supabase
+      await (supabase as any)
         .from('crew_contacts')
         .delete()
         .eq('user_id', userId);
@@ -500,7 +501,7 @@ export function useMapData(userId: string | undefined): UseMapDataReturn {
           sort_order: index,
         }));
 
-        const { error: insertError } = await supabase
+        const { error: insertError } = await (supabase as any)
           .from('crew_contacts')
           .insert(inserts);
 
@@ -529,7 +530,7 @@ export function useMapData(userId: string | undefined): UseMapDataReturn {
 
       const nextSortOrder = data.crew.length;
 
-      const { error: insertError } = await supabase
+      const { error: insertError } = await (supabase as any)
         .from('crew_contacts')
         .insert({
           user_id: userId,
@@ -562,7 +563,7 @@ export function useMapData(userId: string | undefined): UseMapDataReturn {
       setSaving(true);
       setError(null);
 
-      const { error: deleteError } = await supabase
+      const { error: deleteError } = await (supabase as any)
         .from('crew_contacts')
         .delete()
         .eq('id', contactId);
@@ -590,7 +591,7 @@ export function useMapData(userId: string | undefined): UseMapDataReturn {
       setSaving(true);
       setError(null);
 
-      const { error: insertError } = await supabase
+      const { error: insertError } = await (supabase as any)
         .from('starlight_wins')
         .insert({
           user_id: userId,
@@ -618,7 +619,7 @@ export function useMapData(userId: string | undefined): UseMapDataReturn {
       setSaving(true);
       setError(null);
 
-      const { error: deleteError } = await supabase
+      const { error: deleteError } = await (supabase as any)
         .from('starlight_wins')
         .delete()
         .eq('id', winId);
@@ -646,7 +647,7 @@ export function useMapData(userId: string | undefined): UseMapDataReturn {
       setSaving(true);
       setError(null);
 
-      const { error: upsertError } = await supabase
+      const { error: upsertError } = await (supabase as any)
         .from('user_toolkit')
         .upsert({
           user_id: userId,

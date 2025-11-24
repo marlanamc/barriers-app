@@ -2,8 +2,48 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ChevronDown, ChevronUp, Save } from 'lucide-react';
-import { ModuleDefinition } from '@/lib/map-modules';
+import { 
+  ArrowLeft, 
+  ChevronDown, 
+  ChevronUp, 
+  Save,
+  Heart,
+  Fuel,
+  Star,
+  Target,
+  Home,
+  Anchor,
+  Compass,
+  Wind,
+  CloudLightning,
+  AlertTriangle,
+  LifeBuoy,
+  Bell,
+  Users,
+  BookOpen,
+  Sparkles,
+  type LucideIcon,
+} from 'lucide-react';
+import { ModuleDefinition, type LucideIconName } from '@/lib/map-modules';
+
+// Map icon names to actual Lucide components
+const ICON_MAP: Record<LucideIconName, LucideIcon> = {
+  Heart,
+  Fuel,
+  Star,
+  Target,
+  Home,
+  Anchor,
+  Compass,
+  Wind,
+  CloudLightning,
+  AlertTriangle,
+  LifeBuoy,
+  Bell,
+  Users,
+  BookOpen,
+  Sparkles,
+};
 
 interface ModuleEditorProps {
   module: ModuleDefinition;
@@ -61,7 +101,10 @@ export function ModuleEditor({
         <div className="mb-6">
           <div className="flex items-center gap-3">
             <span className="text-3xl" role="img" aria-hidden="true">
-              {module.icon}
+              {(() => {
+                const IconComponent = ICON_MAP[module.iconName];
+                return IconComponent ? <IconComponent className="h-6 w-6" /> : null;
+              })()}
             </span>
             <div>
               <h1 className="font-cinzel text-xl font-semibold text-slate-900 dark:text-slate-100">

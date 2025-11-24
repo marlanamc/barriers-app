@@ -49,7 +49,7 @@ export function useReflect(userId: string | undefined): UseReflectReturn {
       setError(null);
       const today = getTodayLocalDateString();
 
-      const { data: reflectData, error: fetchError } = await supabase
+      const { data: reflectData, error: fetchError } = await (supabase as any)
         .from('daily_reflects')
         .select('*')
         .eq('user_id', userId)
@@ -110,7 +110,7 @@ export function useReflect(userId: string | undefined): UseReflectReturn {
       setError(null);
       const today = getTodayLocalDateString();
 
-      const { error: upsertError } = await supabase
+      const { error: upsertError } = await (supabase as any)
         .from('daily_reflects')
         .upsert({
           user_id: userId,

@@ -40,7 +40,7 @@ export function useThoughts(userId: string | undefined): UseThoughtsReturn {
       setLoading(true);
       setError(null);
 
-      const { data, error: fetchError } = await supabase
+      const { data, error: fetchError } = await (supabase as any)
         .from('logbook_thoughts')
         .select('*')
         .eq('user_id', userId)
@@ -68,7 +68,7 @@ export function useThoughts(userId: string | undefined): UseThoughtsReturn {
     if (!userId || !text.trim()) return null;
 
     try {
-      const { data, error: insertError } = await supabase
+      const { data, error: insertError } = await (supabase as any)
         .from('logbook_thoughts')
         .insert({
           user_id: userId,
@@ -95,7 +95,7 @@ export function useThoughts(userId: string | undefined): UseThoughtsReturn {
     if (!userId) return false;
 
     try {
-      const { error: updateError } = await supabase
+      const { error: updateError } = await (supabase as any)
         .from('logbook_thoughts')
         .update({ status: 'archived' })
         .eq('id', id)
@@ -122,7 +122,7 @@ export function useThoughts(userId: string | undefined): UseThoughtsReturn {
     if (!userId) return false;
 
     try {
-      const { error: updateError } = await supabase
+      const { error: updateError } = await (supabase as any)
         .from('logbook_thoughts')
         .update({
           status: 'converted',
@@ -149,7 +149,7 @@ export function useThoughts(userId: string | undefined): UseThoughtsReturn {
     if (!userId) return false;
 
     try {
-      const { error: deleteError } = await supabase
+      const { error: deleteError } = await (supabase as any)
         .from('logbook_thoughts')
         .delete()
         .eq('id', id)

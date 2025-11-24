@@ -2,9 +2,54 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ChevronDown, ChevronUp, Save, Plus, X, Phone, Mail, MessageSquare } from 'lucide-react';
-import { ModuleDefinition } from '@/lib/map-modules';
+import { 
+  ArrowLeft, 
+  ChevronDown, 
+  ChevronUp, 
+  Save, 
+  Plus, 
+  X, 
+  Phone, 
+  Mail, 
+  MessageSquare,
+  Heart,
+  Fuel,
+  Star,
+  Target,
+  Home,
+  Anchor,
+  Compass,
+  Wind,
+  CloudLightning,
+  AlertTriangle,
+  LifeBuoy,
+  Bell,
+  Users,
+  BookOpen,
+  Sparkles,
+  type LucideIcon,
+} from 'lucide-react';
+import { ModuleDefinition, type LucideIconName } from '@/lib/map-modules';
 import type { CrewContact } from '@/hooks/useMapData';
+
+// Map icon names to actual Lucide components
+const ICON_MAP: Record<LucideIconName, LucideIcon> = {
+  Heart,
+  Fuel,
+  Star,
+  Target,
+  Home,
+  Anchor,
+  Compass,
+  Wind,
+  CloudLightning,
+  AlertTriangle,
+  LifeBuoy,
+  Bell,
+  Users,
+  BookOpen,
+  Sparkles,
+};
 
 interface CrewEditorProps {
   module: ModuleDefinition;
@@ -125,9 +170,12 @@ export function CrewEditor({
         {/* Module header */}
         <div className="mb-6">
           <div className="flex items-center gap-3">
-            <span className="text-3xl" role="img" aria-hidden="true">
-              {module.icon}
-            </span>
+            <div className={`flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-700 ${module.iconColor}`}>
+              {(() => {
+                const IconComponent = ICON_MAP[module.iconName];
+                return IconComponent ? <IconComponent className="h-6 w-6" /> : null;
+              })()}
+            </div>
             <div>
               <h1 className="font-cinzel text-xl font-semibold text-slate-900 dark:text-slate-100">
                 {module.title}

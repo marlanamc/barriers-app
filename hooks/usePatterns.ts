@@ -85,7 +85,7 @@ export function usePatterns(userId: string | undefined): UsePatternsReturn {
       const thirtyDaysAgo = new Date(today);
       thirtyDaysAgo.setDate(today.getDate() - 29);
 
-      const { data: reflects, error: fetchError } = await supabase
+      const { data: reflects, error: fetchError } = await (supabase as any)
         .from('daily_reflects')
         .select('*')
         .eq('user_id', userId)

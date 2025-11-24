@@ -43,7 +43,7 @@ export default function ReflectPage() {
         const today = getTodayLocalDateString();
         const checkin = await getCheckinByDate(user.id, today);
 
-        if (checkin?.focus_items?.length > 0) {
+        if (checkin?.focus_items && checkin.focus_items.length > 0) {
           // Find the first focus item (priority)
           const priority = checkin.focus_items.find(
             (item: any) => item.task_type === 'focus' || item.task_type === 'priority'

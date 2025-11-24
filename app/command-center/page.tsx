@@ -818,7 +818,6 @@ export default function CommandCenterPage() {
             }))}
             canAddMoreFocus={capacityInfo.canAddTask}
             focusCapacityTarget={capacityTarget}
-            onAddFocusTask={handleAddFocusTask}
             onToggleFocusTask={handleToggleFocusTask}
             onFocusTaskClick={handleTaskClick}
             onDeleteFocusTask={handleDeleteFocusTask}

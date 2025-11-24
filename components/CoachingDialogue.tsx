@@ -98,55 +98,58 @@ export function CoachingDialogue({ isOpen, onClose, title, steps, onComplete }: 
 
                     {/* Input Area */}
                     <div className="space-y-4">
-                        {step.input && (
-                            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                {step.input.type === 'textarea' && (
-                                    <textarea
-                                        value={step.input.value}
-                                        onChange={(e) => step.input.onChange(e.target.value)}
-                                        placeholder={step.input.placeholder}
-                                        className="w-full h-32 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500 resize-none shadow-sm"
-                                        autoFocus
-                                    />
-                                )}
-                                {step.input.type === 'text' && (
-                                    <input
-                                        type="text"
-                                        value={step.input.value}
-                                        onChange={(e) => step.input.onChange(e.target.value)}
-                                        placeholder={step.input.placeholder}
-                                        className="w-full p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500 shadow-sm"
-                                        autoFocus
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter' && step.input?.value) {
-                                                handleNext();
-                                            }
-                                        }}
-                                    />
-                                )}
-                                {step.input.type === 'select' && step.input.options && (
-                                    <div className="grid gap-2">
-                                        {step.input.options.map((option) => (
-                                            <button
-                                                key={option.value}
-                                                onClick={() => {
-                                                    step.input?.onChange(option.value);
-                                                    // Auto advance for single select
-                                                    setTimeout(handleNext, 150);
-                                                }}
-                                                className={`w-full p-4 rounded-xl border-2 text-left transition-all flex items-center gap-3 ${step.input.value === option.value
-                                                        ? 'border-sky-500 bg-sky-50 dark:bg-sky-900/20 text-sky-900 dark:text-sky-100'
-                                                        : 'border-slate-100 dark:border-slate-700 hover:border-sky-200 dark:hover:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200'
-                                                    }`}
-                                            >
-                                                {option.icon && <span className="text-xl">{option.icon}</span>}
-                                                <span className="font-medium">{option.label}</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                        {step.input && (() => {
+                            const input = step.input;
+                            return (
+                                <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                    {input.type === 'textarea' && (
+                                        <textarea
+                                            value={input.value}
+                                            onChange={(e) => input.onChange(e.target.value)}
+                                            placeholder={input.placeholder}
+                                            className="w-full h-32 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500 resize-none shadow-sm"
+                                            autoFocus
+                                        />
+                                    )}
+                                    {input.type === 'text' && (
+                                        <input
+                                            type="text"
+                                            value={input.value}
+                                            onChange={(e) => input.onChange(e.target.value)}
+                                            placeholder={input.placeholder}
+                                            className="w-full p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500 shadow-sm"
+                                            autoFocus
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && input.value) {
+                                                    handleNext();
+                                                }
+                                            }}
+                                        />
+                                    )}
+                                    {input.type === 'select' && input.options && (
+                                        <div className="grid gap-2">
+                                            {input.options.map((option) => (
+                                                <button
+                                                    key={option.value}
+                                                    onClick={() => {
+                                                        input.onChange(option.value);
+                                                        // Auto advance for single select
+                                                        setTimeout(handleNext, 150);
+                                                    }}
+                                                    className={`w-full p-4 rounded-xl border-2 text-left transition-all flex items-center gap-3 ${input.value === option.value
+                                                            ? 'border-sky-500 bg-sky-50 dark:bg-sky-900/20 text-sky-900 dark:text-sky-100'
+                                                            : 'border-slate-100 dark:border-slate-700 hover:border-sky-200 dark:hover:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200'
+                                                        }`}
+                                                >
+                                                    {option.icon && <span className="text-xl">{option.icon}</span>}
+                                                    <span className="font-medium">{option.label}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
                     </div>
                 </div>
 
@@ -168,7 +171,7 @@ export function CoachingDialogue({ isOpen, onClose, title, steps, onComplete }: 
 
                     <button
                         onClick={handleNext}
-                        disabled={step.input && !step.input.value && step.input.type !== 'multi-select'} // Allow empty for multi-select if needed, or adjust logic
+                        disabled={step.input && !step.input.value && step.input.type !== 'multi-select' && (!Array.isArray(step.input.value) || step.input.value.length === 0)} // Allow empty for multi-select if needed, or adjust logic
                         className="flex items-center gap-2 px-6 py-2.5 bg-sky-600 text-white rounded-xl font-medium hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg active:scale-95"
                     >
                         {currentStep === steps.length - 1 ? 'Complete' : 'Next'}

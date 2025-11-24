@@ -135,6 +135,28 @@ export default function TodayPage() {
     }
   }, [focusTasks, lifeTasks, selectedFocus, wakeTime]);
 
+  // Convert FocusLevel to internalWeather format
+  const getInternalWeather = (focusLevel: FocusLevel) => {
+    const mapping: Record<FocusLevel, { key: string; label: string; icon: string }> = {
+      focused: {
+        key: 'focused',
+        label: 'Smooth Sailing',
+        icon: '⚓',
+      },
+      scattered: {
+        key: 'scattered',
+        label: 'Choppy Waters',
+        icon: '🌊',
+      },
+      unfocused: {
+        key: 'unfocused',
+        label: 'Navigating Fog',
+        icon: '🌫️',
+      },
+    };
+    return mapping[focusLevel];
+  };
+
   // Save to database
   const saveToDatabase = async () => {
     if (!user) {
@@ -187,11 +209,8 @@ export default function TodayPage() {
 
       await saveCheckinWithFocus({
         userId: user.id,
-        internalWeather: {
-          focusLevel: selectedFocus,
-          wakeTime: wakeTime,
-        },
-        date: today,
+        internalWeather: getInternalWeather(selectedFocus),
+        checkinDate: today,
         focusItems: focusItemsPayload,
       });
     } catch (error) {

@@ -174,7 +174,6 @@ export default function TomorrowPage() {
                 completed: false,
               }))}
               canAddMoreFocus={focusTasks.length < 5}
-              onAddFocusTask={() => setShowQuickAddModal(true)}
               onToggleFocusTask={() => {}}
               onFocusTaskClick={handleTaskClick}
               onDeleteFocusTask={handleDeleteTask}

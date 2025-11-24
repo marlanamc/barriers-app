@@ -51,7 +51,7 @@ export function useFuelCheck(userId: string | undefined): UseFuelCheckReturn {
       setLoading(true);
       setError(null);
 
-      const { data, error: fetchError } = await supabase
+      const { data, error: fetchError } = await (supabase as any)
         .from('fuel_checklist')
         .select('*')
         .eq('user_id', userId)
@@ -104,7 +104,7 @@ export function useFuelCheck(userId: string | undefined): UseFuelCheckReturn {
       setFuelStatus(newStatus);
 
       // Use the upsert function
-      const { error: upsertError } = await supabase.rpc('upsert_fuel_checklist', {
+      const { error: upsertError } = await (supabase as any).rpc('upsert_fuel_checklist', {
         p_user_id: userId,
         p_check_date: today,
         p_water: newStatus.water,
@@ -117,7 +117,7 @@ export function useFuelCheck(userId: string | undefined): UseFuelCheckReturn {
       if (upsertError) {
         // If RPC doesn't exist, try direct upsert
         if (upsertError.code === '42883') {
-          const { error: directError } = await supabase
+          const { error: directError } = await (supabase as any)
             .from('fuel_checklist')
             .upsert({
               user_id: userId,
