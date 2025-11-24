@@ -26,3 +26,4 @@ WHERE barrier_type_id IS NOT NULL;
 
 
 
+

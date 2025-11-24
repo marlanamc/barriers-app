@@ -1,105 +1,89 @@
 'use client';
 
 import { Zap } from 'lucide-react';
-import type { EnergyLevel } from '@/lib/capacity';
+import type { FocusLevel } from '@/lib/user-context';
 import type { FlowGreetingResult } from '@/lib/getFlowGreeting';
 
-const ENERGY_CHIP: Record<
-  EnergyLevel,
+const FOCUS_CHIP: Record<
+  FocusLevel,
   { emoji: string; label: string; bg: string; text: string; ring: string; iconColor: string }
 > = {
-  sparky: {
-    emoji: '⚡',
-    label: 'Sparky',
-    bg: 'from-pink-200 via-rose-200 to-pink-300 dark:from-pink-800/40 dark:via-rose-800/40 dark:to-pink-800/40',
-    text: 'text-pink-900 dark:text-pink-100',
-    ring: 'ring-pink-200/70 dark:ring-pink-800/50',
-    iconColor: 'text-pink-700 dark:text-pink-300',
+  focused: {
+    emoji: '⚓',
+    label: 'Smooth Sailing',
+    bg: 'from-green-200 via-emerald-200 to-green-300 dark:from-green-800/40 dark:via-emerald-800/40 dark:to-green-800/40',
+    text: 'text-green-900 dark:text-green-100',
+    ring: 'ring-green-200/70 dark:ring-green-800/50',
+    iconColor: 'text-green-700 dark:text-green-300',
   },
-  steady: {
-    emoji: '☀️',
-    label: 'Steady',
-    bg: 'from-emerald-200 via-teal-200 to-emerald-300 dark:from-emerald-800/40 dark:via-teal-800/40 dark:to-emerald-800/40',
-    text: 'text-emerald-900 dark:text-emerald-100',
-    ring: 'ring-emerald-200/70 dark:ring-emerald-800/50',
-    iconColor: 'text-emerald-700 dark:text-emerald-300',
-  },
-  flowing: {
+  scattered: {
     emoji: '🌊',
-    label: 'Flowing',
-    bg: 'from-sky-200 via-blue-200 to-sky-300 dark:from-sky-800/40 dark:via-blue-800/40 dark:to-sky-800/40',
-    text: 'text-sky-900 dark:text-sky-100',
-    ring: 'ring-sky-200/70 dark:ring-sky-800/50',
-    iconColor: 'text-sky-700 dark:text-sky-300',
+    label: 'Choppy Waters',
+    bg: 'from-yellow-200 via-amber-200 to-yellow-300 dark:from-yellow-800/40 dark:via-amber-800/40 dark:to-yellow-800/40',
+    text: 'text-yellow-900 dark:text-yellow-100',
+    ring: 'ring-yellow-200/70 dark:ring-yellow-800/50',
+    iconColor: 'text-yellow-700 dark:text-yellow-300',
   },
-  foggy: {
+  unfocused: {
     emoji: '🌫️',
-    label: 'Foggy',
-    bg: 'from-purple-200 via-violet-200 to-purple-300 dark:from-purple-800/40 dark:via-violet-800/40 dark:to-purple-800/40',
-    text: 'text-purple-900 dark:text-purple-100',
-    ring: 'ring-purple-200/70 dark:ring-purple-800/50',
-    iconColor: 'text-purple-700 dark:text-purple-300',
-  },
-  resting: {
-    emoji: '🌙',
-    label: 'Resting',
-    bg: 'from-slate-200 via-slate-300 to-slate-400 dark:from-slate-700/40 dark:via-slate-600/40 dark:to-slate-700/40',
-    text: 'text-slate-900 dark:text-slate-100',
-    ring: 'ring-slate-200/80 dark:ring-slate-700',
-    iconColor: 'text-slate-600 dark:text-slate-400',
+    label: "Navigating Fog",
+    bg: 'from-red-200 via-rose-200 to-red-300 dark:from-red-800/40 dark:via-rose-800/40 dark:to-red-800/40',
+    text: 'text-red-900 dark:text-red-100',
+    ring: 'ring-red-200/70 dark:ring-red-800/50',
+    iconColor: 'text-red-700 dark:text-red-300',
   },
 };
 
 interface HeaderStatusProps {
-  energyLevel: EnergyLevel | null;
+  focusLevel: FocusLevel | null;
   flowGreeting: FlowGreetingResult;
   timeInfo?: {
     totalMinutes: number;
     isPastStop: boolean;
   } | null;
-  onEnergyClick?: () => void;
+  onFocusClick?: () => void;
   compact?: boolean;
 }
 
 export function HeaderStatus({
-  energyLevel,
+  focusLevel,
   flowGreeting,
   timeInfo,
-  onEnergyClick,
+  onFocusClick,
 }: HeaderStatusProps) {
-  const energyChip = energyLevel ? ENERGY_CHIP[energyLevel] : null;
-  const energyLabel = energyChip ? `${energyChip.emoji} ${energyChip.label}` : 'Set energy';
+  const focusChip = focusLevel ? FOCUS_CHIP[focusLevel] : null;
+  const focusLabel = focusChip ? `${focusChip.emoji} ${focusChip.label}` : 'Set focus';
 
-  const renderEnergyCard = () => {
-    if (!energyChip) {
+  const renderFocusCard = () => {
+    if (!focusChip) {
       return (
         <button
           type="button"
-          onClick={onEnergyClick}
+          onClick={onFocusClick}
           className="min-w-[120px] flex flex-shrink-0 items-center gap-1.5 rounded-2xl bg-gradient-to-br from-slate-50 via-slate-100/80 to-slate-50 px-2.5 py-2 text-sm font-semibold shadow-sm ring-1 ring-slate-200/80 backdrop-blur text-slate-600 dark:from-slate-900/60 dark:via-slate-800/50 dark:to-slate-900/60 dark:ring-slate-700 dark:text-slate-400 transition hover:opacity-90"
         >
           <Zap className="h-4 w-4 text-slate-500 dark:text-slate-400" />
-          {energyLabel}
+          {focusLabel}
         </button>
       );
     }
 
-    const CardComponent = onEnergyClick ? 'button' : 'div';
-    const cardProps = onEnergyClick
+    const CardComponent = onFocusClick ? 'button' : 'div';
+    const cardProps = onFocusClick
       ? {
-          type: 'button' as const,
-          onClick: onEnergyClick,
-          className: 'transition hover:opacity-90',
-        }
+        type: 'button' as const,
+        onClick: onFocusClick,
+        className: 'transition hover:opacity-90',
+      }
       : {};
 
     return (
       <CardComponent
         {...cardProps}
-        className={`min-w-[120px] flex flex-shrink-0 items-center gap-1.5 rounded-2xl bg-gradient-to-br px-2.5 py-2 text-sm font-semibold shadow-sm ring-1 backdrop-blur ${energyChip.bg} ${energyChip.text} ${energyChip.ring} ${cardProps.className || ''}`}
+        className={`min-w-[120px] flex flex-shrink-0 items-center gap-1.5 rounded-2xl bg-gradient-to-br px-2.5 py-2 text-sm font-semibold shadow-sm ring-1 backdrop-blur ${focusChip.bg} ${focusChip.text} ${focusChip.ring} ${cardProps.className || ''}`}
       >
-        <span className="text-base leading-none">{energyChip.emoji}</span>
-        <span>{energyChip.label}</span>
+        <span className="text-base leading-none">{focusChip.emoji}</span>
+        <span>{focusChip.label}</span>
       </CardComponent>
     );
   };
@@ -107,7 +91,7 @@ export function HeaderStatus({
   return (
     <section className="rounded-3xl bg-transparent">
       <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1">
-        {renderEnergyCard()}
+        {renderFocusCard()}
       </div>
     </section>
   );

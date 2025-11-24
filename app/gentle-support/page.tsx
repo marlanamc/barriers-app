@@ -5,9 +5,19 @@ import { ArrowLeft, CalendarDays, CalendarPlus, Check, LineChart, Loader2, Spark
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import html2canvas from "html2canvas";
-import { useCheckIn, type TaskAnchorType, type WeatherSelection } from "@/lib/checkin-context";
-import { getIconComponent } from "@/components/InternalWeatherSelector";
+import { useCheckIn, type TaskAnchorType, type FocusSelection } from "@/lib/checkin-context";
 import { useSupabaseUser } from "@/lib/useSupabaseUser";
+import { Zap, Sun, CloudRain, type LucideIcon } from "lucide-react";
+
+// Simple icon mapping for weather/focus states
+function getIconComponent(iconName: string): LucideIcon {
+  const iconMap: Record<string, LucideIcon> = {
+    'zap': Zap,
+    'sun': Sun,
+    'cloud-rain': CloudRain,
+  };
+  return iconMap[iconName] || Sun;
+}
 import { getBarrierTypes, saveCheckinWithFocus, type BarrierType } from "@/lib/supabase";
 import { anchorLabel, buildAnchorPhrase } from "@/lib/anchors";
 import { getCategoryEmoji } from "@/lib/categories";
@@ -25,121 +35,50 @@ type ForecastTask = {
 
 interface DailyForecastData {
   checkinId: string;
-  weather: WeatherSelection;
+  weather: FocusSelection;
   forecastNote: string;
   tasks: ForecastTask[];
   plannedDate: string;
 }
 
-const weatherThemes: Record<
+const focusThemes: Record<
   string,
   {
     gradient: [string, string];
-    darkGradient?: [string, string]; // Optional darker gradient for dark mode
+    darkGradient?: [string, string];
     accent: string;
-    darkAccent?: string; // Accent color for dark mode
+    darkAccent?: string;
     text: string;
-    darkText?: string; // Text color for dark mode
+    darkText?: string;
     subtleText: string;
-    darkSubtleText?: string; // Subtle text color for dark mode
+    darkSubtleText?: string;
   }
 > = {
-  sparky: {
-    gradient: ["#FF6B6B", "#FFE66D"],
-    darkGradient: ["#CC5555", "#CCB855"], // Darker, more muted for dark mode
-    accent: "text-orange-900",
-    darkAccent: "text-orange-200",
+  focused: {
+    gradient: ["#D1FAE5", "#ECFDF5"],
+    darkGradient: ["#064E3B", "#065F46"],
+    accent: "text-emerald-900",
+    darkAccent: "text-emerald-200",
     text: "text-slate-900",
     darkText: "text-white",
     subtleText: "text-slate-700",
     darkSubtleText: "text-slate-100",
   },
-  steady: {
-    gradient: ["#FFD580", "#FFF9E3"],
-    darkGradient: ["#CCAA66", "#CCCCB3"], // Darker, more muted for dark mode
-    accent: "text-amber-800",
-    darkAccent: "text-amber-300",
-    text: "text-slate-900",
-    darkText: "text-slate-900", // Still readable on lighter gradient
-    subtleText: "text-slate-700",
-    darkSubtleText: "text-slate-700",
-  },
-  flowing: {
-    gradient: ["#4ECDC4", "#95E1D3"],
-    darkGradient: ["#3E9C94", "#75B1A3"], // Darker, more muted for dark mode
-    accent: "text-teal-900",
-    darkAccent: "text-teal-200",
+  scattered: {
+    gradient: ["#FEF3C7", "#FFFBEB"],
+    darkGradient: ["#78350F", "#92400E"],
+    accent: "text-amber-900",
+    darkAccent: "text-amber-200",
     text: "text-slate-900",
     darkText: "text-white",
     subtleText: "text-slate-700",
     darkSubtleText: "text-slate-100",
   },
-  foggy: {
-    gradient: ["#9CBED7", "#D1E2EA"],
-    darkGradient: ["#7C9EB7", "#B1C2DA"], // Darker, more muted for dark mode
-    accent: "text-slate-800",
-    darkAccent: "text-slate-200",
-    text: "text-slate-900",
-    darkText: "text-white",
-    subtleText: "text-slate-700",
-    darkSubtleText: "text-slate-100",
-  },
-  resting: {
-    gradient: ["#B6B6D8", "#E0D5F2"],
-    darkGradient: ["#9696B8", "#C0B5D2"], // Darker, more muted for dark mode
-    accent: "text-slate-800",
-    darkAccent: "text-slate-200",
-    text: "text-slate-900",
-    darkText: "text-white",
-    subtleText: "text-slate-700",
-    darkSubtleText: "text-slate-100",
-  },
-  // Legacy support for old weather keys
-  clear: {
-    gradient: ["#FFD580", "#FFF9E3"],
-    darkGradient: ["#CCAA66", "#CCCCB3"],
-    accent: "text-amber-800",
-    darkAccent: "text-amber-300",
-    text: "text-slate-900",
-    darkText: "text-slate-900",
-    subtleText: "text-slate-700",
-    darkSubtleText: "text-slate-700",
-  },
-  cloudy: {
-    gradient: ["#CDE3F5", "#F2F2F2"],
-    darkGradient: ["#ADC3D5", "#D2D2D2"],
-    accent: "text-slate-700",
-    darkAccent: "text-slate-300",
-    text: "text-slate-900",
-    darkText: "text-slate-900",
-    subtleText: "text-slate-600",
-    darkSubtleText: "text-slate-600",
-  },
-  rainy: {
-    gradient: ["#9CBED7", "#D1E2EA"],
-    darkGradient: ["#7C9EB7", "#B1C2DA"],
-    accent: "text-slate-800",
-    darkAccent: "text-slate-200",
-    text: "text-slate-900",
-    darkText: "text-white",
-    subtleText: "text-slate-700",
-    darkSubtleText: "text-slate-100",
-  },
-  stormy: {
-    gradient: ["#B38DCB", "#5D7AA2"],
-    darkGradient: ["#936DAB", "#4D5A82"], // Slightly darker for dark mode
-    accent: "text-indigo-50",
-    darkAccent: "text-indigo-200",
-    text: "text-white",
-    darkText: "text-white",
-    subtleText: "text-indigo-100",
-    darkSubtleText: "text-indigo-200",
-  },
-  quiet: {
-    gradient: ["#B6B6D8", "#E0D5F2"],
-    darkGradient: ["#9696B8", "#C0B5D2"],
-    accent: "text-slate-800",
-    darkAccent: "text-slate-200",
+  unfocused: {
+    gradient: ["#FEE2E2", "#FEF2F2"],
+    darkGradient: ["#7F1D1D", "#991B1B"],
+    accent: "text-red-900",
+    darkAccent: "text-red-200",
     text: "text-slate-900",
     darkText: "text-white",
     subtleText: "text-slate-700",
@@ -147,56 +86,27 @@ const weatherThemes: Record<
   },
 };
 
-type WeatherSupport = {
+type FocusSupport = {
   headline: string;
   message: string;
 };
 
-const weatherSupportMessages: Record<string, WeatherSupport> = {
-  sparky: {
-    headline: "Channel the spark",
-    message: "Your energy is high but scattered. Pick one thing and let the rest wait—focus that spark.",
+const focusSupportMessages: Record<string, FocusSupport> = {
+  focused: {
+    headline: "Channel the focus",
+    message: "Your mind is clear. Pick one big thing and dive deep.",
   },
-  steady: {
-    headline: "Shine with intention",
-    message: "Use this steady energy on one meaningful move, then let yourself coast.",
+  scattered: {
+    headline: "Steady wins",
+    message: "You're functional but scattered. Stick to routine tasks and be gentle.",
   },
-  flowing: {
-    headline: "Move at your pace",
-    message: "You're moving, just slowly. Lower the bar, add softness, and rest between small bursts.",
-  },
-  foggy: {
-    headline: "One gentle thing",
-    message: "Pick a single tiny task and keep it simple—foggy brains crave easy wins.",
-  },
-  resting: {
-    headline: "Rest is productive",
-    message: "Tend to essentials only. Your system needs recovery—honor that need.",
-  },
-  // Legacy support for old weather keys
-  clear: {
-    headline: "Shine with intention",
-    message: "Use this steady energy on one meaningful move, then let yourself coast.",
-  },
-  cloudy: {
-    headline: "One gentle thing",
-    message: "Pick a single tiny task and keep it simple—cloudy brains crave easy wins.",
-  },
-  rainy: {
-    headline: "Move at rain speed",
-    message: "Lower the bar, add softness, and rest between small bursts.",
-  },
-  stormy: {
-    headline: "Protect your system",
-    message: "Shrink the work, add support, and pause often. Safety first.",
-  },
-  quiet: {
-    headline: "Keep input low",
-    message: "Tend to essentials only; quiet energy loves calm pacing.",
+  unfocused: {
+    headline: "Survival mode",
+    message: "Brain fog is real. Do the bare minimum and prioritize rest.",
   },
 };
 
-const defaultWeatherSupport: WeatherSupport = {
+const defaultFocusSupport: FocusSupport = {
   headline: "Keep it gentle",
   message: "Listen to your energy and choose the kindest next step.",
 };
@@ -264,13 +174,13 @@ const defaultBarrierSupport: BarrierSupport = {
 const ADHD_KIT_BASE_URL = "https://adhd-first-aid.vercel.app/barriers";
 const ADHD_KIT_CATEGORY_PARAM = encodeURIComponent("View All");
 
-function getWeatherSupport(key?: string | null): WeatherSupport {
-  return weatherSupportMessages[key ?? ""] ?? defaultWeatherSupport;
+function getFocusSupport(key?: string | null): FocusSupport {
+  return focusSupportMessages[key ?? ""] ?? defaultFocusSupport;
 }
 
-function getWeatherTheme(key?: string | null) {
+function getFocusTheme(key?: string | null) {
   return (
-    weatherThemes[key ?? ""] ?? {
+    focusThemes[key ?? ""] ?? {
       gradient: ["#D6E8F5", "#FDFCFB"],
       accent: "text-slate-800",
       text: "text-slate-900",
@@ -328,15 +238,15 @@ const customWallpaperThemes: Record<
   },
 };
 
-function resolveWallpaperTheme(weatherKey: string | null, theme: WallpaperThemeKey) {
+function resolveWallpaperTheme(focusKey: string | null, theme: WallpaperThemeKey) {
   if (theme !== "auto") {
     return customWallpaperThemes[theme];
   }
-  return getWeatherTheme(weatherKey);
+  return getFocusTheme(focusKey);
 }
 
 const wallpaperThemeOptions: Array<{ key: WallpaperThemeKey; label: string }> = [
-              { key: "auto", label: "Match energy" },
+  { key: "auto", label: "Match energy" },
   { key: "sunset", label: "Sunset Bloom" },
   { key: "forest", label: "Emerald Mist" },
   { key: "dusk", label: "Purple Dreams" },
@@ -356,7 +266,7 @@ function getBarrierKitUrl(kitSlug?: string | null) {
 
 export default function GentleSupportScreen() {
   const router = useRouter();
-  const { weather, forecastNote, focusItems, checkinDate, clearLocalStorageForDate } = useCheckIn();
+  const { focus: weather, forecastNote, focusItems, checkinDate, clearLocalStorageForDate } = useCheckIn();
   const activeFocusItems = useMemo(() => focusItems.filter((item) => !item.completed), [focusItems]);
   const { user, loading: authLoading, error: authError } = useSupabaseUser();
   const forecastRef = useRef<HTMLDivElement>(null);
@@ -428,11 +338,11 @@ export default function GentleSupportScreen() {
       const userAgent = navigator.userAgent.toLowerCase();
       const isIOS = /iphone|ipad|ipod/.test(userAgent);
       const isAndroid = /android/.test(userAgent);
-      
+
       // Get screen dimensions
       const screenWidth = window.screen.width;
       const screenHeight = window.screen.height;
-      
+
       // Common device dimensions (in logical pixels)
       // iPhone models typically have taller aspect ratios
       let width = 390;
@@ -495,7 +405,7 @@ export default function GentleSupportScreen() {
       return acc;
     }, {});
   }, [barrierTypes]);
-  const weatherSupport = getWeatherSupport(weather?.key);
+  const focusSupport = getFocusSupport(weather?.key);
 
   const canSave = useMemo(() => {
     return Boolean(user) && !saving && activeFocusItems.every((item) => hasBarrierSelection(item.barrier));
@@ -507,13 +417,13 @@ export default function GentleSupportScreen() {
 
   async function captureForecastCanvas() {
     if (!forecastRef.current) return null;
-    
+
     // Temporarily set exact dimensions for accurate capture
     const originalStyle = forecastRef.current.style.cssText;
     forecastRef.current.style.width = `${deviceDimensions.width}px`;
     forecastRef.current.style.height = `${deviceDimensions.height}px`;
     forecastRef.current.style.aspectRatio = 'unset';
-    
+
     try {
       const canvas = await html2canvas(forecastRef.current, {
         backgroundColor: null,
@@ -522,10 +432,10 @@ export default function GentleSupportScreen() {
         height: deviceDimensions.height,
         useCORS: true,
       });
-      
+
       // Restore original styles
       forecastRef.current.style.cssText = originalStyle;
-      
+
       return canvas;
     } catch (error) {
       // Restore original styles even on error
@@ -665,10 +575,10 @@ export default function GentleSupportScreen() {
         plannedDate: checkinDate,
       });
       setWallpaperTheme("auto");
-      
+
       // Clear localStorage after successful save (database is now source of truth)
       clearLocalStorageForDate(checkinDate);
-      
+
       // Show success message before transitioning to forecast (Option A)
       setShowSuccess(true);
       // Note: resetCheckIn() removed - don't clear state until navigation completes
@@ -768,8 +678,8 @@ export default function GentleSupportScreen() {
             </div>
           </section>
 
-          {exportMessage && (
-            <p className="text-center text-sm text-slate-600 dark:text-slate-400">{exportMessage}</p>
+          {focusSupport && (
+            <p className="text-center text-sm text-slate-600 dark:text-slate-400">{focusSupport.message}</p>
           )}
 
           <section className="rounded-3xl border border-white/30 bg-white/90 p-5 shadow-sm dark:border-slate-600/40 dark:bg-slate-800/60">
@@ -781,7 +691,7 @@ export default function GentleSupportScreen() {
               {wallpaperThemeOptions.map((option) => {
                 const previewTheme =
                   option.key === "auto"
-                    ? getWeatherTheme(dailyForecast.weather.key)
+                    ? getFocusTheme(dailyForecast.weather.key)
                     : customWallpaperThemes[option.key];
                 const active = wallpaperTheme === option.key;
                 return (
@@ -789,11 +699,10 @@ export default function GentleSupportScreen() {
                     type="button"
                     key={option.key}
                     onClick={() => setWallpaperTheme(option.key)}
-                    className={`flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-medium transition ${
-                      active
-                        ? "border-cyan-400 bg-cyan-50 text-cyan-800 dark:border-cyan-500/50 dark:bg-cyan-500/20 dark:text-cyan-200"
-                        : "border-white/60 bg-white text-slate-600 hover:border-cyan-200 dark:border-slate-600/50 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:border-cyan-500/50"
-                    }`}
+                    className={`flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-medium transition ${active
+                      ? "border-cyan-400 bg-cyan-50 text-cyan-800 dark:border-cyan-500/50 dark:bg-cyan-500/20 dark:text-cyan-200"
+                      : "border-white/60 bg-white text-slate-600 hover:border-cyan-200 dark:border-slate-600/50 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:border-cyan-500/50"
+                      }`}
                   >
                     <span
                       className="h-6 w-12 rounded-full"
@@ -869,9 +778,9 @@ export default function GentleSupportScreen() {
               <p className="text-xl font-semibold text-slate-900 dark:text-slate-100">{weather?.label}</p>
               <p className="text-sm text-slate-600 dark:text-slate-300">{weather?.description}</p>
               <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-cyan-600 dark:text-cyan-400">
-                {weatherSupport.headline}
+                {focusSupport.headline}
               </p>
-              <p className="text-sm text-slate-600 dark:text-slate-300">{weatherSupport.message}</p>
+              <p className="text-sm text-slate-600 dark:text-slate-300">{focusSupport.message}</p>
             </div>
           </div>
           {forecastNote && (

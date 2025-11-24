@@ -8,6 +8,11 @@ module.exports = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        // Clean, readable fonts for ADHD accessibility
+        cinzel: ['var(--font-outfit)', 'system-ui', 'sans-serif'],
+        crimson: ['var(--font-source-sans)', 'system-ui', 'sans-serif'],
+      },
       colors: {
         // Pastel gradient colors for barrier cards
         pastel: {

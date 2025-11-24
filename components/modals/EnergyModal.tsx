@@ -1,7 +1,7 @@
 'use client';
 
 import { X } from 'lucide-react';
-import { EnergyLevel, getCapacityRangeText, getCapacityMessage } from '@/lib/capacity';
+import { EnergyLevel, getEnergyCapacityRangeText, getEnergyCapacityMessage } from '@/lib/capacity';
 
 interface EnergyModalProps {
   isOpen: boolean;
@@ -100,7 +100,7 @@ export function EnergyModal({ isOpen, currentEnergy, onClose, onSelect }: Energy
           <div className="max-h-[60vh] space-y-3 overflow-y-auto p-6">
             {ENERGY_OPTIONS.map((option) => {
               const isSelected = currentEnergy === option.value;
-              const capacityRange = getCapacityRangeText(option.value);
+              const capacityRange = getEnergyCapacityRangeText(option.value);
 
               return (
                 <button

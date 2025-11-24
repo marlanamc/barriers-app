@@ -1,7 +1,7 @@
 'use client';
 
 import type { EnergyLevel } from '@/lib/capacity';
-import { ENERGY_CAPACITY, COMPLEXITY_COST, MAX_FOCUS_ITEMS, getCapacityRangeText } from '@/lib/capacity';
+import { ENERGY_CAPACITY, COMPLEXITY_COST, MAX_FOCUS_ITEMS, getEnergyCapacityRangeText } from '@/lib/capacity';
 
 const energyLevels: Array<{ key: EnergyLevel; label: string; color: string }> = [
   { key: 'sparky', label: 'Sparky', color: 'bg-yellow-400' },
@@ -46,7 +46,7 @@ export default function AboutPage() {
                       </span>
                     </div>
                     <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-400">
-                      {getCapacityRangeText(level.key)}
+                      {getEnergyCapacityRangeText(level.key)}
                     </p>
                   </div>
                 </div>

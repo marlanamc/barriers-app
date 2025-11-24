@@ -258,7 +258,7 @@ export default function FocusScreen() {
   const editItemId = searchParams.get('edit');
   const isEditingSpecificItem = Boolean(editItemId);
   const {
-    weather,
+    focus: weather,
     forecastNote,
     focusItems,
     checkinDate,

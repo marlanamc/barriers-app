@@ -178,6 +178,8 @@ export default function TomorrowPage() {
               onToggleFocusTask={() => {}}
               onFocusTaskClick={handleTaskClick}
               onDeleteFocusTask={handleDeleteTask}
+              onRescheduleFocusTask={() => {}}
+              onAddBarrier={() => {}}
               onAddLifeTask={() => {}}
               onToggleLifeTask={() => {}}
               onDeleteLifeTask={handleDeleteTask}

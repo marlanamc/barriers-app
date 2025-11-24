@@ -11,6 +11,7 @@ import { getPlannedItems, deletePlannedItem, type PlannedItemWithBarrier } from 
 import { useSupabaseUser } from "@/lib/useSupabaseUser";
 import { getRecurrenceDescription } from "@/lib/recurrence";
 import { getCategoryEmoji } from "@/lib/categories";
+import { useToast } from "@/components/ToastProvider";
 
 const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -28,6 +29,7 @@ export default function PlanAheadPage() {
     setRecurrenceDays,
   } = usePlanning();
   const { user } = useSupabaseUser();
+  const { addToast } = useToast();
   const [hasEndDate, setHasEndDate] = useState(false);
   const [existingPlannedItems, setExistingPlannedItems] = useState<PlannedItemWithBarrier[]>([]);
   const [loadingPlannedItems, setLoadingPlannedItems] = useState(true);
@@ -92,10 +94,11 @@ export default function PlanAheadPage() {
       const success = await deletePlannedItem(itemId);
       if (success) {
         setExistingPlannedItems((prev) => prev.filter((item) => item.id !== itemId));
+        addToast('Deleted planned item.', 'success');
       }
     } catch (err) {
       console.error('Error deleting planned item:', err);
-      alert('Failed to delete planned item. Please try again.');
+      addToast('Failed to delete planned item. Please try again.', 'error');
     }
   };
 

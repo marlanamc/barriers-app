@@ -9,6 +9,7 @@ import { createPlannedItem } from "@/lib/supabase";
 import { useSupabaseUser } from "@/lib/useSupabaseUser";
 import { getRecurrenceDescription } from "@/lib/recurrence";
 import { getCategoryEmoji } from "@/lib/categories";
+import { useToast } from "@/components/ToastProvider";
 
 export default function PlanAheadSavePage() {
   const router = useRouter();
@@ -21,6 +22,7 @@ export default function PlanAheadSavePage() {
     plannedItems,
     resetPlanning,
   } = usePlanning();
+  const { addToast } = useToast();
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -82,15 +84,14 @@ export default function PlanAheadSavePage() {
         }
       }
 
-      // Reset the planning context
       resetPlanning();
-
-      // Redirect to home with success message
+      addToast('Planned items saved.', 'success');
       router.push('/?planned=success');
     } catch (err) {
       console.error('Error saving planned items:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to save planned items. Please try again.';
       setError(errorMessage);
+      addToast(errorMessage, 'error');
     } finally {
       setSaving(false);
     }

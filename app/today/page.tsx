@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Compass, Plus } from 'lucide-react';
+import { Compass, Plus, Calendar } from 'lucide-react';
 import { FocusSelector } from '@/components/FocusSelector';
 import { TasksCard } from '@/components/TasksCard';
 import { TaskClarificationModal } from '@/components/TaskClarificationModal';
@@ -11,7 +11,7 @@ import { SleepNotification } from '@/components/SleepNotification';
 import { useSupabaseUser } from '@/lib/useSupabaseUser';
 import { getCheckinByDate, saveCheckinWithFocus, type FocusItemPayload } from '@/lib/supabase';
 import { getTodayLocalDateString } from '@/lib/date-utils';
-import { calculateCapacity, type TaskComplexity, type WorkWindow } from '@/lib/capacity';
+import { type TaskComplexity, type WorkWindow, COMPLEXITY_COST } from '@/lib/capacity';
 import type { FocusLevel, UserContext } from '@/lib/user-context';
 import type { BarrierType } from '@/lib/barriers';
 
@@ -52,19 +52,16 @@ export default function TodayPage() {
   const { user, loading: authLoading } = useSupabaseUser();
 
   // State
-  const [userContext, setUserContext] = useState<UserContext>({
-    wakeTime: '08:00',
-    sleepTime: '23:00',
-    hasDeadlines: false,
-  });
   const [selectedFocus, setSelectedFocus] = useState<FocusLevel | null>(null);
   const [focusTasks, setFocusTasks] = useState<FocusTask[]>([]);
   const [lifeTasks, setLifeTasks] = useState<LifeTask[]>([]);
   const [showFocusSelector, setShowFocusSelector] = useState(true);
   const [clarificationTaskId, setClarificationTaskId] = useState<string | null>(null);
+  const [newTaskDescription, setNewTaskDescription] = useState<string>('');
   const [activeFocusTaskId, setActiveFocusTaskId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [timelineCollapsed, setTimelineCollapsed] = useState(false);
+  const [timelineCollapsed, setTimelineCollapsed] = useState(true);
+  const [wakeTime, setWakeTime] = useState('08:00');
 
   // Load today's data
   useEffect(() => {
@@ -82,9 +79,16 @@ export default function TodayPage() {
 
         if (checkin) {
           // Load existing data
-          if (checkin.internal_weather?.focus_level) {
-            setSelectedFocus(checkin.internal_weather.focus_level as FocusLevel);
-            setShowFocusSelector(false);
+          if (checkin.internal_weather && typeof checkin.internal_weather === 'object') {
+            const weather = checkin.internal_weather as any;
+            if (weather.focus_level) {
+              setSelectedFocus(weather.focus_level as FocusLevel);
+              setShowFocusSelector(false);
+            }
+
+            if (weather.wake_time) {
+              setWakeTime(weather.wake_time);
+            }
           }
 
           if (checkin.focus_items && Array.isArray(checkin.focus_items)) {
@@ -112,16 +116,6 @@ export default function TodayPage() {
             setFocusTasks(loadedFocusTasks);
             setLifeTasks(loadedLifeTasks);
           }
-
-          // Load user context
-          if (checkin.internal_weather) {
-            setUserContext(prev => ({
-              ...prev,
-              wakeTime: checkin.internal_weather.wake_time || prev.wakeTime,
-              sleepTime: checkin.internal_weather.sleep_time || prev.sleepTime,
-              hasDeadlines: checkin.internal_weather.has_deadlines || false,
-            }));
-          }
         }
       } catch (error) {
         console.error('Error loading today data:', error);
@@ -133,9 +127,25 @@ export default function TodayPage() {
     loadTodayData();
   }, [user, authLoading]);
 
+  // Auto-save when tasks or focus level changes
+  useEffect(() => {
+    // Only save if we have a user and focus level selected
+    if (user && selectedFocus && !isLoading) {
+      saveToDatabase();
+    }
+  }, [focusTasks, lifeTasks, selectedFocus, wakeTime]);
+
   // Save to database
   const saveToDatabase = async () => {
-    if (!user || !selectedFocus) return;
+    if (!user) {
+      console.log('No user, skipping save');
+      return;
+    }
+
+    if (!selectedFocus) {
+      console.log('No focus level selected yet, skipping save');
+      return;
+    }
 
     try {
       const today = getTodayLocalDateString();
@@ -179,9 +189,7 @@ export default function TodayPage() {
         userId: user.id,
         internalWeather: {
           focusLevel: selectedFocus,
-          wakeTime: userContext.wakeTime,
-          sleepTime: userContext.sleepTime,
-          hasDeadlines: userContext.hasDeadlines,
+          wakeTime: wakeTime,
         },
         date: today,
         focusItems: focusItemsPayload,
@@ -198,7 +206,8 @@ export default function TodayPage() {
     saveToDatabase();
   };
 
-  const handleAddFocusTask = () => {
+  const handleAddFocusTask = (description?: string) => {
+    setNewTaskDescription(description || '');
     setClarificationTaskId('new');
   };
 
@@ -209,6 +218,8 @@ export default function TodayPage() {
     anchors: TaskAnchor[];
     barrier: { type: string; custom?: string } | null;
   }) => {
+    console.log('Saving task with data:', taskData);
+
     if (clarificationTaskId === 'new') {
       // New task
       const newTask: FocusTask = {
@@ -220,6 +231,7 @@ export default function TodayPage() {
         anchors: taskData.anchors,
         barrier: taskData.barrier || undefined,
       };
+      console.log('Created new task:', newTask);
       setFocusTasks(prev => [...prev, newTask]);
     } else if (clarificationTaskId) {
       // Edit existing task
@@ -239,7 +251,7 @@ export default function TodayPage() {
       );
     }
     setClarificationTaskId(null);
-    saveToDatabase();
+    setNewTaskDescription('');
   };
 
   const handleToggleFocusTask = (taskId: string) => {
@@ -248,7 +260,6 @@ export default function TodayPage() {
         task.id === taskId ? { ...task, completed: !task.completed } : task
       )
     );
-    saveToDatabase();
   };
 
   const handleFocusTaskClick = (taskId: string) => {
@@ -257,7 +268,9 @@ export default function TodayPage() {
 
   const handleDeleteFocusTask = (taskId: string) => {
     setFocusTasks(prev => prev.filter(task => task.id !== taskId));
-    saveToDatabase();
+    if (activeFocusTaskId === taskId) {
+      setActiveFocusTaskId(null);
+    }
   };
 
   const handleAddLifeTask = (description: string) => {
@@ -267,7 +280,6 @@ export default function TodayPage() {
       completed: false,
     };
     setLifeTasks(prev => [...prev, newTask]);
-    saveToDatabase();
   };
 
   const handleToggleLifeTask = (taskId: string) => {
@@ -281,7 +293,6 @@ export default function TodayPage() {
 
   const handleDeleteLifeTask = (taskId: string) => {
     setLifeTasks(prev => prev.filter(task => task.id !== taskId));
-    saveToDatabase();
   };
 
   const handleRescheduleFocusTask = (taskId: string) => {
@@ -294,11 +305,10 @@ export default function TodayPage() {
   };
 
   // Calculate capacity
-  const capacity = selectedFocus ? calculateCapacity(selectedFocus) : { quick: 0, medium: 0, deep: 0 };
-  const totalCapacity = capacity.quick + capacity.medium + capacity.deep;
+  const totalCapacity = selectedFocus === 'focused' ? 5 : selectedFocus === 'scattered' ? 3 : 1;
   const usedCapacity = focusTasks.reduce((sum, task) => {
     if (task.completed) return sum;
-    return sum + (task.complexity === 'quick' ? 1 : task.complexity === 'medium' ? 2 : 3);
+    return sum + (COMPLEXITY_COST[task.complexity] || 1);
   }, 0);
   const canAddMoreFocus = usedCapacity < totalCapacity;
 
@@ -312,8 +322,20 @@ export default function TodayPage() {
   // Loading state
   if (authLoading || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
-        <div className="animate-pulse text-slate-500">Loading...</div>
+      <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-rose-50 via-orange-50 to-sky-50 dark:from-[#0a1628] dark:via-[#0f2847] dark:to-[#1a3a5c]">
+          <div
+            className="absolute inset-0 opacity-[0.06] dark:opacity-[0.03]"
+            style={{
+              backgroundImage: `
+                linear-gradient(rgba(148, 163, 184, 0.4) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(148, 163, 184, 0.4) 1px, transparent 1px)
+              `,
+              backgroundSize: '40px 40px'
+            }}
+          />
+        </div>
+        <div className="relative z-10 animate-pulse text-slate-500 dark:text-[#a8c5d8] font-crimson">Loading...</div>
       </div>
     );
   }
@@ -321,9 +343,21 @@ export default function TodayPage() {
   // Not logged in
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
-        <div className="text-center">
-          <p className="text-slate-600 dark:text-slate-400">Please log in to continue</p>
+      <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-rose-50 via-orange-50 to-sky-50 dark:from-[#0a1628] dark:via-[#0f2847] dark:to-[#1a3a5c]">
+          <div
+            className="absolute inset-0 opacity-[0.06] dark:opacity-[0.03]"
+            style={{
+              backgroundImage: `
+                linear-gradient(rgba(148, 163, 184, 0.4) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(148, 163, 184, 0.4) 1px, transparent 1px)
+              `,
+              backgroundSize: '40px 40px'
+            }}
+          />
+        </div>
+        <div className="relative z-10 text-center">
+          <p className="text-slate-600 dark:text-[#a8c5d8] font-crimson">Please log in to continue</p>
         </div>
       </div>
     );
@@ -332,11 +366,12 @@ export default function TodayPage() {
   // Show focus selector if not selected
   if (showFocusSelector || !selectedFocus) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+      <div className="min-h-screen">
         <FocusSelector
-          userContext={userContext}
+          userContext={'other' as UserContext}
           onSelectFocus={handleFocusSelect}
-          hasDeadlines={userContext.hasDeadlines}
+          onContinue={() => setShowFocusSelector(false)}
+          hasDeadlines={false}
         />
       </div>
     );
@@ -345,20 +380,56 @@ export default function TodayPage() {
   const completedTasks = focusTasks.filter(t => t.completed).length + lifeTasks.filter(t => t.completed).length;
 
   return (
-    <div className="min-h-screen pb-24 bg-slate-50 dark:bg-slate-950">
-      <div className="container mx-auto px-4 py-6 max-w-2xl space-y-6">
+    <div className="relative min-h-screen pb-24 overflow-hidden">
+      {/* Background - Light mode: warm soft pastels, Dark mode: deep ocean */}
+      <div className="absolute inset-0 bg-gradient-to-b from-rose-50 via-orange-50 to-sky-50 dark:from-[#0a1628] dark:via-[#0f2847] dark:to-[#1a3a5c]">
+        {/* Grid lines */}
+        <div
+          className="absolute inset-0 opacity-[0.06] dark:opacity-[0.03]"
+          style={{
+            backgroundImage: `
+              linear-gradient(rgba(148, 163, 184, 0.4) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(148, 163, 184, 0.4) 1px, transparent 1px)
+            `,
+            backgroundSize: '40px 40px'
+          }}
+        />
+
+        {/* Compass rose decoration */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] opacity-[0.03] dark:opacity-[0.02]">
+          <svg viewBox="0 0 100 100" className="w-full h-full">
+            <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="0.5" className="text-slate-400 dark:text-[#d4a574]"/>
+            <circle cx="50" cy="50" r="35" fill="none" stroke="currentColor" strokeWidth="0.3" className="text-slate-400 dark:text-[#d4a574]"/>
+            <circle cx="50" cy="50" r="25" fill="none" stroke="currentColor" strokeWidth="0.3" className="text-slate-400 dark:text-[#d4a574]"/>
+            <path d="M50 5 L52 15 L50 12 L48 15 Z" fill="currentColor" className="text-slate-400 dark:text-[#d4a574]"/>
+            <path d="M50 95 L48 85 L50 88 L52 85 Z" fill="currentColor" className="text-slate-400 dark:text-[#d4a574]"/>
+            <path d="M5 50 L15 48 L12 50 L15 52 Z" fill="currentColor" className="text-slate-400 dark:text-[#d4a574]"/>
+            <path d="M95 50 L85 52 L88 50 L85 48 Z" fill="currentColor" className="text-slate-400 dark:text-[#d4a574]"/>
+          </svg>
+        </div>
+
+        {/* Texture overlay */}
+        <div
+          className="absolute inset-0 opacity-[0.05] dark:opacity-[0.15] mix-blend-overlay"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`
+          }}
+        />
+      </div>
+
+      <div className="relative z-10 container mx-auto px-4 py-6 max-w-2xl space-y-4">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Compass className="h-8 w-8 text-cyan-600 dark:text-cyan-400" />
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                Today's Compass
-              </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-              </p>
-            </div>
+        <div className="flex items-center gap-3 mb-2 pl-2">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-sky-500 to-cyan-500 dark:from-[#d4a574] dark:to-[#c49a6c] flex items-center justify-center shadow-lg">
+            <Compass className="h-6 w-6 text-white dark:text-[#0a1628]" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800 dark:text-[#f4e9d8] tracking-wide font-cinzel">
+              Today's Compass
+            </h1>
+            <p className="text-sm text-slate-600 dark:text-[#a8c5d8] font-crimson">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            </p>
           </div>
         </div>
 
@@ -370,12 +441,47 @@ export default function TodayPage() {
           totalCapacity={totalCapacity}
           collapsed={timelineCollapsed}
           onToggleCollapsed={() => setTimelineCollapsed(!timelineCollapsed)}
-          wakeTime={userContext.wakeTime}
+          wakeTime={wakeTime}
           focusLevel={selectedFocus}
         />
 
-        {/* Sleep Notification */}
-        <SleepNotification wakeTime={userContext.wakeTime} />
+        {/* Add Task Input - Always under timeline */}
+        {canAddMoreFocus && (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/80 dark:bg-[#0a1628]/60 backdrop-blur-sm border border-slate-200 dark:border-[#d4a574]/20 focus-within:border-sky-400 dark:focus-within:border-[#d4a574]/40 focus-within:shadow-lg transition-all">
+            <input
+              type="text"
+              value={newTaskDescription}
+              onChange={(e) => setNewTaskDescription(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && newTaskDescription.trim()) {
+                  handleAddFocusTask(newTaskDescription.trim());
+                }
+              }}
+              placeholder="What's your Compass priority?"
+              className="flex-1 bg-transparent border-0 outline-none text-base text-slate-700 dark:text-[#f4e9d8] placeholder-slate-400 dark:placeholder-[#a8c5d8]/60 font-crimson"
+            />
+            <button
+              type="button"
+              className="text-slate-400 hover:text-slate-500 dark:text-[#d4a574]/60 dark:hover:text-[#d4a574] transition-colors"
+            >
+              <Calendar className="w-5 h-5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (newTaskDescription.trim()) {
+                  handleAddFocusTask(newTaskDescription.trim());
+                }
+              }}
+              disabled={!newTaskDescription.trim()}
+              className="text-sky-500 hover:text-sky-600 dark:text-[#d4a574] dark:hover:text-[#c49a6c] disabled:text-slate-300 dark:disabled:text-slate-600 disabled:cursor-not-allowed transition-colors"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
+              </svg>
+            </button>
+          </div>
+        )}
 
         {/* Tasks */}
         <TasksCard
@@ -383,7 +489,6 @@ export default function TodayPage() {
           lifeTasks={lifeTasks}
           canAddMoreFocus={canAddMoreFocus}
           focusCapacityTarget={totalCapacity}
-          onAddFocusTask={handleAddFocusTask}
           onToggleFocusTask={handleToggleFocusTask}
           onFocusTaskClick={handleFocusTaskClick}
           onDeleteFocusTask={handleDeleteFocusTask}
@@ -398,14 +503,22 @@ export default function TodayPage() {
       {/* Task Clarification Modal */}
       {clarificationTaskId && (
         <TaskClarificationModal
-          isOpen={true}
-          onClose={() => setClarificationTaskId(null)}
-          onSave={handleSaveTask}
-          initialData={
-            clarificationTaskId !== 'new'
-              ? focusTasks.find(t => t.id === clarificationTaskId)
-              : undefined
-          }
+          taskDescription={newTaskDescription || (clarificationTaskId !== 'new' ? focusTasks.find(t => t.id === clarificationTaskId)?.description || '' : '')}
+          onSave={(data) => {
+            // Convert the modal's data format to our task format
+            const taskData = {
+              description: newTaskDescription || (clarificationTaskId !== 'new' ? focusTasks.find(t => t.id === clarificationTaskId)?.description || '' : ''),
+              complexity: data.complexity,
+              categories: data.category ? [data.category] : [],
+              anchors: data.anchor ? [data.anchor] : [],
+              barrier: data.barrier ? { type: data.barrier } : null,
+            };
+            handleSaveTask(taskData);
+          }}
+          onCancel={() => {
+            setClarificationTaskId(null);
+            setNewTaskDescription('');
+          }}
         />
       )}
 

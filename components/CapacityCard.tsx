@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { AlertTriangle, ChevronDown } from 'lucide-react';
-import { getCapacityMessage, getCapacityRangeText } from '@/lib/capacity';
+import { getEnergyCapacityMessage, getEnergyCapacityRangeText } from '@/lib/capacity';
 import type { EnergyLevel, TaskComplexity } from '@/lib/capacity';
 
 interface CapacityStats {
@@ -81,7 +81,7 @@ function getHint({
   if (planHint) return planHint;
   if (!energyLevel) return 'Set energy for guidance';
   if (!capacityInfo?.recommendedComplexity) {
-    return getCapacityMessage(energyLevel);
+    return getEnergyCapacityMessage(energyLevel);
   }
   const complexity = capacityInfo.recommendedComplexity;
   const label =
@@ -105,7 +105,7 @@ export function CapacityCard({
   const hardStopLabel = formatHardStop(hardStopTime);
   const summary = getSummaryCopy(energyLevel);
   const hint = getHint({ planHint, energyLevel, capacityInfo });
-  const capacityRange = energyLevel ? getCapacityRangeText(energyLevel) : null;
+  const capacityRange = energyLevel ? getEnergyCapacityRangeText(energyLevel) : null;
   const energyLabel = energyLevel ? ENERGY_LABELS[energyLevel] : 'Not set';
 
   return (

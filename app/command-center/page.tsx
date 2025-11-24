@@ -2,32 +2,47 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import ConfettiExplosion from 'react-confetti-explosion';
-import { HeaderStatus } from '@/components/HeaderStatus';
-import { TasksCard } from '@/components/TasksCard';
-import { TaskModal } from '@/components/modals/TaskModal';
-import { QuickAddModal } from '@/components/modals/QuickAddModal';
-import { EnergyTimeline } from '@/components/command-center/EnergyTimeline';
-import { useSupabaseUser } from '@/lib/useSupabaseUser';
-import { getCheckinByDate, saveCheckinWithFocus, type FocusItemPayload } from '@/lib/supabase';
-import { getTodayLocalDateString } from '@/lib/date-utils';
-import {
-  EnergyLevel,
-  TaskComplexity,
-  TaskType,
-  getCapacityInfo,
-  getTimeUntilStop,
-  getContextualMessage,
-  MAX_FOCUS_ITEMS,
-} from '@/lib/capacity';
+import { Plus } from 'lucide-react';
 import { getEnergySchedules } from '@/lib/supabase';
-import { timeToMinutes } from '@/components/command-center/timelines/TimeUtils';
+import { getCheckinByDate, saveCheckinWithFocus, type FocusItemPayload } from '@/lib/supabase';
 import { getFlowGreeting } from '@/lib/getFlowGreeting';
 import { getCurrentEnergyLevel } from '@/lib/getCurrentEnergy';
 import { Loading } from '@/components/Loading';
 import { useDebounce } from '@/lib/useDebounce';
 import { useCache } from '@/lib/useCache';
-import { Plus } from 'lucide-react';
+import { useSupabaseUser } from '@/lib/useSupabaseUser';
+import { getTodayLocalDateString } from '@/lib/date-utils';
+import {
+  type EnergyLevel,
+  type TaskComplexity,
+  type TaskType,
+  type WorkWindow,
+  ENERGY_TO_WINDOW,
+  getTimeUntilStop,
+  getContextualMessage,
+  getCapacityInfoFromEnergy,
+  MAX_FOCUS_ITEMS,
+} from '@/lib/capacity';
+import { HeaderStatus } from '@/components/HeaderStatus';
+import { EnergyTimeline } from '@/components/command-center/EnergyTimeline';
+import { TasksCard } from '@/components/TasksCard';
+import type { FocusLevel } from '@/lib/user-context';
+
+// Map EnergyLevel to FocusLevel for HeaderStatus compatibility
+function energyToFocusLevel(energy: EnergyLevel | null): FocusLevel | null {
+  if (!energy) return null;
+  const mapping: Record<EnergyLevel, FocusLevel> = {
+    'sparky': 'focused',
+    'steady': 'focused',
+    'flowing': 'scattered',
+    'foggy': 'unfocused',
+    'resting': 'unfocused',
+  };
+  return mapping[energy];
+}
+import { TaskModal } from '@/components/modals/TaskModal';
+import { QuickAddModal } from '@/components/modals/QuickAddModal';
+import ConfettiExplosion from 'react-confetti-explosion';
 
 type TimeWarningTone = 'soon' | 'urgent' | 'after';
 
@@ -72,7 +87,7 @@ function getTimeWarning(timeInfo: ReturnType<typeof getTimeUntilStop> | null) {
   return null;
 }
 
-interface TaskAnchor {
+export interface TaskAnchor {
   type: 'at' | 'while' | 'before' | 'after';
   value: string;
 }
@@ -271,7 +286,7 @@ export default function CommandCenterPage() {
 
   // Calculate capacity
   const capacityInfo = energyLevel
-    ? getCapacityInfo(energyLevel, tasks)
+    ? getCapacityInfoFromEnergy(energyLevel, tasks)
     : { totalCapacity: 0, usedCapacity: 0, remainingCapacity: 0, percentUsed: 0, canAddTask: false, recommendedComplexity: null };
 
   // Time info
@@ -281,7 +296,7 @@ export default function CommandCenterPage() {
   const contextual = getContextualMessage(
     tasks,
     timeInfo?.isPastStop || false,
-    !!energyLevel
+    energyLevel ? ENERGY_TO_WINDOW[energyLevel] : null
   );
 
   const focusPlanned = focusTasks.filter((t) => !t.completed).length;
@@ -757,10 +772,10 @@ export default function CommandCenterPage() {
               </p>
             </div>
             <HeaderStatus
-              energyLevel={energyLevel}
+              focusLevel={energyToFocusLevel(energyLevel)}
               flowGreeting={flowGreeting}
               timeInfo={headerTimeInfo}
-              onEnergyClick={handleEnergyChange}
+              onFocusClick={handleEnergyChange}
               compact
             />
           </div>
@@ -807,6 +822,8 @@ export default function CommandCenterPage() {
             onToggleFocusTask={handleToggleFocusTask}
             onFocusTaskClick={handleTaskClick}
             onDeleteFocusTask={handleDeleteFocusTask}
+            onRescheduleFocusTask={() => {}} // Not implemented in command center
+            onAddBarrier={() => {}} // Not implemented in command center
             onAddLifeTask={handleAddLifeTask}
             onToggleLifeTask={handleToggleLifeTask}
             onDeleteLifeTask={handleDeleteLifeTask}

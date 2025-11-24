@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Play, Pause, CheckCircle, AlertTriangle, Minimize2, RotateCcw, Plus, Minus, Trash2 } from 'lucide-react';
 import type { TaskComplexity } from '@/lib/capacity';
-import confetti from 'canvas-confetti';
 import { BARRIERS, type BarrierType } from '@/lib/barriers';
 
 interface FocusModeTask {
@@ -75,8 +74,10 @@ export function FocusModeOverlay({
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
-    const handleComplete = () => {
+    const handleComplete = async () => {
         setIsCompleted(true);
+        // Dynamically import canvas-confetti to avoid SSR issues
+        const confetti = (await import('canvas-confetti')).default;
         confetti({
             particleCount: 100,
             spread: 70,

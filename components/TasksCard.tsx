@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, type KeyboardEvent, useRef } from 'react';
-import { Target, Heart, X, Tag, Trash2, Calendar, ChevronLeft, HelpCircle } from 'lucide-react';
+import { Target, Heart, X, Tag, Trash2, Calendar, ChevronLeft, HelpCircle, Plus } from 'lucide-react';
 import type { TaskComplexity } from '@/lib/capacity';
 import { getCategoryEmoji } from '@/lib/categories';
 import { buildMultipleAnchorsPhrase } from '@/lib/anchors';
@@ -39,7 +39,6 @@ interface TasksCardProps {
   lifeTasks: LifeTask[];
   canAddMoreFocus: boolean;
   focusCapacityTarget?: number;
-  onAddFocusTask: () => void;
   onToggleFocusTask: (taskId: string) => void;
   onFocusTaskClick: (taskId: string) => void;
   onDeleteFocusTask: (taskId: string) => void;
@@ -277,7 +276,6 @@ export function TasksCard({
   lifeTasks,
   canAddMoreFocus,
   focusCapacityTarget,
-  onAddFocusTask,
   onToggleFocusTask,
   onFocusTaskClick,
   onDeleteFocusTask,

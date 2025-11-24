@@ -44,9 +44,13 @@ export type FocusItemPayload = {
   categories: string[];
   sortOrder: number;
   plannedItemId?: string | null;
+  anchors?: {
+    type: 'at' | 'while' | 'before' | 'after';
+    value: string;
+  }[];
   anchorType?: 'at' | 'while' | 'before' | 'after' | null;
   anchorValue?: string | null;
-  taskType?: 'focus' | 'life';
+  taskType?: 'focus' | 'life' | 'inbox';
   complexity?: 'quick' | 'medium' | 'deep';
   completed?: boolean;
   barrier?: {
@@ -219,30 +223,78 @@ function buildDefaultTips(barrierTypes: BarrierType[]): BarrierTipMessage[] {
   }));
 }
 
+type TaskAnchorType = 'at' | 'while' | 'before' | 'after';
+
+function isTaskAnchorType(value: unknown): value is TaskAnchorType {
+  return value === 'at' || value === 'while' || value === 'before' || value === 'after';
+}
+
+function sanitizeAnchorValue(raw: unknown, itemIndex: number, anchorIndex?: number): string {
+  if (typeof raw !== 'string') {
+    return '';
+  }
+  const cleaned = raw.trim();
+  if (!cleaned) {
+    return '';
+  }
+  if (cleaned.length > 200) {
+    const position = anchorIndex !== undefined ? `${itemIndex + 1}.${anchorIndex + 1}` : `${itemIndex + 1}`;
+    throw new Error(`Focus item ${position} anchor value exceeds maximum length of 200 characters`);
+  }
+  return cleaned;
+}
+
+function normalizeAnchorsForPayload(
+  item: FocusItemPayload,
+  itemIndex: number,
+  legacyAnchor?: { type: TaskAnchorType | null; value: string | null }
+) {
+  const anchorsInput = Array.isArray(item.anchors) ? item.anchors : [];
+  const anchors: { type: TaskAnchorType; value: string }[] = [];
+
+  for (let idx = 0; idx < anchorsInput.length; idx++) {
+    const anchor = anchorsInput[idx];
+    if (!anchor || !isTaskAnchorType(anchor.type)) continue;
+    const value = sanitizeAnchorValue(anchor.value, itemIndex, idx);
+    if (!value) continue;
+    anchors.push({ type: anchor.type, value });
+  }
+
+  if (!anchors.length && legacyAnchor?.type && legacyAnchor.value) {
+    anchors.push({
+      type: legacyAnchor.type,
+      value: legacyAnchor.value,
+    });
+  }
+
+  const MAX_ANCHORS = 3;
+  return anchors.slice(0, MAX_ANCHORS);
+}
+
 export async function saveCheckinWithFocus(payload: SaveCheckinPayload): Promise<string> {
   // SECURITY: Client-side validation before sending to database
   // This provides immediate feedback and reduces server load
-  
+
   // Validate user ID format (UUID)
   if (!payload.userId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(payload.userId)) {
     throw new Error('Invalid user ID format');
   }
-  
+
   // Validate internal weather
   if (!payload.internalWeather?.key || typeof payload.internalWeather.key !== 'string') {
     throw new Error('Internal weather is required');
   }
-  
+
   // Validate forecast note length
   if (payload.forecastNote && payload.forecastNote.length > 1000) {
     throw new Error('Forecast note exceeds maximum length of 1000 characters');
   }
-  
+
   // Validate focus items count
   if (payload.focusItems.length > 5) {
     throw new Error('Maximum of 5 focus items allowed');
   }
-  
+
   // Validate and sanitize focus items
   const focusItemsJson: Json = payload.focusItems.map((item, index) => {
     // Validate description
@@ -253,31 +305,32 @@ export async function saveCheckinWithFocus(payload: SaveCheckinPayload): Promise
     if (description.length > 500) {
       throw new Error(`Focus item ${index + 1} description exceeds maximum length of 500 characters`);
     }
-    
+
     // Clean and validate anchor value
-    let anchorValue: string | null = null;
-    if (item.anchorValue && item.anchorType) {
-      const cleaned = item.anchorValue.trim();
-      if (cleaned.length > 0) {
-        if (cleaned.length > 200) {
-          throw new Error(`Focus item ${index + 1} anchor value exceeds maximum length of 200 characters`);
-        }
-        anchorValue = cleaned;
-      }
+    const legacyAnchorType = item.anchorType && isTaskAnchorType(item.anchorType) ? item.anchorType : null;
+    let legacyAnchorValue: string | null = null;
+    if (legacyAnchorType && item.anchorValue) {
+      legacyAnchorValue = sanitizeAnchorValue(item.anchorValue, index) || null;
     }
-    
+
+    const anchors = normalizeAnchorsForPayload(item, index, {
+      type: legacyAnchorType,
+      value: legacyAnchorValue,
+    });
+    const primaryAnchor = anchors[0];
+
     // Validate custom barrier length
     if (item.barrier?.custom && item.barrier.custom.trim().length > 200) {
       throw new Error(`Focus item ${index + 1} custom barrier exceeds maximum length of 200 characters`);
     }
-    
+
     // Validate categories array
-    const categories = Array.isArray(item.categories) 
+    const categories = Array.isArray(item.categories)
       ? item.categories.filter(cat => cat && typeof cat === 'string').slice(0, 10)
       : [];
-    
+
     // Validate task type and complexity
-    const taskType = item.taskType && ['focus', 'life'].includes(item.taskType)
+    const taskType = item.taskType && ['focus', 'life', 'inbox'].includes(item.taskType)
       ? item.taskType
       : 'focus';
     const complexity = item.complexity && ['quick', 'medium', 'deep'].includes(item.complexity)
@@ -292,16 +345,17 @@ export async function saveCheckinWithFocus(payload: SaveCheckinPayload): Promise
       categories: categories,
       sortOrder: item.sortOrder ?? index,
       plannedItemId: item.plannedItemId ?? null,
-      anchorType: item.anchorType ?? null,
-      anchorValue: anchorValue,
+      anchorType: primaryAnchor?.type ?? legacyAnchorType ?? null,
+      anchorValue: primaryAnchor?.value ?? legacyAnchorValue,
+      anchors: anchors.length ? anchors : null,
       taskType: taskType,
       complexity: complexity,
       barrier: item.barrier
         ? {
-            barrierTypeId: item.barrier.barrierTypeId ?? null,
-            barrierTypeSlug: item.barrier.barrierTypeSlug ?? null,
-            custom: item.barrier.custom?.trim() || null,
-          }
+          barrierTypeId: item.barrier.barrierTypeId ?? null,
+          barrierTypeSlug: item.barrier.barrierTypeSlug ?? null,
+          custom: item.barrier.custom?.trim() || null,
+        }
         : null,
     };
   });
@@ -344,7 +398,7 @@ export async function saveCheckinWithFocus(payload: SaveCheckinPayload): Promise
     console.error('Error code:', error.code);
     console.error('RPC params:', JSON.stringify(rpcParams, null, 2));
     console.error('Focus items:', JSON.stringify(focusItemsJson, null, 2));
-    
+
     // Create a more helpful error message
     const errorMessage = error.message || error.details || error.hint || 'Something went wrong while saving.';
     throw new Error(errorMessage);
@@ -585,7 +639,7 @@ async function enrichPlannedItemsWithBarriers(
       barrierTypes.forEach(bt => {
         barrierTypesMap.set(bt.id, bt as BarrierType);
       });
-      
+
       // Warn if some barrier types weren't found
       const foundIds = new Set(barrierTypes.map(bt => bt.id));
       const missingIds = barrierTypeIds.filter(id => !foundIds.has(id));
@@ -778,26 +832,26 @@ export async function getCurrentEnergyFromSchedule(userId: string): Promise<{
   nextTransition: EnergySchedule | null;
 } | null> {
   const schedules = await getEnergySchedules(userId);
-  
+
   if (schedules.length === 0) {
     return null;
   }
 
   const now = new Date();
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  
+
   // Sort schedules by time
   const sortedSchedules = [...schedules].sort((a, b) => a.start_time_minutes - b.start_time_minutes);
-  
+
   // Find the current energy level
   // If it's before the first schedule, use the last schedule of the previous day
   let currentSchedule: EnergySchedule | null = null;
   let nextTransition: EnergySchedule | null = null;
-  
+
   for (let i = 0; i < sortedSchedules.length; i++) {
     const schedule = sortedSchedules[i];
     const nextSchedule = sortedSchedules[i + 1];
-    
+
     if (currentMinutes >= schedule.start_time_minutes) {
       if (!nextSchedule || currentMinutes < nextSchedule.start_time_minutes) {
         currentSchedule = schedule;
@@ -806,13 +860,13 @@ export async function getCurrentEnergyFromSchedule(userId: string): Promise<{
       }
     }
   }
-  
+
   // If before first schedule, use last schedule (from previous day)
   if (!currentSchedule && sortedSchedules.length > 0) {
     currentSchedule = sortedSchedules[sortedSchedules.length - 1];
     nextTransition = sortedSchedules[0];
   }
-  
+
   if (!currentSchedule) {
     return null;
   }

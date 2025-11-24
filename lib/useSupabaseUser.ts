@@ -20,20 +20,56 @@ export function useSupabaseUser(options: UseSupabaseUserOptions = defaultOptions
 
   useEffect(() => {
     let isMounted = true;
+    let timeoutId: NodeJS.Timeout;
 
     async function ensureUser() {
       setLoading(true);
-      const { data } = await supabase.auth.getUser();
+      
+      // Set timeout to prevent infinite loading
+      timeoutId = setTimeout(() => {
+        if (isMounted) {
+          console.warn('User check timed out, proceeding without user');
+          setLoading(false);
+        }
+      }, 5000);
 
-      if (data.user) {
-        if (!isMounted) return;
-        setUser(data.user);
+      try {
+        const { data, error } = await supabase.auth.getUser();
+
+        if (!isMounted) {
+          clearTimeout(timeoutId);
+          return;
+        }
+
+        if (error) {
+          console.error('Error getting user:', error);
+          setError(error.message);
+          setLoading(false);
+          clearTimeout(timeoutId);
+          return;
+        }
+
+        if (data.user) {
+          setUser(data.user);
+          setLoading(false);
+          clearTimeout(timeoutId);
+          return;
+        }
+      } catch (error) {
+        if (!isMounted) {
+          clearTimeout(timeoutId);
+          return;
+        }
+        console.error('Failed to get user:', error);
+        setError(error instanceof Error ? error.message : 'Failed to get user');
         setLoading(false);
+        clearTimeout(timeoutId);
         return;
       }
 
       if (!autoCreateTestUser) {
         setLoading(false);
+        clearTimeout(timeoutId);
         return;
       }
 
@@ -41,6 +77,7 @@ export function useSupabaseUser(options: UseSupabaseUserOptions = defaultOptions
       if (process.env.NODE_ENV === 'production') {
         console.warn('Test user auto-creation is disabled in production');
         setLoading(false);
+        clearTimeout(timeoutId);
         return;
       }
 
@@ -53,6 +90,7 @@ export function useSupabaseUser(options: UseSupabaseUserOptions = defaultOptions
       if (!testEmail || !testPassword) {
         console.warn('Test credentials not configured. Skipping auto-creation.');
         setLoading(false);
+        clearTimeout(timeoutId);
         return;
       }
 
@@ -71,8 +109,9 @@ export function useSupabaseUser(options: UseSupabaseUserOptions = defaultOptions
           console.error('Error creating test user', signUpError);
           if (isMounted) {
             setError(signUpError.message);
+            setLoading(false);
+            clearTimeout(timeoutId);
           }
-          setLoading(false);
           return;
         }
 
@@ -83,7 +122,10 @@ export function useSupabaseUser(options: UseSupabaseUserOptions = defaultOptions
         setUser(signInData.user ?? null);
       }
 
-      setLoading(false);
+      if (isMounted) {
+        setLoading(false);
+        clearTimeout(timeoutId);
+      }
     }
 
     ensureUser();
@@ -102,6 +144,7 @@ export function useSupabaseUser(options: UseSupabaseUserOptions = defaultOptions
 
     return () => {
       isMounted = false;
+      if (timeoutId) clearTimeout(timeoutId);
       listener.subscription.unsubscribe();
     };
   }, [autoCreateTestUser]);

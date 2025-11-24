@@ -2,8 +2,21 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { getCurrentEnergyFromSchedule, type EnergySchedule } from './supabase';
-import { internalWeatherOptions, type EnergyTypeOption } from '@/components/InternalWeatherSelector';
 import { useSupabaseUser } from './useSupabaseUser';
+
+// Local energy type options for notifications
+type EnergyTypeOption = {
+  key: string;
+  label: string;
+};
+
+const internalWeatherOptions: EnergyTypeOption[] = [
+  { key: 'sparky', label: 'Sparky' },
+  { key: 'steady', label: 'Steady' },
+  { key: 'flowing', label: 'Flowing' },
+  { key: 'foggy', label: 'Foggy' },
+  { key: 'resting', label: 'Resting' },
+];
 
 interface UseEnergyScheduleOptions {
   onEnergyChange?: (energyKey: string) => void;

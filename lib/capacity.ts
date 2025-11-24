@@ -1,19 +1,41 @@
 /**
- * Capacity calculation utilities
+ * Work Window Capacity System
  *
  * Core philosophy:
- * - Energy level determines base capacity
+ * - Work windows determine WHEN you can work (not energy levels to predict)
  * - Task complexity affects capacity usage
- * - Time remaining adjusts recommendations
+ * - Clear expectations: what you can accomplish in each window
  * - Prevent over-scheduling and burnout
  */
 
-export type EnergyLevel = 'sparky' | 'steady' | 'flowing' | 'foggy' | 'resting';
+export type WorkWindow = 'deep' | 'light' | 'rest';
 export type TaskComplexity = 'quick' | 'medium' | 'deep';
-export type TaskType = 'focus' | 'life';
+export type TaskType = 'focus' | 'life' | 'inbox';
 
 /**
- * Base capacity points by energy level
+ * Base capacity by work window
+ * This represents what you can realistically accomplish in each time period
+ */
+export const WINDOW_CAPACITY: Record<WorkWindow, number> = {
+  deep: 3,      // Deep work: 2-3 meaningful tasks (high focus required)
+  light: 4,     // Light work: 3-5 simpler tasks (maintenance, emails)
+  rest: 0,      // Rest: 0 tasks expected (recharge time)
+};
+
+/**
+ * Legacy energy level support - maps to work windows for backwards compatibility
+ */
+export type EnergyLevel = 'sparky' | 'steady' | 'flowing' | 'foggy' | 'resting';
+export const ENERGY_TO_WINDOW: Record<EnergyLevel, WorkWindow> = {
+  sparky: 'deep',
+  steady: 'deep',
+  flowing: 'light',
+  foggy: 'light',
+  resting: 'rest',
+};
+
+/**
+ * Base capacity points by energy level (legacy support)
  * This represents the number of "medium" complexity tasks a person can handle
  */
 export const ENERGY_CAPACITY: Record<EnergyLevel, number> = {
@@ -81,10 +103,10 @@ export function calculateCapacityUsage(
 }
 
 /**
- * Get capacity info based on energy level and current tasks
+ * Get capacity info based on work window and current tasks
  */
 export function getCapacityInfo(
-  energyLevel: EnergyLevel,
+  workWindow: WorkWindow,
   tasks: Array<{ completed: boolean; complexity: TaskComplexity; type: TaskType }>
 ): {
   totalCapacity: number;
@@ -93,8 +115,9 @@ export function getCapacityInfo(
   percentUsed: number;
   canAddTask: boolean;
   recommendedComplexity: TaskComplexity | null;
+  windowType: WorkWindow;
 } {
-  const totalCapacity = ENERGY_CAPACITY[energyLevel];
+  const totalCapacity = WINDOW_CAPACITY[workWindow];
   const { usedCapacity } = calculateCapacityUsage(tasks);
   const remainingCapacity = Math.max(0, totalCapacity - usedCapacity);
   const percentUsed = totalCapacity > 0 ? (usedCapacity / totalCapacity) * 100 : 0;
@@ -120,43 +143,63 @@ export function getCapacityInfo(
     percentUsed,
     canAddTask,
     recommendedComplexity,
+    windowType: workWindow,
   };
 }
 
 /**
- * Get a human-readable capacity message
+ * Legacy function for backwards compatibility - converts energy level to work window
  */
-export function getCapacityMessage(energyLevel: EnergyLevel): string {
-  switch (energyLevel) {
-    case 'sparky':
-      return 'Peak focus';
-    case 'steady':
-      return 'Good energy';
-    case 'flowing':
-      return 'Gentle energy';
-    case 'foggy':
-      return 'Low energy';
-    case 'resting':
-      return 'Rest mode';
+export function getCapacityInfoFromEnergy(
+  energyLevel: EnergyLevel,
+  tasks: Array<{ completed: boolean; complexity: TaskComplexity; type: TaskType }>
+) {
+  const workWindow = ENERGY_TO_WINDOW[energyLevel];
+  return getCapacityInfo(workWindow, tasks);
+}
+
+/**
+ * Get a human-readable capacity message for work windows
+ */
+export function getCapacityMessage(workWindow: WorkWindow): string {
+  switch (workWindow) {
+    case 'deep':
+      return 'Deep work window - tackle complex tasks';
+    case 'light':
+      return 'Light work window - handle maintenance tasks';
+    case 'rest':
+      return 'Rest window - recharge and recover';
   }
 }
 
 /**
- * Get capacity range text for display
+ * Get a human-readable capacity message (legacy energy version)
  */
-export function getCapacityRangeText(energyLevel: EnergyLevel): string {
-  switch (energyLevel) {
-    case 'sparky':
-      return '3-4 tasks';
-    case 'steady':
-      return '2-3 tasks';
-    case 'flowing':
-      return '1-2 tasks';
-    case 'foggy':
-      return '0-1 tasks';
-    case 'resting':
-      return '0 tasks';
+export function getEnergyCapacityMessage(energyLevel: EnergyLevel): string {
+  const workWindow = ENERGY_TO_WINDOW[energyLevel];
+  return getCapacityMessage(workWindow);
+}
+
+/**
+ * Get capacity range text for work windows
+ */
+export function getCapacityRangeText(workWindow: WorkWindow): string {
+  switch (workWindow) {
+    case 'deep':
+      return '2-3 complex tasks';
+    case 'light':
+      return '3-5 simple tasks';
+    case 'rest':
+      return '0 tasks - rest time';
   }
+}
+
+/**
+ * Get capacity range text (legacy energy version)
+ */
+export function getEnergyCapacityRangeText(energyLevel: EnergyLevel): string {
+  const workWindow = ENERGY_TO_WINDOW[energyLevel];
+  return getCapacityRangeText(workWindow);
 }
 
 /**
@@ -255,28 +298,39 @@ export function getTimeAdjustedCapacity(
 }
 
 /**
- * Get capacity based on flow mode
+ * Get capacity based on flow mode and work window
  */
 export function getCapacityByFlow(
   flowMode: 'day' | 'evening' | 'night',
-  energyLevel: EnergyLevel
+  workWindow: WorkWindow
 ): number {
   if (flowMode === 'night') {
     return SLEEP_CAPACITY;
   }
   if (flowMode === 'evening') {
-    return Math.min(ENERGY_CAPACITY[energyLevel], EVENING_CAPACITY_MAX);
+    return Math.min(WINDOW_CAPACITY[workWindow], EVENING_CAPACITY_MAX);
   }
-  return ENERGY_CAPACITY[energyLevel];
+  return WINDOW_CAPACITY[workWindow];
 }
 
 /**
- * Get contextual message based on time of day and tasks
+ * Legacy getCapacityByFlow with energy level
+ */
+export function getCapacityByFlowEnergy(
+  flowMode: 'day' | 'evening' | 'night',
+  energyLevel: EnergyLevel
+): number {
+  const workWindow = ENERGY_TO_WINDOW[energyLevel];
+  return getCapacityByFlow(flowMode, workWindow);
+}
+
+/**
+ * Get contextual message based on time of day, tasks, and work window
  */
 export function getContextualMessage(
   tasks: Array<{ completed: boolean; type: TaskType }>,
   isPastStop: boolean,
-  hasSetEnergy: boolean
+  currentWindow: WorkWindow | null
 ): {
   type: 'morning' | 'midday' | 'evening' | 'empty';
   message: string;
@@ -294,12 +348,12 @@ export function getContextualMessage(
     };
   }
 
-  // No energy set yet
-  if (!hasSetEnergy) {
+  // No work window set yet
+  if (!currentWindow) {
     return {
       type: 'morning',
-      message: "Good morning! Let's plan your day together.",
-      action: 'Set your energy level to get started',
+      message: "Good morning! Let's see what you can accomplish today.",
+      action: 'Choose your work window to get started',
     };
   }
 

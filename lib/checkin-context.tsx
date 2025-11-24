@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { getTodayLocalDateString } from './date-utils';
 
-export interface WeatherSelection {
+export interface FocusSelection {
   key: string;
   label: string;
   icon: string;
@@ -44,8 +44,8 @@ export interface FocusItemState {
 }
 
 interface CheckInContextValue {
-  weather: WeatherSelection | null;
-  setWeather: (weather: WeatherSelection | null) => void;
+  focus: FocusSelection | null;
+  setFocus: (focus: FocusSelection | null) => void;
   forecastNote: string;
   setForecastNote: (note: string) => void;
   checkinDate: string;
@@ -78,7 +78,7 @@ function getStorageKey(date: string): string {
 }
 
 interface StoredCheckInData {
-  weather: WeatherSelection | null;
+  focus: FocusSelection | null;
   forecastNote: string;
   focusItems: FocusItemState[];
   date: string;
@@ -117,7 +117,7 @@ function clearLocalStorage(date: string): void {
 const CheckInContext = createContext<CheckInContextValue | undefined>(undefined);
 
 export function CheckInProvider({ children }: { children: React.ReactNode }) {
-  const [weather, setWeather] = useState<WeatherSelection | null>(null);
+  const [focus, setFocus] = useState<FocusSelection | null>(null);
   const [forecastNote, setForecastNote] = useState('');
   const [checkinDate, setCheckinDate] = useState<string>(() => getTodayLocalDateString());
   const [focusItems, setFocusItems] = useState<FocusItemState[]>([]);
@@ -131,16 +131,16 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
 
   const addFocusItem = useCallback((description: string, categories: string[]) => {
     const trimmedDescription = description.trim();
-    
+
     // Clear any previous validation errors
     setValidationError(null);
-    
+
     // Validate: must have description
     if (!trimmedDescription) {
       setValidationError('Focus item description cannot be empty');
       return;
     }
-    
+
     // Validate: max length
     if (trimmedDescription.length > 500) {
       setValidationError('Focus item description is too long (maximum 500 characters)');
@@ -153,18 +153,18 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
         setValidationError(`Maximum of ${MAX_FOCUS_ITEMS} focus items reached`);
         return prev;
       }
-      
+
       // Check for duplicates (same description, case-insensitive, ignoring whitespace)
       const normalizedDescription = trimmedDescription.toLowerCase().replace(/\s+/g, ' ');
       const isDuplicate = prev.some(
-        (item) => !item.completed && 
-        item.description.toLowerCase().replace(/\s+/g, ' ') === normalizedDescription
+        (item) => !item.completed &&
+          item.description.toLowerCase().replace(/\s+/g, ' ') === normalizedDescription
       );
       if (isDuplicate) {
         setValidationError('A focus item with this description already exists');
         return prev;
       }
-      
+
       const id = crypto.randomUUID();
       // Calculate sortOrder based on active items only
       const activeItems = prev.filter((item) => !item.completed);
@@ -185,11 +185,11 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
 
   const updateFocusItem = useCallback((id: string, updates: Partial<Omit<FocusItemState, 'id'>>) => {
     setValidationError(null);
-    
+
     setFocusItems((prev) =>
       prev.map((item) => {
         if (item.id !== id) return item;
-        
+
         // Validate description if being updated
         if (updates.description !== undefined) {
           const trimmedDescription = updates.description.trim();
@@ -201,27 +201,27 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
             setValidationError('Focus item description is too long (maximum 500 characters)');
             return item; // Don't update if too long
           }
-          
+
           // Check for duplicates (excluding current item)
           const normalizedDescription = trimmedDescription.toLowerCase().replace(/\s+/g, ' ');
           const isDuplicate = prev.some(
-            (other) => 
-              other.id !== id && 
-              !other.completed && 
+            (other) =>
+              other.id !== id &&
+              !other.completed &&
               other.description.toLowerCase().replace(/\s+/g, ' ') === normalizedDescription
           );
           if (isDuplicate) {
             setValidationError('A focus item with this description already exists');
             return item; // Don't update if duplicate
           }
-          
+
           return {
             ...item,
             ...updates,
             description: trimmedDescription,
           };
         }
-        
+
         return {
           ...item,
           ...updates,
@@ -243,15 +243,15 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
       const items = [...prev];
       const draggedIndex = items.findIndex((item) => item.id === draggedId);
       const targetIndex = items.findIndex((item) => item.id === targetId);
-      
+
       if (draggedIndex === -1 || targetIndex === -1 || draggedIndex === targetIndex) {
         return prev;
       }
-      
+
       // Remove dragged item and insert at target position
       const [draggedItem] = items.splice(draggedIndex, 1);
       items.splice(targetIndex, 0, draggedItem);
-      
+
       // Update sortOrder for all items
       return items.map((item, index) => ({
         ...item,
@@ -265,9 +265,9 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
       prev.map((item) =>
         item.id === id
           ? {
-              ...item,
-              barrier,
-            }
+            ...item,
+            barrier,
+          }
           : item
       )
     );
@@ -278,14 +278,14 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
       prev.map((item) =>
         item.id === id
           ? {
-              ...item,
-              anchorType: anchor?.anchorType ?? null,
-              anchorValue: anchor?.anchorValue ?? null,
-              // Also update anchors array for consistency
-              anchors: anchor?.anchorType && anchor?.anchorValue
-                ? [{ type: anchor.anchorType, value: anchor.anchorValue }]
-                : [],
-            }
+            ...item,
+            anchorType: anchor?.anchorType ?? null,
+            anchorValue: anchor?.anchorValue ?? null,
+            // Also update anchors array for consistency
+            anchors: anchor?.anchorType && anchor?.anchorValue
+              ? [{ type: anchor.anchorType, value: anchor.anchorValue }]
+              : [],
+          }
           : item
       )
     );
@@ -296,12 +296,12 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
       prev.map((item) =>
         item.id === id
           ? {
-              ...item,
-              anchors,
-              // Keep legacy fields in sync with first anchor for backward compatibility
-              anchorType: anchors.length > 0 ? anchors[0].type : null,
-              anchorValue: anchors.length > 0 ? anchors[0].value : null,
-            }
+            ...item,
+            anchors,
+            // Keep legacy fields in sync with first anchor for backward compatibility
+            anchorType: anchors.length > 0 ? anchors[0].type : null,
+            anchorValue: anchors.length > 0 ? anchors[0].value : null,
+          }
           : item
       )
     );
@@ -312,9 +312,9 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
       prev.map((item) =>
         item.id === id
           ? {
-              ...item,
-              anchors: [...(item.anchors || []), anchor],
-            }
+            ...item,
+            anchors: [...(item.anchors || []), anchor],
+          }
           : item
       )
     );
@@ -341,7 +341,7 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
     // Only load if we don't already have focus items (don't overwrite existing checkin data)
     setFocusItems((prev) => {
       if (prev.length > 0) return prev; // Don't overwrite existing items
-      
+
       // Limit to MAX_FOCUS_ITEMS and filter out invalid items
       const validItems = items
         .filter((item) => item.description && item.description.trim().length > 0)
@@ -353,13 +353,13 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
           plannedItemId: item.plannedItemId ?? null,
           barrier: item.barrier
             ? {
-                barrierTypeId: item.barrier.barrierTypeId ?? null,
-                barrierTypeSlug: item.barrier.barrierTypeSlug ?? null,
-                custom: item.barrier.custom ?? null,
-              }
+              barrierTypeId: item.barrier.barrierTypeId ?? null,
+              barrierTypeSlug: item.barrier.barrierTypeSlug ?? null,
+              custom: item.barrier.custom ?? null,
+            }
             : null,
         }));
-      
+
       return validItems;
     });
   }, []);
@@ -368,7 +368,7 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
     // Only load if we don't already have focus items (don't overwrite user's current work)
     setFocusItems((prev) => {
       if (prev.length > 0) return prev; // Don't overwrite existing items
-      
+
       // Limit to MAX_FOCUS_ITEMS and filter out invalid items
       const validItems = items
         .filter((item) => item.description && item.description.trim().length > 0)
@@ -380,13 +380,13 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
           plannedItemId: item.plannedItemId ?? null,
           barrier: item.barrier
             ? {
-                barrierTypeId: item.barrier.barrierTypeId ?? null,
-                barrierTypeSlug: item.barrier.barrierTypeSlug ?? null,
-                custom: item.barrier.custom ?? null,
-              }
+              barrierTypeId: item.barrier.barrierTypeId ?? null,
+              barrierTypeSlug: item.barrier.barrierTypeSlug ?? null,
+              custom: item.barrier.custom ?? null,
+            }
             : null,
         }));
-      
+
       return validItems;
     });
   }, []);
@@ -401,7 +401,7 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
     if (checkinDate !== today) {
       clearLocalStorage(checkinDate);
     }
-    setWeather(null);
+    setFocus(null);
     setForecastNote('');
     setCheckinDate(today);
     setFocusItems([]);
@@ -414,42 +414,42 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
   // Load from localStorage on mount
   useEffect(() => {
     if (isInitialized) return;
-    
+
     const today = getTodayLocalDateString();
     const stored = loadFromLocalStorage(today);
-    
+
     if (stored && stored.date === today) {
       // Only restore if we don't already have data (don't overwrite database-loaded data)
-      if (!weather && focusItems.length === 0) {
-        setWeather(stored.weather);
+      if (!focus && focusItems.length === 0) {
+        setFocus(stored.focus);
         setForecastNote(stored.forecastNote || '');
         setFocusItems(stored.focusItems || []);
       }
     }
-    
+
     setIsInitialized(true);
-  }, [isInitialized, weather, focusItems.length]);
+  }, [isInitialized, focus, focusItems.length]);
 
   // Auto-save to localStorage whenever check-in data changes
   useEffect(() => {
     if (!isInitialized) return; // Don't save during initial load
-    
+
     const today = getTodayLocalDateString();
     // Only save if we're working on today's check-in
     if (checkinDate !== today) return;
-    
+
     // Debounce saves to avoid excessive localStorage writes
     const timeoutId = setTimeout(() => {
       saveToLocalStorage(today, {
-        weather,
+        focus,
         forecastNote,
         focusItems,
         date: today,
       });
     }, 500); // Wait 500ms after last change before saving
-    
+
     return () => clearTimeout(timeoutId);
-  }, [weather, forecastNote, focusItems, checkinDate, isInitialized]);
+  }, [focus, forecastNote, focusItems, checkinDate, isInitialized]);
 
   useEffect(() => {
     const checkForDateChange = () => {
@@ -478,8 +478,8 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo(
     () => ({
-      weather,
-      setWeather,
+      focus,
+      setFocus,
       forecastNote,
       setForecastNote,
       checkinDate,
@@ -502,7 +502,7 @@ export function CheckInProvider({ children }: { children: React.ReactNode }) {
       validationError,
       clearValidationError,
     }),
-    [weather, forecastNote, checkinDate, focusItems, addFocusItem, updateFocusItem, removeFocusItem, reorderFocusItems, setBarrierForFocusItem, setAnchorForFocusItem, setAnchorsForFocusItem, addAnchorToFocusItem, removeAnchorFromFocusItem, loadPlannedItems, loadFocusItemsFromCheckin, resetCheckIn, clearFocusItems, clearLocalStorageForDate, validationError, clearValidationError]
+    [focus, forecastNote, checkinDate, focusItems, addFocusItem, updateFocusItem, removeFocusItem, reorderFocusItems, setBarrierForFocusItem, setAnchorForFocusItem, setAnchorsForFocusItem, addAnchorToFocusItem, removeAnchorFromFocusItem, loadPlannedItems, loadFocusItemsFromCheckin, resetCheckIn, clearFocusItems, clearLocalStorageForDate, validationError, clearValidationError]
   );
 
   return <CheckInContext.Provider value={value}>{children}</CheckInContext.Provider>;

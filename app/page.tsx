@@ -1,3 +1,3 @@
-'use client';
+import TodayPage from './today/page';
 
-export { default } from './command-center/page';
+export default TodayPage;

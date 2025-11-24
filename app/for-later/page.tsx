@@ -5,7 +5,7 @@ import { Clock, ArrowRight, X, Plus } from 'lucide-react';
 import { useSupabaseUser } from '@/lib/useSupabaseUser';
 import { getCheckinByDate } from '@/lib/supabase';
 import { getTodayLocalDateString } from '@/lib/date-utils';
-import type { TaskComplexity } from '@/lib/capacity';
+import type { TaskComplexity, TaskType } from '@/lib/capacity';
 import { QuickAddModal } from '@/components/modals/QuickAddModal';
 
 interface ForLaterTask {
@@ -74,11 +74,19 @@ export default function ForLaterPage() {
   const handleQuickAddSave = async (taskData: {
     description: string;
     complexity?: TaskComplexity;
-    taskType: 'focus' | 'life';
+    taskType: TaskType;
     anchorTime?: string;
+    anchors?: { type: 'at' | 'while' | 'before' | 'after'; value: string }[];
+    categories?: string[];
+    barrier?: {
+      barrierTypeSlug?: string;
+      barrierTypeId?: string | null;
+      custom?: string;
+    };
     inInbox?: boolean;
     scheduledDate?: string;
     scheduledTime?: string;
+    focusDate?: string;
   }) => {
     // TODO: Save task to for-later
     console.log('Save to for later:', taskData);

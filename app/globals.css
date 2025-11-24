@@ -3,12 +3,14 @@
 @tailwind utilities;
 
 :root {
-  --app-gradient: linear-gradient(135deg, #f5f3ff 0%, #e0f2fe 40%, #ccfbf1 100%);
-  --foreground: #0f172a;
+  /* Warm pastel gradient: rose → peach → sky - ADHD friendly, calming */
+  --app-gradient: linear-gradient(135deg, #fff1f2 0%, #fff7ed 40%, #f0f9ff 100%);
+  --foreground: #1e293b;
 }
 
 .dark {
-  --app-gradient: linear-gradient(135deg, #1e1b3d 0%, #1e293b 40%, #0f172a 100%);
+  /* Deep nautical: navy with subtle warmth */
+  --app-gradient: linear-gradient(135deg, #0a1628 0%, #0f2847 40%, #1a3a5c 100%);
   --foreground: #f1f5f9;
 }
 
@@ -183,4 +185,90 @@ html {
   background: linear-gradient(135deg, #74C8FF, #8AEFFF);
   color: #0B172A;
   font-weight: 600;
+}
+
+/* --- Captain's Cabin Theme --- */
+
+/* Deep Ocean Background */
+.bg-deep-ocean {
+  background: radial-gradient(circle at 50% 0%, #1e293b 0%, #0f172a 40%, #020617 100%);
+}
+
+/* Parchment Card Style */
+.card-parchment {
+  background: linear-gradient(135deg, #fffbf0 0%, #fef3c7 100%);
+  border: 1px solid #e7e5e4;
+  box-shadow: 
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06),
+    inset 0 0 20px rgba(217, 119, 6, 0.05); /* Subtle inner glow */
+  position: relative;
+  overflow: hidden;
+}
+
+.dark .card-parchment {
+  background: linear-gradient(135deg, #2a2520 0%, #1c1917 100%);
+  border: 1px solid #44403c;
+  box-shadow: 
+    0 4px 6px -1px rgba(0, 0, 0, 0.3),
+    inset 0 0 20px rgba(0, 0, 0, 0.2);
+}
+
+/* Magical Glow on Hover */
+.card-parchment::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(251, 191, 36, 0.15), transparent 50%);
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+
+.card-parchment:hover::after {
+  opacity: 1;
+}
+
+.card-parchment:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -2px rgba(0, 0, 0, 0.05),
+    0 0 15px rgba(251, 191, 36, 0.2); /* Golden glow */
+}
+
+/* Glassmorphism Panel */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+}
+
+.dark .glass-panel {
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Gemstone Buttons */
+.btn-gem {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-gem:hover {
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+}
+
+.btn-gem.active {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-color: #34d399;
+  box-shadow: 
+    0 0 15px rgba(16, 185, 129, 0.5),
+    inset 0 0 10px rgba(255, 255, 255, 0.3);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transform: scale(1.05);
 }

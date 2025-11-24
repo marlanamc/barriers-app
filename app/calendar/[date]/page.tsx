@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { useSupabaseUser } from "@/lib/useSupabaseUser";
 import { getCheckinByDate, type CheckinWithRelations } from "@/lib/supabase";
-import { getIconComponent } from "@/components/InternalWeatherSelector";
+
 
 export default function CalendarDetailPage() {
   const params = useParams();
@@ -21,7 +21,7 @@ export default function CalendarDetailPage() {
       if (!user || !date) return;
       setLoading(true);
       setError(null);
-      
+
       try {
         const data = await getCheckinByDate(user.id, date);
         setCheckin(data);
@@ -118,14 +118,30 @@ export default function CalendarDetailPage() {
             <section className="rounded-3xl border border-white/20 bg-white/80 p-6 shadow-sm">
               <div className="flex items-center gap-4">
                 <div className="text-4xl">
-                  {checkin.weather_icon && (() => {
-                    const IconComponent = getIconComponent(checkin.weather_icon);
-                    return <IconComponent className="w-10 h-10" />;
-                  })()}
+                  {/* TODO: Map legacy weather icons to Focus icons if needed, or just use a generic one for now */}
+                  {/* For now, we will just use a generic Target icon for Focus */}
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-cyan-100 text-cyan-600">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="lucide lucide-target"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <circle cx="12" cy="12" r="6" />
+                      <circle cx="12" cy="12" r="2" />
+                    </svg>
+                  </div>
                 </div>
                 <div>
-                  <p className="text-sm uppercase tracking-wide text-slate-500">Energy type</p>
-                  <p className="text-xl font-semibold text-slate-900">{checkin.internal_weather}</p>
+                  <p className="text-sm uppercase tracking-wide text-slate-500">Focus Level</p>
+                  <p className="text-xl font-semibold text-slate-900 capitalize">{checkin.internal_weather}</p>
                   {checkin.forecast_note && (
                     <p className="text-sm text-slate-600">{checkin.forecast_note}</p>
                   )}

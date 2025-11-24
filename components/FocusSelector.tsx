@@ -241,7 +241,7 @@ export function FocusSelector({
             <div className="flex items-center justify-center gap-3 mb-4">
               <div className="h-px w-8 bg-gradient-to-r from-transparent to-slate-300 dark:to-[#d4a574]/40" />
               <span className="px-4 py-1.5 text-xs font-medium tracking-[0.2em] uppercase text-slate-500 dark:text-[#d4a574]/70 font-crimson">
-                I of II
+                1 of 2
               </span>
               <div className="h-px w-8 bg-gradient-to-l from-transparent to-slate-300 dark:to-[#d4a574]/40" />
             </div>
@@ -396,7 +396,7 @@ export function FocusSelector({
             <div className="flex items-center justify-center gap-3 mb-4">
               <div className="h-px w-8 bg-gradient-to-r from-transparent to-slate-300 dark:to-[#d4a574]/40" />
               <span className="px-4 py-1.5 text-xs font-medium tracking-[0.2em] uppercase text-slate-500 dark:text-[#d4a574]/70 font-crimson">
-                II of II
+                2 of 2
               </span>
               <div className="h-px w-8 bg-gradient-to-l from-transparent to-slate-300 dark:to-[#d4a574]/40" />
             </div>

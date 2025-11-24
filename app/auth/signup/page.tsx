@@ -4,8 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import { AppWordmark } from '@/components/AppWordmark';
-import { ArrowRight, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, Loader2, Compass, Anchor } from 'lucide-react';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -92,132 +91,184 @@ export default function SignupPage() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md space-y-8">
-        <div className="text-center">
-          <AppWordmark className="text-2xl font-bold mx-auto mb-4" />
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Create your account</h1>
-          <p className="mt-2 text-slate-600 dark:text-slate-400">
-            Start tracking your daily energy and focus patterns
-          </p>
-        </div>
+    <main className="min-h-screen relative overflow-hidden">
+      {/* Pastel background for light mode, nautical for dark */}
+      <div className="absolute inset-0 bg-gradient-to-b from-rose-50 via-orange-50 to-sky-50 dark:from-[#0a1628] dark:via-[#0f2847] dark:to-[#1a3a5c]">
+        {/* Subtle grid pattern */}
+        <div
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: `
+              linear-gradient(rgba(100, 116, 139, 0.5) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(100, 116, 139, 0.5) 1px, transparent 1px)
+            `,
+            backgroundSize: '40px 40px'
+          }}
+        />
 
-        <div className="rounded-3xl border border-white/20 bg-white/80 p-8 backdrop-blur dark:border-white/10 dark:bg-slate-900/70 shadow-lg">
-          <form onSubmit={handleSignup} className="space-y-6">
-            {error && (
-              <div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:bg-rose-900/30 dark:text-rose-300" role="alert">
-                {error}
-              </div>
-            )}
+        {/* Decorative blur accents - light mode only */}
+        <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-sky-200/40 blur-3xl dark:hidden" />
+        <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-rose-200/40 blur-3xl dark:hidden" />
+      </div>
 
-            {message && (
-              <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" role="alert">
-                {message}
-              </div>
-            )}
-
-            <div>
-              <label htmlFor="email" className="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">
-                Email address
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-                className="w-full rounded-2xl border border-white/40 bg-white/80 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus:border-cyan-500 dark:focus:ring-cyan-900/40"
-                placeholder="you@example.com"
-                disabled={loading}
-              />
+      {/* Content */}
+      <div className="relative z-10 min-h-screen flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
+          {/* Header */}
+          <div className="text-center space-y-4">
+            {/* Compass icon */}
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-sky-500 to-cyan-500 dark:from-[#d4a574] dark:to-[#c49a6c] shadow-lg shadow-sky-500/20 dark:shadow-[#d4a574]/20 mb-2">
+              <Compass className="w-8 h-8 text-white dark:text-[#0a1628]" />
             </div>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  autoComplete="new-password"
-                  className="w-full rounded-2xl border border-white/40 bg-white/80 px-4 py-3 pr-12 text-slate-900 placeholder:text-slate-400 focus:border-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus:border-cyan-500 dark:focus:ring-cyan-900/40"
-                  placeholder="At least 8 characters"
-                  disabled={loading}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
-              </div>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                Must be at least 8 characters long
+            <div className="space-y-2">
+              <h1 className="text-3xl font-bold text-slate-800 dark:text-[#f4e9d8] tracking-wide font-cinzel">
+                Begin Your Voyage
+              </h1>
+              <p className="text-slate-600 dark:text-[#a8c5d8] font-crimson text-lg">
+                Create your account to start navigating
               </p>
             </div>
+          </div>
 
-            <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">
-                Confirm password
-              </label>
-              <div className="relative">
+          {/* Signup card */}
+          <div className="bg-white/80 dark:bg-[#0a1628]/80 backdrop-blur-sm rounded-2xl p-8 border border-slate-200/60 dark:border-[#d4a574]/20 shadow-xl">
+            <form onSubmit={handleSignup} className="space-y-5">
+              {error && (
+                <div className="rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 px-4 py-3 text-sm text-rose-700 dark:text-rose-300 font-crimson" role="alert">
+                  {error}
+                </div>
+              )}
+
+              {message && (
+                <div className="rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300 font-crimson" role="alert">
+                  {message}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <label htmlFor="email" className="block text-sm font-medium text-slate-700 dark:text-[#d4a574] tracking-wide font-crimson">
+                  Email address
+                </label>
                 <input
-                  id="confirmPassword"
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
-                  autoComplete="new-password"
-                  className="w-full rounded-2xl border border-white/40 bg-white/80 px-4 py-3 pr-12 text-slate-900 placeholder:text-slate-400 focus:border-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus:border-cyan-500 dark:focus:ring-cyan-900/40"
-                  placeholder="Re-enter your password"
+                  autoComplete="email"
+                  className="w-full rounded-xl border border-slate-200 dark:border-[#d4a574]/30 bg-white dark:bg-[#0a1628]/60 px-4 py-3.5 text-slate-800 dark:text-[#f4e9d8] placeholder:text-slate-400 dark:placeholder:text-[#a8c5d8]/50 focus:border-sky-400 dark:focus:border-[#d4a574]/60 focus:outline-none focus:ring-2 focus:ring-sky-400/20 dark:focus:ring-[#d4a574]/20 font-crimson transition-all duration-300"
+                  placeholder="your@email.com"
                   disabled={loading}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
-                  aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="password" className="block text-sm font-medium text-slate-700 dark:text-[#d4a574] tracking-wide font-crimson">
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    autoComplete="new-password"
+                    className="w-full rounded-xl border border-slate-200 dark:border-[#d4a574]/30 bg-white dark:bg-[#0a1628]/60 px-4 py-3.5 pr-12 text-slate-800 dark:text-[#f4e9d8] placeholder:text-slate-400 dark:placeholder:text-[#a8c5d8]/50 focus:border-sky-400 dark:focus:border-[#d4a574]/60 focus:outline-none focus:ring-2 focus:ring-sky-400/20 dark:focus:ring-[#d4a574]/20 font-crimson transition-all duration-300"
+                    placeholder="At least 8 characters"
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-[#d4a574]/50 hover:text-slate-600 dark:hover:text-[#d4a574] transition-colors"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-[#a8c5d8]/60 font-crimson">
+                  Must be at least 8 characters long
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-700 dark:text-[#d4a574] tracking-wide font-crimson">
+                  Confirm password
+                </label>
+                <div className="relative">
+                  <input
+                    id="confirmPassword"
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    autoComplete="new-password"
+                    className="w-full rounded-xl border border-slate-200 dark:border-[#d4a574]/30 bg-white dark:bg-[#0a1628]/60 px-4 py-3.5 pr-12 text-slate-800 dark:text-[#f4e9d8] placeholder:text-slate-400 dark:placeholder:text-[#a8c5d8]/50 focus:border-sky-400 dark:focus:border-[#d4a574]/60 focus:outline-none focus:ring-2 focus:ring-sky-400/20 dark:focus:ring-[#d4a574]/20 font-crimson transition-all duration-300"
+                    placeholder="Re-enter your password"
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-[#d4a574]/50 hover:text-slate-600 dark:hover:text-[#d4a574] transition-colors"
+                    aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || !email.trim() || !password || !confirmPassword}
+                className="group flex w-full items-center justify-center gap-3 rounded-xl bg-gradient-to-r from-sky-500 to-cyan-500 dark:from-[#d4a574] dark:to-[#c49a6c] px-6 py-4 text-lg font-bold text-white dark:text-[#0a1628] transition-all duration-300 hover:shadow-xl hover:shadow-sky-500/20 dark:hover:shadow-[#d4a574]/20 hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 font-cinzel"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span className="tracking-wide">Creating account...</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="tracking-wide">Create Account</span>
+                    <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                  </>
+                )}
+              </button>
+            </form>
+
+            {/* Divider */}
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-200 dark:border-[#d4a574]/20"></div>
+              </div>
+              <div className="relative flex justify-center">
+                <span className="bg-white/80 dark:bg-[#0a1628]/80 px-4">
+                  <Anchor className="w-4 h-4 text-slate-300 dark:text-[#d4a574]/40" />
+                </span>
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading || !email.trim() || !password || !confirmPassword}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-6 py-4 text-lg font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-cyan-500 dark:text-slate-900 dark:hover:bg-cyan-400"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Creating account...
-                </>
-              ) : (
-                <>
-                  Create account
-                  <ArrowRight className="h-5 w-5" />
-                </>
-              )}
-            </button>
-          </form>
+            {/* Sign in link */}
+            <div className="text-center">
+              <p className="text-sm text-slate-600 dark:text-[#a8c5d8] font-crimson">
+                Already have an account?{' '}
+                <Link
+                  href="/auth/login"
+                  className="font-semibold text-sky-600 dark:text-[#d4a574] hover:text-sky-700 dark:hover:text-[#f4e9d8] transition-colors"
+                >
+                  Sign in
+                </Link>
+              </p>
+            </div>
+          </div>
 
-          <div className="mt-6 text-center">
-            <p className="text-sm text-slate-600 dark:text-slate-400">
-              Already have an account?{' '}
-              <Link
-                href="/auth/login"
-                className="font-semibold text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
-              >
-                Sign in
-              </Link>
+          {/* Footer quote */}
+          <div className="text-center">
+            <p className="text-xs text-slate-400 dark:text-[#a8c5d8]/50 font-crimson italic">
+              "Every expert was once a beginner."
             </p>
           </div>
         </div>
@@ -225,4 +276,3 @@ export default function SignupPage() {
     </main>
   );
 }
-
