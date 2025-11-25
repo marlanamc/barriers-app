@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
 import { useMapData } from '@/hooks/useMapData';
 import { useFuelCheck } from '@/hooks/useFuelCheck';
+import { PageBackground } from '@/components/PageBackground';
 
 export default function ToolkitPage() {
   const { user } = useAuth();
@@ -15,8 +16,9 @@ export default function ToolkitPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-sky-50 via-cyan-50 to-white dark:from-[#0a1628] dark:via-[#0f2847] dark:to-[#1a3a5c]">
-        <div className="text-center">
+      <div className="min-h-screen flex items-center justify-center">
+        <PageBackground symbol="ship-wheel" />
+        <div className="relative z-10 text-center">
           <Ship className="mx-auto h-8 w-8 animate-pulse text-amber-500 dark:text-amber-400" />
           <p className="mt-3 text-sky-600/70 dark:text-sky-300/70">Loading your cabin...</p>
         </div>
@@ -26,8 +28,9 @@ export default function ToolkitPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-sky-50 via-cyan-50 to-white dark:from-[#0a1628] dark:via-[#0f2847] dark:to-[#1a3a5c]">
-        <div className="text-center">
+      <div className="min-h-screen flex items-center justify-center">
+        <PageBackground symbol="ship-wheel" />
+        <div className="relative z-10 text-center">
           <p className="text-sky-600/70 dark:text-sky-300/70">Please sign in to view your cabin</p>
         </div>
       </div>
@@ -38,13 +41,8 @@ export default function ToolkitPage() {
   const recentWin = data.starlight?.[0];
 
   return (
-    <div className="min-h-screen pb-24 bg-gradient-to-b from-sky-50 via-cyan-50 to-white dark:from-[#0a1628] dark:via-[#0f2847] dark:to-[#1a3a5c]">
-      {/* Ocean background effect */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-sky-200/30 via-transparent to-transparent dark:from-sky-800/30" />
-        {/* Subtle wave pattern */}
-        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-white/50 to-transparent dark:from-[#0a1628]/50" />
-      </div>
+    <div className="min-h-screen pb-24">
+      <PageBackground symbol="ship-wheel" />
 
       {/* Header */}
       <header className="relative pt-8 px-4 pb-6 z-10">

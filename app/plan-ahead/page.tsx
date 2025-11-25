@@ -12,6 +12,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { getRecurrenceDescription } from "@/lib/recurrence";
 import { getCategoryEmoji } from "@/lib/categories";
 import { useToast } from "@/components/ToastProvider";
+import { PageBackground } from "@/components/PageBackground";
 
 const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -103,7 +104,9 @@ export default function PlanAheadPage() {
   };
 
   return (
-    <main className="min-h-screen px-4 pb-16 pt-6">
+    <>
+      <PageBackground symbol="route-line" />
+      <main className="relative min-h-screen px-4 pb-16 pt-6">
       <div className="mx-auto max-w-3xl space-y-6">
         <header className="flex items-center gap-4">
           <Link
@@ -319,5 +322,6 @@ export default function PlanAheadPage() {
         </section>
       </div>
     </main>
+    </>
   );
 }

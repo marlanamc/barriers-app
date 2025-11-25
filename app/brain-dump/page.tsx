@@ -7,6 +7,7 @@ import { useThoughts } from '@/hooks/useThoughts';
 import { LogbookEmpty } from '@/components/logbook/LogbookEmpty';
 import { LogbookList } from '@/components/logbook/LogbookList';
 import { AddThoughtModal } from '@/components/logbook/AddThoughtModal';
+import { PageBackground } from '@/components/PageBackground';
 
 export default function LogbookPage() {
   const { user } = useAuth();
@@ -34,7 +35,8 @@ export default function LogbookPage() {
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
+        <PageBackground symbol="book-quill" />
+        <div className="relative z-10 text-center">
           <div className="animate-spin rounded-full h-6 w-6 border-2 border-slate-300 border-t-slate-600 mx-auto mb-3"></div>
           <p className="text-sm text-slate-500 dark:text-slate-400 font-crimson">Loading...</p>
         </div>
@@ -46,6 +48,7 @@ export default function LogbookPage() {
 
   return (
     <>
+      <PageBackground symbol="book-quill" />
       <main className="relative min-h-screen pb-24">
         <div className="mx-auto max-w-lg px-4 pt-6">
           {/* Minimal header */}

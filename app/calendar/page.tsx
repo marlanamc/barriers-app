@@ -10,6 +10,7 @@ import { getCheckinsForRange, type CheckinWithRelations } from "@/lib/supabase";
 import { formatDateToLocalString } from "@/lib/date-utils";
 import { anchorLabel, buildMultipleAnchorsPhrase } from "@/lib/anchors";
 import { getCategoryEmoji } from "@/lib/categories";
+import { PageBackground } from "@/components/PageBackground";
 
 const monthNames = [
   "January",
@@ -163,7 +164,9 @@ export default function CalendarPage() {
   const days = getDaysInMonth();
 
   return (
-    <main className="min-h-screen px-4 pb-16 pt-6">
+    <>
+      <PageBackground symbol="moon-phases" />
+      <main className="relative min-h-screen px-4 pb-16 pt-6">
       <div className="mx-auto max-w-5xl space-y-6">
         {/* Header Section */}
         <header className="flex items-start gap-4 pl-12 sm:pl-14">
@@ -415,5 +418,6 @@ export default function CalendarPage() {
         </div>
       )}
     </main>
+    </>
   );
 }

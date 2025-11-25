@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { ArrowLeft, Shield, ChevronDown, ChevronUp } from 'lucide-react';
 import Link from 'next/link';
+import { PageBackground } from '@/components/PageBackground';
 
 interface Barrier {
   slug: string;
@@ -118,15 +119,9 @@ export default function BarriersPage() {
   };
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-gradient-to-b from-[#fff5f5] via-[#fffafa] to-[#fffff8] pb-24 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900">
-      {/* Background decoration */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-80 blur-[60px] dark:hidden"
-        aria-hidden
-      >
-        <div className="absolute -top-32 left-[-10%] h-72 w-72 rounded-full bg-[#ffe0e0]" />
-        <div className="absolute -bottom-40 right-[-5%] h-96 w-96 rounded-full bg-[#ffe8e8]" />
-      </div>
+    <>
+      <PageBackground symbol="warning-buoys" />
+      <main className="relative min-h-screen pb-24">
 
       <div className="relative mx-auto flex min-h-screen max-w-2xl flex-col gap-4 px-4 pb-16 pt-6">
         {/* Header */}
@@ -255,5 +250,6 @@ export default function BarriersPage() {
         </div>
       </div>
     </main>
+    </>
   );
 }

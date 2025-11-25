@@ -15,6 +15,7 @@ import { getTodayLocalDateString } from '@/lib/date-utils';
 import { type TaskComplexity, type WorkWindow, COMPLEXITY_COST } from '@/lib/capacity';
 import type { FocusLevel, UserContext } from '@/lib/user-context';
 import type { BarrierType } from '@/lib/barriers';
+import { PageBackground } from '@/components/PageBackground';
 
 interface TaskAnchor {
   type: 'at' | 'while' | 'before' | 'after';
@@ -53,6 +54,7 @@ export default function TodayPage() {
   const { user } = useAuth();
 
   // State
+  const [todayDate, setTodayDate] = useState(getTodayLocalDateString());
   const [selectedFocus, setSelectedFocus] = useState<FocusLevel | null>(null);
   const [focusTasks, setFocusTasks] = useState<FocusTask[]>([]);
   const [lifeTasks, setLifeTasks] = useState<LifeTask[]>([]);
@@ -66,6 +68,16 @@ export default function TodayPage() {
   const [energySchedules, setEnergySchedules] = useState<EnergySchedule[]>([]);
   const [destination, setDestination] = useState<string | null>(null);
 
+  // Detect date change while the app stays open
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      const current = getTodayLocalDateString();
+      setTodayDate((prev) => (prev === current ? prev : current));
+    }, 60000);
+
+    return () => window.clearInterval(interval);
+  }, []);
+
   // Load today's data
   useEffect(() => {
     if (!user) {
@@ -73,9 +85,11 @@ export default function TodayPage() {
       return;
     }
 
+    setIsLoading(true);
+
     const loadTodayData = async () => {
       try {
-        const today = getTodayLocalDateString();
+        const today = todayDate;
         const [checkin, schedules, destinationModule] = await Promise.all([
           getCheckinByDate(user.id, today),
           getEnergySchedules(user.id),
@@ -145,6 +159,10 @@ export default function TodayPage() {
           }
         } else {
           // No checkin for today - show focus selector
+          setSelectedFocus(null);
+          setFocusTasks([]);
+          setLifeTasks([]);
+          setWakeTime('08:00');
           setShowFocusSelector(true);
         }
       } catch (error) {
@@ -155,7 +173,7 @@ export default function TodayPage() {
     };
 
     loadTodayData();
-  }, [user]);
+  }, [user, todayDate]);
 
   // Auto-save when tasks or focus level changes
   useEffect(() => {
@@ -488,42 +506,8 @@ export default function TodayPage() {
   const completedTasks = focusTasks.filter(t => t.completed).length + lifeTasks.filter(t => t.completed).length;
 
   return (
-    <div className="relative min-h-screen pb-24 overflow-hidden">
-      {/* Background - Light mode: warm soft pastels, Dark mode: deep ocean */}
-      <div className="absolute inset-0 bg-gradient-to-b from-rose-50 via-orange-50 to-sky-50 dark:from-[#0a1628] dark:via-[#0f2847] dark:to-[#1a3a5c]">
-        {/* Grid lines */}
-        <div
-          className="absolute inset-0 opacity-[0.06] dark:opacity-[0.03]"
-          style={{
-            backgroundImage: `
-              linear-gradient(rgba(148, 163, 184, 0.4) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(148, 163, 184, 0.4) 1px, transparent 1px)
-            `,
-            backgroundSize: '40px 40px'
-          }}
-        />
-
-        {/* Compass rose decoration */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] opacity-[0.03] dark:opacity-[0.02]">
-          <svg viewBox="0 0 100 100" className="w-full h-full">
-            <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="0.5" className="text-slate-400 dark:text-[#d4a574]" />
-            <circle cx="50" cy="50" r="35" fill="none" stroke="currentColor" strokeWidth="0.3" className="text-slate-400 dark:text-[#d4a574]" />
-            <circle cx="50" cy="50" r="25" fill="none" stroke="currentColor" strokeWidth="0.3" className="text-slate-400 dark:text-[#d4a574]" />
-            <path d="M50 5 L52 15 L50 12 L48 15 Z" fill="currentColor" className="text-slate-400 dark:text-[#d4a574]" />
-            <path d="M50 95 L48 85 L50 88 L52 85 Z" fill="currentColor" className="text-slate-400 dark:text-[#d4a574]" />
-            <path d="M5 50 L15 48 L12 50 L15 52 Z" fill="currentColor" className="text-slate-400 dark:text-[#d4a574]" />
-            <path d="M95 50 L85 52 L88 50 L85 48 Z" fill="currentColor" className="text-slate-400 dark:text-[#d4a574]" />
-          </svg>
-        </div>
-
-        {/* Texture overlay */}
-        <div
-          className="absolute inset-0 opacity-[0.05] dark:opacity-[0.15] mix-blend-overlay"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`
-          }}
-        />
-      </div>
+    <div className="relative min-h-screen pb-24">
+      <PageBackground symbol="compass" />
 
       <div className="relative z-10 container mx-auto px-4 py-6 max-w-2xl space-y-4">
         {/* Header */}

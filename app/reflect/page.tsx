@@ -14,6 +14,7 @@ import { PriorityReview } from '@/components/reflect/PriorityReview';
 import { ThoughtOffload } from '@/components/reflect/ThoughtOffload';
 import { EaseTomorrow } from '@/components/reflect/EaseTomorrow';
 import { AddThoughtModal } from '@/components/logbook/AddThoughtModal';
+import { PageBackground } from '@/components/PageBackground';
 
 export default function ReflectPage() {
   const router = useRouter();
@@ -79,7 +80,8 @@ export default function ReflectPage() {
   if (loading) {
     return (
       <main className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
+        <PageBackground symbol="moon-stars" />
+        <div className="relative z-10 text-center">
           <div className="animate-spin rounded-full h-6 w-6 border-2 border-violet-200 dark:border-violet-800 border-t-violet-600 dark:border-t-violet-400 mx-auto mb-3"></div>
           <p className="text-sm text-slate-500 dark:text-slate-400 font-crimson">Loading...</p>
         </div>
@@ -90,7 +92,8 @@ export default function ReflectPage() {
   if (completed) {
     return (
       <main className="min-h-screen flex items-center justify-center px-4">
-        <div className="text-center max-w-sm">
+        <PageBackground symbol="moon-stars" />
+        <div className="relative z-10 text-center max-w-sm">
           <div className="mb-4 rounded-full bg-violet-100 dark:bg-violet-900/30 p-4 inline-flex">
             <Check className="h-8 w-8 text-violet-600 dark:text-violet-400" />
           </div>
@@ -107,12 +110,8 @@ export default function ReflectPage() {
 
   return (
     <>
+      <PageBackground symbol="moon-stars" />
       <main className="relative min-h-screen pb-36">
-        {/* Subtle background accents */}
-        <div className="pointer-events-none absolute inset-0 opacity-40 blur-[80px] dark:opacity-20" aria-hidden>
-          <div className="absolute -top-32 left-[-10%] h-72 w-72 rounded-full bg-violet-200 dark:bg-violet-600" />
-          <div className="absolute -bottom-40 right-[-5%] h-96 w-96 rounded-full bg-indigo-200 dark:bg-indigo-600" />
-        </div>
 
         <div className="relative mx-auto max-w-lg px-4 pt-6">
           {/* Header - offset for side panel */}

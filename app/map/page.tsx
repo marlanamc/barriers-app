@@ -5,6 +5,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { useMapData } from '@/hooks/useMapData';
 import { MAP_SECTIONS, MAP_MODULES } from '@/lib/map-modules';
 import { MapModuleCard } from '@/components/map/MapModuleCard';
+import { PageBackground } from '@/components/PageBackground';
 
 export default function MapPage() {
   const { user } = useAuth();
@@ -12,8 +13,9 @@ export default function MapPage() {
 
   if (dataLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-sky-50 to-cyan-50 dark:from-slate-900 dark:to-slate-800">
-        <div className="text-center">
+      <div className="min-h-screen flex items-center justify-center">
+        <PageBackground symbol="nautical-chart" />
+        <div className="relative z-10 text-center">
           <Ship className="mx-auto h-8 w-8 animate-pulse text-cyan-600 dark:text-cyan-400" />
           <p className="mt-3 text-slate-600 dark:text-slate-400">Loading your map...</p>
         </div>
@@ -22,7 +24,8 @@ export default function MapPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-sky-50 to-cyan-50 pb-24 dark:from-slate-900 dark:to-slate-800">
+    <div className="min-h-screen pb-24">
+      <PageBackground symbol="nautical-chart" />
       {/* Header */}
       <header className="sticky top-0 z-10 border-b border-slate-200/50 bg-white/80 px-4 py-4 backdrop-blur-sm dark:border-slate-700/50 dark:bg-slate-900/80">
         <div className="mx-auto max-w-lg pl-10">

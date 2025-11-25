@@ -81,7 +81,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} ${outfit.variable} ${sourceSans.variable} ${inter.className} bg-app-gradient text-slate-900 dark:text-slate-100`}>
+      <body className={`${inter.variable} ${outfit.variable} ${sourceSans.variable} ${inter.className} text-slate-900 dark:text-slate-100`}>
         <ErrorBoundary>
           <ThemeProvider>
             <ThemeColorUpdater />

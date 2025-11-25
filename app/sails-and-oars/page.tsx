@@ -11,6 +11,7 @@ import {
   type EnergySchedule,
 } from '@/lib/supabase';
 import { Anchor, ArrowLeft, Check, Clock, Plus, Save, Sparkles, Trash2, Waves, Wind, X } from 'lucide-react';
+import { PageBackground } from '@/components/PageBackground';
 
 // Keys must match DB enum: sparky, steady, flowing, foggy, resting
 const ENERGY_LEVELS = [
@@ -387,8 +388,9 @@ export default function SailsAndOarsPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gradient-to-b from-sky-50 to-cyan-50 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center">
-        <div className="rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-md dark:border-slate-700 dark:bg-slate-800">
+      <main className="min-h-screen flex items-center justify-center">
+        <PageBackground symbol="sailboat" />
+        <div className="relative z-10 rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-md dark:border-slate-700 dark:bg-slate-800">
           <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300">
             <Waves className="h-5 w-5 animate-spin" />
             Loading your river...
@@ -400,8 +402,9 @@ export default function SailsAndOarsPage() {
 
   if (!user) {
     return (
-      <main className="min-h-screen bg-gradient-to-b from-sky-50 to-cyan-50 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center">
-        <div className="rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-md dark:border-slate-700 dark:bg-slate-800 text-slate-700 dark:text-slate-200">
+      <main className="min-h-screen flex items-center justify-center">
+        <PageBackground symbol="sailboat" />
+        <div className="relative z-10 rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-md dark:border-slate-700 dark:bg-slate-800 text-slate-700 dark:text-slate-200">
           Please sign in to manage your Sails & Oars schedule.
         </div>
       </main>
@@ -411,7 +414,9 @@ export default function SailsAndOarsPage() {
   const sortedSchedules = [...schedules].sort((a, b) => a.start_time_minutes - b.start_time_minutes);
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-sky-50 to-cyan-50 px-4 py-8 dark:from-slate-900 dark:to-slate-800">
+    <>
+      <PageBackground symbol="sailboat" />
+      <main className="relative min-h-screen px-4 py-8">
       <div className="mx-auto max-w-5xl space-y-8">
         <header className="flex flex-col gap-4">
           <div className="flex items-center gap-3">
@@ -742,5 +747,6 @@ export default function SailsAndOarsPage() {
         </div>
       )}
     </main>
+    </>
   );
 }

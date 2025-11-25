@@ -4,6 +4,7 @@ import { LineChart, Calendar, Activity, TrendingUp, ChevronRight } from 'lucide-
 import Link from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
 import { usePatterns, DailyReflect } from '@/hooks/usePatterns';
+import { PageBackground } from '@/components/PageBackground';
 
 // Signal labels for display
 const NERVOUS_SYSTEM_SIGNALS: Record<string, string> = {
@@ -44,7 +45,8 @@ export default function PatternsPage() {
   if (loading) {
     return (
       <main className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
+        <PageBackground symbol="ocean-currents" />
+        <div className="relative z-10 text-center">
           <div className="animate-spin rounded-full h-6 w-6 border-2 border-emerald-200 dark:border-emerald-800 border-t-emerald-600 dark:border-t-emerald-400 mx-auto mb-3"></div>
           <p className="text-sm text-slate-500 dark:text-slate-400 font-crimson">Loading patterns...</p>
         </div>
@@ -55,7 +57,8 @@ export default function PatternsPage() {
   if (error) {
     return (
       <main className="min-h-screen flex items-center justify-center px-4">
-        <div className="text-center max-w-sm">
+        <PageBackground symbol="ocean-currents" />
+        <div className="relative z-10 text-center max-w-sm">
           <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
         </div>
       </main>
@@ -65,12 +68,9 @@ export default function PatternsPage() {
   const hasData = data && data.totalDays > 0;
 
   return (
-    <main className="relative min-h-screen pb-24">
-      {/* Subtle background accents */}
-      <div className="pointer-events-none absolute inset-0 opacity-40 blur-[80px] dark:opacity-20" aria-hidden>
-        <div className="absolute -top-32 left-[-10%] h-72 w-72 rounded-full bg-emerald-200 dark:bg-emerald-600" />
-        <div className="absolute -bottom-40 right-[-5%] h-96 w-96 rounded-full bg-teal-200 dark:bg-teal-600" />
-      </div>
+    <>
+      <PageBackground symbol="ocean-currents" />
+      <main className="relative min-h-screen pb-24">
 
       <div className="relative mx-auto max-w-lg px-4 pt-6">
         {/* Header - offset for side panel */}
@@ -105,6 +105,7 @@ export default function PatternsPage() {
         )}
       </div>
     </main>
+    </>
   );
 }
 

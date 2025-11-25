@@ -8,6 +8,7 @@ import { CustomTagsEditor } from '@/components/CustomTagsEditor';
 import { CustomAnchorsEditor } from '@/components/CustomAnchorsEditor';
 import { ScheduleSettings } from '@/components/ScheduleSettings';
 import { useAuth } from '@/components/AuthProvider';
+import { PageBackground } from '@/components/PageBackground';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -18,7 +19,9 @@ export default function SettingsPage() {
   const [expandedSection, setExpandedSection] = useState<string | null>('schedule');
 
   return (
-    <main className="min-h-screen px-4 py-8 pb-24">
+    <>
+      <PageBackground symbol="navigation-instruments" />
+      <main className="relative min-h-screen px-4 py-8 pb-24">
       <div className="mx-auto max-w-2xl">
         <div className="space-y-6">
           <div>
@@ -112,5 +115,6 @@ export default function SettingsPage() {
         </div>
       </div>
     </main>
+    </>
   );
 }
