@@ -23,6 +23,7 @@ interface FocusSelectorProps {
   onContinue?: () => void;
   hasDeadlines?: boolean;
   userName?: string;
+  initialFocus?: FocusLevel | null;
 }
 
 interface FuelStatus {
@@ -116,9 +117,10 @@ export function FocusSelector({
   onSelectFocus,
   onContinue,
   hasDeadlines = false,
-  userName
+  userName,
+  initialFocus = null
 }: FocusSelectorProps) {
-  const [selectedFocus, setSelectedFocus] = useState<FocusLevel | null>(null);
+  const [selectedFocus, setSelectedFocus] = useState<FocusLevel | null>(initialFocus);
   const [step, setStep] = useState<0 | 1>(0);
   const [toolkitData, setToolkitData] = useState<ToolkitData>({ northStar: null, anchorQuestion: null });
   const [fuelStatus, setFuelStatus] = useState<FuelStatus>({
@@ -397,6 +399,7 @@ export function FocusSelector({
                 <div className="grid grid-cols-3 gap-2.5">
                   {FOCUS_OPTIONS.map((option, index) => {
                     const Icon = option.icon;
+                    const isSelected = selectedFocus === option.level;
                     return (
                       <button
                         key={option.level}
@@ -406,31 +409,42 @@ export function FocusSelector({
                       >
                         <div className={`
                           relative flex flex-col items-center justify-center p-3 rounded-lg transition-all duration-500
-                          bg-slate-50/50 dark:bg-[#0a1628]/20 border border-slate-200 dark:border-[#d4a574]/10 hover:border-slate-300 dark:hover:border-[#d4a574]/30
-                          hover:bg-white dark:hover:bg-[#0a1628]/40 hover:shadow-md hover:-translate-y-0.5
+                          ${isSelected
+                            ? 'bg-white dark:bg-[#f4e9d8]/10 border-2 border-sky-400 dark:border-[#d4a574]/60 shadow-md'
+                            : 'bg-slate-50/50 dark:bg-[#0a1628]/20 border border-slate-200 dark:border-[#d4a574]/10 hover:border-slate-300 dark:hover:border-[#d4a574]/30 hover:bg-white dark:hover:bg-[#0a1628]/40 hover:shadow-md hover:-translate-y-0.5'
+                          }
                         `}>
                           {/* Icon */}
                           <div className={`
                             relative w-9 h-9 rounded-full flex items-center justify-center mb-2 transition-all duration-500
-                            bg-white dark:bg-[#d4a574]/10 border border-slate-200 dark:border-[#d4a574]/20
-                            group-hover:bg-slate-50 dark:group-hover:bg-[#d4a574]/20
+                            ${isSelected
+                              ? 'bg-gradient-to-br from-sky-400 to-cyan-500 dark:from-[#d4a574] dark:to-[#c49a6c] shadow-md'
+                              : 'bg-white dark:bg-[#d4a574]/10 border border-slate-200 dark:border-[#d4a574]/20 group-hover:bg-slate-50 dark:group-hover:bg-[#d4a574]/20'
+                            }
                           `}>
                             <Icon className={`
-                              w-4 h-4 transition-all duration-300 ${option.iconColor}
+                              w-4 h-4 transition-all duration-300
+                              ${isSelected ? 'text-white' : option.iconColor}
                               group-hover:scale-110
                             `} />
                           </div>
 
                           <h4 className={`
                             text-xs font-semibold tracking-wide transition-colors duration-300 font-cinzel text-center
-                            text-slate-800 dark:text-[#f4e9d8] group-hover:text-slate-900 dark:group-hover:text-[#f4e9d8]
+                            ${isSelected
+                              ? 'text-slate-800 dark:text-[#f4e9d8]'
+                              : 'text-slate-800 dark:text-[#f4e9d8] group-hover:text-slate-900 dark:group-hover:text-[#f4e9d8]'
+                            }
                           `}>
                             {option.title}
                           </h4>
 
                           <p className={`
                             text-[9px] text-center mt-1 transition-colors duration-300 font-crimson
-                            text-slate-500 dark:text-[#a8c5d8]/70 group-hover:text-slate-600 dark:group-hover:text-[#a8c5d8]
+                            ${isSelected
+                              ? 'text-slate-600 dark:text-[#a8c5d8]'
+                              : 'text-slate-500 dark:text-[#a8c5d8]/70 group-hover:text-slate-600 dark:group-hover:text-[#a8c5d8]'
+                            }
                           `}>
                             {option.description}
                           </p>

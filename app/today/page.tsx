@@ -104,8 +104,20 @@ export default function TodayPage() {
           setDestination(destinationModule.content.text);
         }
 
+        // Check if fuel check was completed today
+        const savedFuel = localStorage.getItem('fuel-status-' + today);
+        let fuelCheckCompleted = false;
+        if (savedFuel) {
+          try {
+            const fuelStatus = JSON.parse(savedFuel);
+            // Consider fuel check completed if at least one item is checked
+            fuelCheckCompleted = Object.values(fuelStatus).some((value) => value === true);
+          } catch (e) {
+            // Invalid fuel status, treat as not completed
+          }
+        }
+
         if (checkin) {
-          // Load existing data
           // Load existing data
           if (checkin.internal_weather) {
             // Handle string format (New Schema)
@@ -115,7 +127,9 @@ export default function TodayPage() {
               const weatherKey = checkin.internal_weather;
               if (['focused', 'scattered', 'unfocused'].includes(weatherKey)) {
                 setSelectedFocus(weatherKey as FocusLevel);
-                setShowFocusSelector(false);
+                // Only hide FocusSelector if fuel check was completed
+                // Otherwise show it so user can complete the vessel check
+                setShowFocusSelector(!fuelCheckCompleted);
               }
             }
             // Handle object format (Legacy)
@@ -123,7 +137,8 @@ export default function TodayPage() {
               const weather = checkin.internal_weather as any;
               if (weather.focus_level) {
                 setSelectedFocus(weather.focus_level as FocusLevel);
-                setShowFocusSelector(false);
+                // Only hide FocusSelector if fuel check was completed
+                setShowFocusSelector(!fuelCheckCompleted);
               }
 
               if (weather.wake_time) {
@@ -489,7 +504,7 @@ export default function TodayPage() {
     );
   }
 
-  // Show focus selector if not selected
+  // Show focus selector if not selected or if fuel check not completed
   if (showFocusSelector || !selectedFocus) {
     return (
       <div className="min-h-screen">
@@ -498,6 +513,7 @@ export default function TodayPage() {
           onSelectFocus={handleFocusSelect}
           onContinue={() => setShowFocusSelector(false)}
           hasDeadlines={false}
+          initialFocus={selectedFocus}
         />
       </div>
     );
