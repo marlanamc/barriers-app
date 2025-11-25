@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { Home, Sunrise, CalendarRange, Brain, ListChecks, LineChart, CalendarDays, Moon, Sun, LogOut, X, Settings, Shield, Info, Clock } from 'lucide-react';
+import { Home, Sunrise, CalendarRange, Brain, ListChecks, LineChart, CalendarDays, Moon, Sun, LogOut, X, Settings, Shield, Info, Clock, Wind } from 'lucide-react';
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from './AuthProvider';
 import { AppWordmark } from './AppWordmark';
@@ -147,6 +147,13 @@ export function SidePanel({ isOpen, onClose }: SidePanelProps) {
       icon: CalendarDays,
       iconColor: 'bg-pink-100 text-pink-700 dark:bg-pink-900/50 dark:text-pink-300',
     },
+    {
+      href: '/sails-and-oars',
+      label: 'Sails & Oars',
+      description: 'Energy mapping',
+      icon: Wind,
+      iconColor: 'bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300',
+    },
   ];
 
   // Settings
@@ -180,9 +187,8 @@ export function SidePanel({ isOpen, onClose }: SidePanelProps) {
       {/* Side Panel */}
       <div
         ref={panelRef}
-        className={`fixed left-0 top-0 z-50 h-full w-80 transform bg-white/95 shadow-2xl backdrop-blur-lg transition-transform duration-300 ease-in-out dark:bg-slate-900/95 ${
-          isOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        className={`fixed left-0 top-0 z-50 h-full w-80 transform bg-white/95 shadow-2xl backdrop-blur-lg transition-transform duration-300 ease-in-out dark:bg-slate-900/95 ${isOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
         role="dialog"
         aria-modal="true"
         aria-label="Navigation menu"
@@ -217,19 +223,17 @@ export function SidePanel({ isOpen, onClose }: SidePanelProps) {
                       key={item.href}
                       href={item.href}
                       onClick={handleLinkClick}
-                      className={`group flex items-center gap-3 rounded-xl p-3 transition ${
-                        isActive
+                      className={`group flex items-center gap-3 rounded-xl p-3 transition ${isActive
                           ? 'bg-cyan-100 dark:bg-cyan-900/30'
                           : 'hover:bg-slate-100 dark:hover:bg-slate-800/50'
-                      }`}
+                        }`}
                     >
                       <span className={`rounded-lg p-2 ${item.iconColor}`}>
                         <Icon className="h-4 w-4" />
                       </span>
                       <div className="flex-1">
-                        <p className={`text-sm font-semibold ${
-                          isActive ? 'text-cyan-700 dark:text-cyan-300' : 'text-slate-900 dark:text-slate-100'
-                        }`}>
+                        <p className={`text-sm font-semibold ${isActive ? 'text-cyan-700 dark:text-cyan-300' : 'text-slate-900 dark:text-slate-100'
+                          }`}>
                           {item.label}
                         </p>
                       </div>
@@ -253,19 +257,17 @@ export function SidePanel({ isOpen, onClose }: SidePanelProps) {
                       key={item.href}
                       href={item.href}
                       onClick={handleLinkClick}
-                      className={`group flex items-center gap-3 rounded-xl p-3 transition ${
-                        isActive
+                      className={`group flex items-center gap-3 rounded-xl p-3 transition ${isActive
                           ? 'bg-cyan-100 dark:bg-cyan-900/30'
                           : 'hover:bg-slate-100 dark:hover:bg-slate-800/50'
-                      }`}
+                        }`}
                     >
                       <span className={`rounded-lg p-2 ${item.iconColor}`}>
                         <Icon className="h-4 w-4" />
                       </span>
                       <div className="flex-1">
-                        <p className={`text-sm font-semibold ${
-                          isActive ? 'text-cyan-700 dark:text-cyan-300' : 'text-slate-900 dark:text-slate-100'
-                        }`}>
+                        <p className={`text-sm font-semibold ${isActive ? 'text-cyan-700 dark:text-cyan-300' : 'text-slate-900 dark:text-slate-100'
+                          }`}>
                           {item.label}
                         </p>
                       </div>
@@ -294,19 +296,17 @@ export function SidePanel({ isOpen, onClose }: SidePanelProps) {
                       key={item.href}
                       href={item.href}
                       onClick={handleLinkClick}
-                      className={`group flex items-center gap-3 rounded-xl p-3 transition ${
-                        isActive
+                      className={`group flex items-center gap-3 rounded-xl p-3 transition ${isActive
                           ? 'bg-cyan-100 dark:bg-cyan-900/30'
                           : 'hover:bg-slate-100 dark:hover:bg-slate-800/50'
-                      }`}
+                        }`}
                     >
                       <span className={`rounded-lg p-2 ${item.iconColor}`}>
                         <Icon className="h-4 w-4" />
                       </span>
                       <div className="flex-1">
-                        <p className={`text-sm font-semibold ${
-                          isActive ? 'text-cyan-700 dark:text-cyan-300' : 'text-slate-900 dark:text-slate-100'
-                        }`}>
+                        <p className={`text-sm font-semibold ${isActive ? 'text-cyan-700 dark:text-cyan-300' : 'text-slate-900 dark:text-slate-100'
+                          }`}>
                           {item.label}
                         </p>
                       </div>
@@ -322,19 +322,17 @@ export function SidePanel({ isOpen, onClose }: SidePanelProps) {
                 <Link
                   href={settingsItem.href}
                   onClick={handleLinkClick}
-                  className={`group flex items-center gap-3 rounded-xl p-3 transition ${
-                    pathname === settingsItem.href
+                  className={`group flex items-center gap-3 rounded-xl p-3 transition ${pathname === settingsItem.href
                       ? 'bg-cyan-100 dark:bg-cyan-900/30'
                       : 'hover:bg-slate-100 dark:hover:bg-slate-800/50'
-                  }`}
+                    }`}
                 >
                   <span className={`rounded-lg p-2 ${settingsItem.iconColor}`}>
                     <settingsItem.icon className="h-4 w-4" />
                   </span>
                   <div className="flex-1">
-                    <p className={`text-sm font-semibold ${
-                      pathname === settingsItem.href ? 'text-cyan-700 dark:text-cyan-300' : 'text-slate-900 dark:text-slate-100'
-                    }`}>
+                    <p className={`text-sm font-semibold ${pathname === settingsItem.href ? 'text-cyan-700 dark:text-cyan-300' : 'text-slate-900 dark:text-slate-100'
+                      }`}>
                       {settingsItem.label}
                     </p>
                   </div>
@@ -342,19 +340,17 @@ export function SidePanel({ isOpen, onClose }: SidePanelProps) {
                 <Link
                   href={aboutItem.href}
                   onClick={handleLinkClick}
-                  className={`group flex items-center gap-3 rounded-xl p-3 transition ${
-                    pathname === aboutItem.href
+                  className={`group flex items-center gap-3 rounded-xl p-3 transition ${pathname === aboutItem.href
                       ? 'bg-cyan-100 dark:bg-cyan-900/30'
                       : 'hover:bg-slate-100 dark:hover:bg-slate-800/50'
-                  }`}
+                    }`}
                 >
                   <span className={`rounded-lg p-2 ${aboutItem.iconColor}`}>
                     <aboutItem.icon className="h-4 w-4" />
                   </span>
                   <div className="flex-1">
-                    <p className={`text-sm font-semibold ${
-                      pathname === aboutItem.href ? 'text-cyan-700 dark:text-cyan-300' : 'text-slate-900 dark:text-slate-100'
-                    }`}>
+                    <p className={`text-sm font-semibold ${pathname === aboutItem.href ? 'text-cyan-700 dark:text-cyan-300' : 'text-slate-900 dark:text-slate-100'
+                      }`}>
                       {aboutItem.label}
                     </p>
                   </div>

@@ -6,14 +6,14 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { usePlanning } from "@/lib/planning-context";
 import { createPlannedItem } from "@/lib/supabase";
-import { useSupabaseUser } from "@/lib/useSupabaseUser";
+import { useAuth } from "@/components/AuthProvider";
 import { getRecurrenceDescription } from "@/lib/recurrence";
 import { getCategoryEmoji } from "@/lib/categories";
 import { useToast } from "@/components/ToastProvider";
 
 export default function PlanAheadSavePage() {
   const router = useRouter();
-  const { user } = useSupabaseUser();
+  const { user } = useAuth();
   const {
     recurrenceType,
     startDate,
@@ -188,11 +188,6 @@ export default function PlanAheadSavePage() {
           )}
         </button>
 
-        {!user && (
-          <p className="text-center text-sm text-slate-600">
-            You must be logged in to save planned items
-          </p>
-        )}
       </div>
     </main>
   );

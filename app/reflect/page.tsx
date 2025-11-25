@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Moon, Check } from 'lucide-react';
-import { useSupabaseUser } from '@/lib/useSupabaseUser';
+import { useAuth } from '@/components/AuthProvider';
 import { useReflect } from '@/hooks/useReflect';
 import { useThoughts } from '@/hooks/useThoughts';
 import { getCheckinByDate } from '@/lib/supabase';
@@ -17,11 +17,12 @@ import { AddThoughtModal } from '@/components/logbook/AddThoughtModal';
 
 export default function ReflectPage() {
   const router = useRouter();
-  const { user, loading: authLoading } = useSupabaseUser();
+  const { user } = useAuth();
   const {
     data,
     loading,
     saving,
+    error,
     updateSignals,
     updateBandwidth,
     updatePriorityOutcome,
@@ -75,7 +76,7 @@ export default function ReflectPage() {
     }
   };
 
-  if (authLoading || loading) {
+  if (loading) {
     return (
       <main className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -173,7 +174,12 @@ export default function ReflectPage() {
 
         {/* Finish Button - Fixed at bottom */}
         <div className="fixed bottom-20 inset-x-0 px-4 pb-4">
-          <div className="mx-auto max-w-lg">
+          <div className="mx-auto max-w-lg space-y-3">
+            {error && (
+              <div className="rounded-xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 p-3 text-center">
+                <p className="text-sm text-rose-700 dark:text-rose-300 font-crimson">{error}</p>
+              </div>
+            )}
             <button
               onClick={handleFinish}
               disabled={saving}

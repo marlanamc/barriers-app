@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, ListChecks, Filter } from 'lucide-react';
 import Link from 'next/link';
-import { useSupabaseUser } from '@/lib/useSupabaseUser';
+import { useAuth } from '@/components/AuthProvider';
 import { getCheckinByDate, getPlannedItems } from '@/lib/supabase';
 import { getTodayLocalDateString } from '@/lib/date-utils';
 import { TaskComplexity, TaskType } from '@/lib/capacity';
@@ -32,7 +32,7 @@ const SOURCE_LABELS = {
 };
 
 export default function AllTasksPage() {
-  const { user } = useSupabaseUser();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [filterType, setFilterType] = useState<'all' | 'focus' | 'life'>('all');

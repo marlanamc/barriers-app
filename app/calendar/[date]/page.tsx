@@ -4,14 +4,14 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { useSupabaseUser } from "@/lib/useSupabaseUser";
+import { useAuth } from "@/components/AuthProvider";
 import { getCheckinByDate, type CheckinWithRelations } from "@/lib/supabase";
 
 
 export default function CalendarDetailPage() {
   const params = useParams();
   const date = params.date as string;
-  const { user, loading: authLoading } = useSupabaseUser();
+  const { user } = useAuth();
   const [checkin, setCheckin] = useState<CheckinWithRelations | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +38,7 @@ export default function CalendarDetailPage() {
     load();
   }, [date, user]);
 
-  if (authLoading || loading) {
+  if (loading) {
     return (
       <main className="min-h-screen flex items-center justify-center px-4">
         <p className="text-slate-600" role="status" aria-live="polite">Loading your check-in...</p>

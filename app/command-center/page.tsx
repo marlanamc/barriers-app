@@ -10,7 +10,7 @@ import { getCurrentEnergyLevel } from '@/lib/getCurrentEnergy';
 import { Loading } from '@/components/Loading';
 import { useDebounce } from '@/lib/useDebounce';
 import { useCache } from '@/lib/useCache';
-import { useSupabaseUser } from '@/lib/useSupabaseUser';
+import { useAuth } from '@/components/AuthProvider';
 import { getTodayLocalDateString } from '@/lib/date-utils';
 import {
   type EnergyLevel,
@@ -110,7 +110,7 @@ interface Task {
 }
 
 export default function CommandCenterPage() {
-  const { user } = useSupabaseUser();
+  const { user } = useAuth();
   const router = useRouter();
 
   // State

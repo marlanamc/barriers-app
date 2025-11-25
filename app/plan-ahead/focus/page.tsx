@@ -7,11 +7,11 @@ import Link from "next/link";
 import { usePlanning } from "@/lib/planning-context";
 import { DEFAULT_CATEGORY_OPTIONS, getCategoryEmoji, getCategoryOptions } from "@/lib/categories";
 import { getRecurrenceDescription } from "@/lib/recurrence";
-import { useSupabaseUser } from "@/lib/useSupabaseUser";
+import { useAuth } from "@/components/AuthProvider";
 
 export default function PlanAheadFocusPage() {
   const router = useRouter();
-  const { user } = useSupabaseUser();
+  const { user } = useAuth();
   const {
     recurrenceType,
     startDate,

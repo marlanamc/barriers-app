@@ -2,16 +2,16 @@
 
 import { Ship, ChevronRight, Star, Target, Anchor, Heart, Users, Sparkles, Map } from 'lucide-react';
 import Link from 'next/link';
-import { useSupabaseUser } from '@/lib/useSupabaseUser';
+import { useAuth } from '@/components/AuthProvider';
 import { useMapData } from '@/hooks/useMapData';
 import { useFuelCheck } from '@/hooks/useFuelCheck';
 
 export default function ToolkitPage() {
-  const { user, loading: userLoading } = useSupabaseUser();
+  const { user } = useAuth();
   const { data, hasContent, loading: mapLoading } = useMapData(user?.id);
   const { fuelStatus, fuelPercentage, toggleFuel, loading: fuelLoading } = useFuelCheck(user?.id);
 
-  const loading = userLoading || mapLoading || fuelLoading;
+  const loading = mapLoading || fuelLoading;
 
   if (loading) {
     return (

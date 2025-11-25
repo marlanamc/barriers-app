@@ -210,8 +210,8 @@ export const MAP_MODULES: Record<string, ModuleDefinition> = {
       'exercise effects',
       'caffeine timing',
     ],
-    editorType: 'text',
-    href: '/map/energy-patterns',
+    editorType: 'special',
+    href: '/sails-and-oars',
   },
 
   // Hazards at Sea
@@ -367,7 +367,7 @@ export const MAP_MODULES: Record<string, ModuleDefinition> = {
       'joy noticed',
     ],
     editorType: 'special',
-    href: '/map/starlight',
+    href: '/starlight',
   },
 };
 

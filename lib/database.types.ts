@@ -366,6 +366,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      map_modules: {
+        Row: {
+          id: string;
+          user_id: string;
+          module_type: string;
+          content: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          module_type: string;
+          content?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          module_type?: string;
+          content?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       user_internal_weather_stats: {
@@ -396,6 +423,14 @@ export type Database = {
           p_metadata: Json;
         };
         Returns: Json;
+      };
+      upsert_map_module: {
+        Args: {
+          p_user_id: string;
+          p_module_type: string;
+          p_content: Json;
+        };
+        Returns: string;
       };
     };
     Enums: {};

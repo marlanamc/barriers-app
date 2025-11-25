@@ -2,7 +2,7 @@
 
 import { LineChart, Calendar, Activity, TrendingUp, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
-import { useSupabaseUser } from '@/lib/useSupabaseUser';
+import { useAuth } from '@/components/AuthProvider';
 import { usePatterns, DailyReflect } from '@/hooks/usePatterns';
 
 // Signal labels for display
@@ -38,10 +38,10 @@ function getDayOfWeek(dateString: string): string {
 }
 
 export default function PatternsPage() {
-  const { user, loading: authLoading } = useSupabaseUser();
+  const { user } = useAuth();
   const { data, loading, error } = usePatterns(user?.id);
 
-  if (authLoading || loading) {
+  if (loading) {
     return (
       <main className="min-h-screen flex items-center justify-center">
         <div className="text-center">

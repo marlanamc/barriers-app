@@ -103,7 +103,11 @@ export function useReflect(userId: string | undefined): UseReflectReturn {
 
   // Save to database
   const saveReflect = useCallback(async (): Promise<boolean> => {
-    if (!userId) return false;
+    if (!userId) {
+      console.error('Cannot save reflect: No user ID');
+      setError('You must be logged in to save your reflection');
+      return false;
+    }
 
     try {
       setSaving(true);
@@ -129,7 +133,7 @@ export function useReflect(userId: string | undefined): UseReflectReturn {
       return true;
     } catch (err) {
       console.error('Error saving reflect:', err);
-      setError('Failed to save');
+      setError('Failed to save reflection. Please try again.');
       return false;
     } finally {
       setSaving(false);

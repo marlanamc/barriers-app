@@ -9,7 +9,7 @@ import { DEFAULT_CATEGORY_OPTIONS, getCategoryEmoji, getCategoryOptions } from "
 import { getBarrierTypes, saveCheckinWithFocus, getCheckinByDate, type BarrierType } from "@/lib/supabase";
 import { anchorValueForDisplay, cleanAnchorInput, getMergedAnchorSuggestions, defaultAnchorSuggestionMap } from "@/lib/anchors";
 import { hasBarrierSelection } from "@/lib/barrier-helpers";
-import { useSupabaseUser } from "@/lib/useSupabaseUser";
+import { useAuth } from "@/components/AuthProvider";
 import { getTodayLocalDateString } from "@/lib/date-utils";
 
 // Default suggestions - will be merged with user presets
@@ -273,7 +273,7 @@ export default function FocusScreen() {
     clearValidationError,
     clearLocalStorageForDate,
   } = useCheckIn();
-  const { user } = useSupabaseUser();
+  const { user } = useAuth();
   const [text, setText] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [categoryOptions, setCategoryOptions] = useState(DEFAULT_CATEGORY_OPTIONS);

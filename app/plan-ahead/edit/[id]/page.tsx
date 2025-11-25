@@ -5,7 +5,7 @@ import { ArrowLeft, Check } from "lucide-react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { updatePlannedItem, getPlannedItems, type PlannedItemWithBarrier } from "@/lib/supabase";
-import { useSupabaseUser } from "@/lib/useSupabaseUser";
+import { useAuth } from "@/components/AuthProvider";
 import { CATEGORY_OPTIONS, getCategoryEmoji } from "@/lib/categories";
 import { getBarrierTypes, type BarrierType } from "@/lib/supabase";
 import { anchorValueForDisplay, cleanAnchorInput, getMergedAnchorSuggestions, defaultAnchorSuggestionMap } from "@/lib/anchors";
@@ -189,7 +189,7 @@ export default function EditPlannedItemPage() {
   const router = useRouter();
   const params = useParams();
   const itemId = params.id as string;
-  const { user } = useSupabaseUser();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

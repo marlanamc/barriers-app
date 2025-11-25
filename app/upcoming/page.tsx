@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, CalendarRange, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 import Link from 'next/link';
-import { useSupabaseUser } from '@/lib/useSupabaseUser';
+import { useAuth } from '@/components/AuthProvider';
 import { getPlannedItems, type PlannedItemWithBarrier } from '@/lib/supabase';
 import { TaskComplexity } from '@/lib/capacity';
 
@@ -18,7 +18,7 @@ const COMPLEXITY_STYLES: Record<TaskComplexity, string> = {
 };
 
 export default function UpcomingPage() {
-  const { user } = useSupabaseUser();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [groupedTasks, setGroupedTasks] = useState<GroupedTasks>({});
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());

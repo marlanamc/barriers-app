@@ -4,13 +4,13 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { OnboardingLayout } from '@/components/onboarding/OnboardingLayout';
 import { useOnboarding } from '@/lib/onboarding-context';
-import { useSupabaseUser } from '@/lib/useSupabaseUser';
+import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/lib/supabase';
 
 export default function CompletePage() {
   const router = useRouter();
   const { state, completeOnboarding } = useOnboarding();
-  const { user } = useSupabaseUser();
+  const { user } = useAuth();
 
   const handleGetStarted = async () => {
     // Save daily schedule to user metadata if it was set during onboarding

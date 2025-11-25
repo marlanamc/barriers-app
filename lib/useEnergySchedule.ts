@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { getCurrentEnergyFromSchedule, type EnergySchedule } from './supabase';
-import { useSupabaseUser } from './useSupabaseUser';
+import { useAuth } from '@/components/AuthProvider';
 
 // Local energy type options for notifications
 type EnergyTypeOption = {
@@ -24,7 +24,7 @@ interface UseEnergyScheduleOptions {
 }
 
 export function useEnergySchedule(options: UseEnergyScheduleOptions = {}) {
-  const { user } = useSupabaseUser();
+  const { user } = useAuth();
   const { onEnergyChange, enableNotifications = true } = options;
   const [currentEnergy, setCurrentEnergy] = useState<string | null>(null);
   const [nextTransition, setNextTransition] = useState<EnergySchedule | null>(null);

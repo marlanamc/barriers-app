@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { TasksCard } from '@/components/TasksCard';
 import { QuickAddModal } from '@/components/modals/QuickAddModal';
 import { TaskModal } from '@/components/modals/TaskModal';
-import { useSupabaseUser } from '@/lib/useSupabaseUser';
+import { useAuth } from '@/components/AuthProvider';
 import { getPlannedItems, deletePlannedItem, type PlannedItemWithBarrier } from '@/lib/supabase';
 import { TaskComplexity, TaskType } from '@/lib/capacity';
 
@@ -16,7 +16,7 @@ interface TaskAnchor {
 }
 
 export default function TomorrowPage() {
-  const { user } = useSupabaseUser();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [plannedItems, setPlannedItems] = useState<PlannedItemWithBarrier[]>([]);
   const [showQuickAddModal, setShowQuickAddModal] = useState(false);

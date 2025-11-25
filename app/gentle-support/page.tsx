@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import html2canvas from "html2canvas";
 import { useCheckIn, type TaskAnchorType, type FocusSelection } from "@/lib/checkin-context";
-import { useSupabaseUser } from "@/lib/useSupabaseUser";
+import { useAuth } from "@/components/AuthProvider";
 import { Zap, Sun, CloudRain, type LucideIcon } from "lucide-react";
 
 // Simple icon mapping for weather/focus states
@@ -268,7 +268,7 @@ export default function GentleSupportScreen() {
   const router = useRouter();
   const { focus: weather, forecastNote, focusItems, checkinDate, clearLocalStorageForDate } = useCheckIn();
   const activeFocusItems = useMemo(() => focusItems.filter((item) => !item.completed), [focusItems]);
-  const { user, loading: authLoading, error: authError } = useSupabaseUser();
+  const { user } = useAuth();
   const forecastRef = useRef<HTMLDivElement>(null);
   const [barrierTypes, setBarrierTypes] = useState<BarrierType[]>([]);
   const [saving, setSaving] = useState(false);
@@ -836,11 +836,6 @@ export default function GentleSupportScreen() {
           })}
         </section>
 
-        {authError && (
-          <p className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:bg-amber-900/30 dark:text-amber-200">
-            {authError}. Saving may require configuring Supabase credentials.
-          </p>
-        )}
 
         {saveError && (
           <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600 dark:bg-rose-900/30 dark:text-rose-200">{saveError}</p>

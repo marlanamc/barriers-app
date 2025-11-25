@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { useSupabaseUser } from '@/lib/useSupabaseUser';
+import { useAuth } from '@/components/AuthProvider';
 import { useMapData } from '@/hooks/useMapData';
 import { MAP_MODULES, getModuleDefinition } from '@/lib/map-modules';
 import { ModuleEditor } from '@/components/map/ModuleEditor';
@@ -33,7 +33,7 @@ const SLUG_TO_KEY: Record<string, string> = {
 export default function ModulePage() {
   const params = useParams();
   const router = useRouter();
-  const { user, loading: userLoading } = useSupabaseUser();
+  const { user } = useAuth();
 
   // Get module key from URL slug
   const slug = params.module as string;
@@ -52,7 +52,7 @@ export default function ModulePage() {
     removeStarlightWin,
   } = useMapData(user?.id);
 
-  const loading = userLoading || dataLoading;
+  const loading = dataLoading;
 
   // Loading state
   if (loading) {
@@ -88,6 +88,17 @@ export default function ModulePage() {
         <p className="text-slate-600 dark:text-slate-400">Please sign in</p>
       </div>
     );
+  }
+
+  // Redirect special modules to their dedicated pages
+  if (moduleKey === 'energy_patterns') {
+    router.push('/sails-and-oars');
+    return null;
+  }
+
+  if (moduleKey === 'starlight') {
+    router.push('/starlight');
+    return null;
   }
 
   // Handle different module types
@@ -225,20 +236,6 @@ export default function ModulePage() {
       );
     }
 
-    case 'energy_patterns': {
-      const content = data.energy_patterns;
-      return (
-        <ModuleEditor
-          module={module}
-          initialValue={content?.patterns || ''}
-          onSave={async (newValue) => {
-            return saveModule('energy_patterns', { patterns: newValue });
-          }}
-          saving={saving}
-        />
-      );
-    }
-
     case 'buoy': {
       const content = data.buoy;
       return (
@@ -285,18 +282,6 @@ export default function ModulePage() {
           module={module}
           initialContacts={data.crew}
           onSave={saveCrewContacts}
-          saving={saving}
-        />
-      );
-    }
-
-    case 'starlight': {
-      return (
-        <StarlightEditor
-          module={module}
-          initialWins={data.starlight}
-          onAdd={addStarlightWin}
-          onRemove={removeStarlightWin}
           saving={saving}
         />
       );

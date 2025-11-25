@@ -1026,3 +1026,155 @@ export async function setAnchorPresets(
 
   return true;
 }
+
+/**
+ * Get fuel list from user preferences
+ */
+export async function getFuelList(userId: string): Promise<string[]> {
+  const profile = await getUserProfile(userId);
+  if (!profile?.preferences) return [];
+  const prefs = profile.preferences as Record<string, any>;
+  return (prefs.fuelList as string[]) || [];
+}
+
+/**
+ * Set fuel list in user preferences
+ */
+export async function setFuelList(userId: string, items: string[]): Promise<boolean> {
+  return updateUserPreferences(userId, { fuelList: items });
+}
+
+/**
+ * Get drain list from user preferences
+ */
+export async function getDrainList(userId: string): Promise<string[]> {
+  const profile = await getUserProfile(userId);
+  if (!profile?.preferences) return [];
+  const prefs = profile.preferences as Record<string, any>;
+  return (prefs.drainList as string[]) || [];
+}
+
+/**
+ * Set drain list in user preferences
+ */
+export async function setDrainList(userId: string, items: string[]): Promise<boolean> {
+  return updateUserPreferences(userId, { drainList: items });
+}
+
+// =============================================================================
+// MAP MODULES
+// =============================================================================
+
+export type MapModuleType =
+  | 'destination'
+  | 'lighthouse'
+  | 'north_star'
+  | 'anchor'
+  | 'fuel_habits'
+  | 'compass_setup'
+  | 'energy_patterns'
+  | 'storms'
+  | 'drift_sirens'
+  | 'lifeboat'
+  | 'buoy'
+  | 'logbook_style';
+
+export type MapModuleContent = {
+  text?: string;
+  list?: string[];
+  [key: string]: any;
+};
+
+export type MapModule = {
+  id: string;
+  user_id: string;
+  module_type: MapModuleType;
+  content: MapModuleContent;
+  created_at: string;
+  updated_at: string;
+};
+
+/**
+ * Get a specific map module for a user
+ */
+export async function getMapModule(
+  userId: string,
+  moduleType: MapModuleType
+): Promise<MapModule | null> {
+  const { data, error } = await supabase
+    .from('map_modules')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('module_type', moduleType)
+    .maybeSingle();
+
+  if (error) {
+    // Silently handle missing table (migration not run yet)
+    if (error.code === '42P01') {
+      return null;
+    }
+    console.error(`Error fetching map module ${moduleType}:`, error);
+    return null;
+  }
+
+  if (!data) return null;
+
+  return {
+    ...data,
+    module_type: data.module_type as MapModuleType,
+    content: data.content as MapModuleContent,
+  };
+}
+
+/**
+ * Get all map modules for a user
+ */
+export async function getAllMapModules(userId: string): Promise<Record<MapModuleType, MapModule | null>> {
+  const { data, error } = await supabase
+    .from('map_modules')
+    .select('*')
+    .eq('user_id', userId);
+
+  if (error) {
+    // Silently handle missing table (migration not run yet)
+    if (error.code === '42P01') {
+      return {} as Record<MapModuleType, MapModule | null>;
+    }
+    console.error('Error fetching all map modules:', error);
+    return {} as Record<MapModuleType, MapModule | null>;
+  }
+
+  // Convert array to keyed object
+  const modules: Record<string, MapModule> = {};
+  data.forEach((module) => {
+    modules[module.module_type] = {
+      ...module,
+      module_type: module.module_type as MapModuleType,
+      content: module.content as MapModuleContent,
+    };
+  });
+
+  return modules as Record<MapModuleType, MapModule | null>;
+}
+
+/**
+ * Save or update a map module
+ */
+export async function saveMapModule(
+  userId: string,
+  moduleType: MapModuleType,
+  content: MapModuleContent
+): Promise<boolean> {
+  const { error } = await supabase.rpc('upsert_map_module', {
+    p_user_id: userId,
+    p_module_type: moduleType,
+    p_content: content as any,
+  });
+
+  if (error) {
+    console.error(`Error saving map module ${moduleType}:`, error);
+    return false;
+  }
+
+  return true;
+}

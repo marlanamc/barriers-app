@@ -9,7 +9,7 @@ import { getCategoryOptions, getCategoryEmoji, type CategoryOption } from '@/lib
 import { getBarrierTypes, type BarrierType } from '@/lib/supabase';
 import { type TaskAnchorType, type TaskAnchor } from '@/lib/checkin-context';
 import { cleanAnchorInput, anchorLabel, getMergedAnchorSuggestions, defaultAnchorSuggestionMap } from '@/lib/anchors';
-import { useSupabaseUser } from '@/lib/useSupabaseUser';
+import { useAuth } from '@/components/AuthProvider';
 
 interface QuickAddModalProps {
   isOpen: boolean;
@@ -60,7 +60,7 @@ const anchorPlaceholders: Record<Exclude<TaskAnchorType, "at">, string> = {
 };
 
 export function QuickAddModal({ isOpen, defaultType = 'focus', defaultInbox = false, onClose, onSave }: QuickAddModalProps) {
-  const { user } = useSupabaseUser();
+  const { user } = useAuth();
   const [input, setInput] = useState('');
   const [taskType, setTaskType] = useState<TaskType>(defaultType);
   const [saveToInbox, setSaveToInbox] = useState(defaultInbox);

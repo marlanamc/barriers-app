@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Clock, ArrowRight, X, Plus } from 'lucide-react';
-import { useSupabaseUser } from '@/lib/useSupabaseUser';
+import { useAuth } from '@/components/AuthProvider';
 import { getCheckinByDate } from '@/lib/supabase';
 import { getTodayLocalDateString } from '@/lib/date-utils';
 import type { TaskComplexity, TaskType } from '@/lib/capacity';
@@ -27,7 +27,7 @@ const COMPLEXITY_LABEL: Record<TaskComplexity, string> = {
 };
 
 export default function ForLaterPage() {
-  const { user } = useSupabaseUser();
+  const { user } = useAuth();
   const [tasks, setTasks] = useState<ForLaterTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [showQuickAdd, setShowQuickAdd] = useState(false);

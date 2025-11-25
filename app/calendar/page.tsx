@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, X, Check } from "lucide-react";
 import Link from "next/link";
 import { type TaskAnchorType } from "@/lib/checkin-context";
-import { useSupabaseUser } from "@/lib/useSupabaseUser";
+import { useAuth } from "@/components/AuthProvider";
 import { getCheckinsForRange, type CheckinWithRelations } from "@/lib/supabase";
 import { formatDateToLocalString } from "@/lib/date-utils";
 import { anchorLabel, buildMultipleAnchorsPhrase } from "@/lib/anchors";
@@ -28,7 +28,7 @@ const monthNames = [
 const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default function CalendarPage() {
-  const { user, loading: authLoading } = useSupabaseUser();
+  const { user } = useAuth();
   const router = useRouter();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [checkins, setCheckins] = useState<CheckinWithRelations[]>([]);
@@ -120,7 +120,7 @@ export default function CalendarPage() {
     setSelectedCheckin(null);
   }
 
-  if (authLoading || loading) {
+  if (loading) {
     return (
       <main className="min-h-screen flex items-center justify-center px-4">
         <p className="text-slate-600" role="status" aria-live="polite">Syncing your calendar...</p>

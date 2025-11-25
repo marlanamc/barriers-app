@@ -6,7 +6,7 @@ import { TaskComplexity, TaskType } from '@/lib/capacity';
 import { getBarrierTypes, type BarrierType } from '@/lib/supabase';
 import { type TaskAnchorType, type TaskAnchor } from '@/lib/checkin-context';
 import { cleanAnchorInput, anchorLabel, getMergedAnchorSuggestions, defaultAnchorSuggestionMap } from '@/lib/anchors';
-import { useSupabaseUser } from '@/lib/useSupabaseUser';
+import { useAuth } from '@/components/AuthProvider';
 import { getCategoryOptions, getCategoryEmoji, type CategoryOption } from '@/lib/categories';
 
 interface TaskModalProps {
@@ -91,7 +91,7 @@ const anchorPlaceholders: Record<Exclude<TaskAnchorType, "at">, string> = {
 };
 
 export function TaskModal({ isOpen, mode, taskType, initialData, onClose, onSave }: TaskModalProps) {
-  const { user } = useSupabaseUser();
+  const { user } = useAuth();
   const [description, setDescription] = useState('');
   const [complexity, setComplexity] = useState<TaskComplexity>('medium');
   const [error, setError] = useState('');

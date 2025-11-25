@@ -1,6 +1,6 @@
 'use client';
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { useSupabaseUser } from '@/lib/useSupabaseUser';
+import { useAuth } from '@/components/AuthProvider';
 import { getCheckinsForRange, type CheckinWithRelations } from '@/lib/supabase';
 import { formatDateToLocalString } from '@/lib/date-utils';
 
@@ -17,7 +17,7 @@ interface AppContextProps {
 const AppContext = createContext<AppContextProps | undefined>(undefined);
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
-    const { user, loading: authLoading } = useSupabaseUser();
+    const { user } = useAuth();
     const [checkins, setCheckins] = useState<CheckinWithRelations[]>([]);
     const [loading, setLoading] = useState(true);
     const [currentMission, setCurrentMission] = useState<string | null>(null);
@@ -44,7 +44,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const value: AppContextProps = {
         userId: user?.id ?? null,
         checkins,
-        loading: authLoading || loading,
+        loading,
         currentMission,
         setCurrentMission,
     };

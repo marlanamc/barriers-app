@@ -94,7 +94,11 @@ export function useFuelCheck(userId: string | undefined): UseFuelCheckReturn {
 
   // Save fuel status to Supabase
   const saveFuelStatus = useCallback(async (updates: Partial<FuelStatus>) => {
-    if (!userId) return;
+    if (!userId) {
+      console.error('Cannot save fuel status: No user ID');
+      setError('You must be logged in to save changes');
+      return;
+    }
 
     try {
       setSaving(true);

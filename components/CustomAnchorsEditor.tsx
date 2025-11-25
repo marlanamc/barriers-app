@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, Clock } from 'lucide-react';
 import { getAnchorPresets, setAnchorPresets } from '@/lib/supabase';
-import { useSupabaseUser } from '@/lib/useSupabaseUser';
+import { useAuth } from '@/components/AuthProvider';
 import type { TaskAnchorType } from '@/lib/checkin-context';
 
 interface CustomAnchorsEditorProps {
@@ -23,7 +23,7 @@ const anchorTypeDescriptions: Record<Exclude<TaskAnchorType, 'at'>, string> = {
 };
 
 export function CustomAnchorsEditor({ onAnchorsChange }: CustomAnchorsEditorProps) {
-  const { user } = useSupabaseUser();
+  const { user } = useAuth();
   const [presets, setPresets] = useState<Record<Exclude<TaskAnchorType, 'at'>, string[]>>({
     while: [],
     before: [],

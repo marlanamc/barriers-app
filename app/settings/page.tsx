@@ -2,32 +2,20 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Tag, Anchor, ChevronDown } from 'lucide-react';
+import { Tag, Anchor, ChevronDown, Clock } from 'lucide-react';
 
 import { CustomTagsEditor } from '@/components/CustomTagsEditor';
 import { CustomAnchorsEditor } from '@/components/CustomAnchorsEditor';
-import { useSupabaseUser } from '@/lib/useSupabaseUser';
+import { ScheduleSettings } from '@/components/ScheduleSettings';
+import { useAuth } from '@/components/AuthProvider';
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { user, loading } = useSupabaseUser();
+  const { user } = useAuth();
 
   const [tagsChanged, setTagsChanged] = useState(false);
   const [anchorsChanged, setAnchorsChanged] = useState(false);
-  const [expandedSection, setExpandedSection] = useState<string | null>('tags');
-
-  if (loading) {
-    return (
-      <main className="min-h-screen flex items-center justify-center px-4">
-        <p className="text-slate-600 dark:text-slate-400">Loading...</p>
-      </main>
-    );
-  }
-
-  if (!user) {
-    router.push('/auth/login');
-    return null;
-  }
+  const [expandedSection, setExpandedSection] = useState<string | null>('schedule');
 
   return (
     <main className="min-h-screen px-4 py-8 pb-24">
@@ -40,7 +28,29 @@ export default function SettingsPage() {
             </p>
           </div>
 
-
+          {/* Schedule Section */}
+          <div className="rounded-3xl border border-slate-200/60 bg-white/70 backdrop-blur-sm dark:border-slate-600/40 dark:bg-slate-800/80 overflow-hidden">
+            <button
+              onClick={() => setExpandedSection(expandedSection === 'schedule' ? null : 'schedule')}
+              className="w-full p-6 flex items-center justify-between hover:bg-slate-50/50 dark:hover:bg-slate-700/30 transition"
+            >
+              <div className="flex items-center gap-3">
+                <Clock className="h-6 w-6 text-cyan-600 dark:text-cyan-400" />
+                <div className="text-left">
+                  <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 font-cinzel">Daily Schedule</h2>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 font-crimson">
+                    Set your wake, work, and sleep times
+                  </p>
+                </div>
+              </div>
+              <ChevronDown className={`h-5 w-5 text-slate-400 transition-transform ${expandedSection === 'schedule' ? 'rotate-180' : ''}`} />
+            </button>
+            {expandedSection === 'schedule' && (
+              <div className="px-6 pb-6">
+                <ScheduleSettings />
+              </div>
+            )}
+          </div>
 
           {/* Custom Tags Section */}
           <div className="rounded-3xl border border-slate-200/60 bg-white/70 backdrop-blur-sm dark:border-slate-600/40 dark:bg-slate-800/80 overflow-hidden">

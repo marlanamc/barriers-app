@@ -1,33 +1,21 @@
 'use client';
 
 import { Ship } from 'lucide-react';
-import { useSupabaseUser } from '@/lib/useSupabaseUser';
+import { useAuth } from '@/components/AuthProvider';
 import { useMapData } from '@/hooks/useMapData';
 import { MAP_SECTIONS, MAP_MODULES } from '@/lib/map-modules';
 import { MapModuleCard } from '@/components/map/MapModuleCard';
 
 export default function MapPage() {
-  const { user, loading: userLoading } = useSupabaseUser();
+  const { user } = useAuth();
   const { hasContent, loading: dataLoading } = useMapData(user?.id);
 
-  const loading = userLoading || dataLoading;
-
-  if (loading) {
+  if (dataLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-sky-50 to-cyan-50 dark:from-slate-900 dark:to-slate-800">
         <div className="text-center">
           <Ship className="mx-auto h-8 w-8 animate-pulse text-cyan-600 dark:text-cyan-400" />
           <p className="mt-3 text-slate-600 dark:text-slate-400">Loading your map...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-sky-50 to-cyan-50 dark:from-slate-900 dark:to-slate-800">
-        <div className="text-center">
-          <p className="text-slate-600 dark:text-slate-400">Please sign in to view your map</p>
         </div>
       </div>
     );

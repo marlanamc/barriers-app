@@ -28,28 +28,36 @@ const WINDOW_CONFIG: Record<WorkWindow, {
   bgGradient: string;
   borderColor: string;
   label: string;
+  nauticalLabel: string;
   Icon: typeof Target;
+  emoji: string;
 }> = {
   deep: {
     color: 'bg-gradient-to-br from-blue-500 to-indigo-600',
     bgGradient: 'bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-900/40 dark:to-indigo-900/40',
     borderColor: 'border-blue-300 dark:border-blue-700',
     label: 'Deep Work',
+    nauticalLabel: '⛵ Sails Up',
     Icon: Target,
+    emoji: '⛵',
   },
   light: {
     color: 'bg-gradient-to-br from-emerald-500 to-teal-600',
     bgGradient: 'bg-gradient-to-br from-emerald-50 to-teal-100 dark:from-emerald-900/40 dark:to-teal-900/40',
     borderColor: 'border-emerald-300 dark:border-emerald-700',
     label: 'Light Tasks',
+    nauticalLabel: '🚣 Steady Rowing',
     Icon: CheckSquare,
+    emoji: '🚣',
   },
   rest: {
     color: 'bg-gradient-to-br from-purple-500 to-pink-600',
     bgGradient: 'bg-gradient-to-br from-purple-50 to-pink-100 dark:from-purple-900/40 dark:to-pink-900/40',
     borderColor: 'border-purple-300 dark:border-purple-700',
     label: 'Rest',
+    nauticalLabel: '⚓ Anchored',
     Icon: Moon,
+    emoji: '⚓',
   },
 };
 
@@ -162,7 +170,13 @@ export function WorkTimeline({
   }, [workBlocks, currentMinutes, completedTasks, totalCapacity]);
 
   if (collapsed) {
-    // Collapsed view - show current status + focus level + sleep time if evening
+    // Collapsed view - show current status + focus level + sleep time if evening + current time
+    const currentTimeStr = currentTime.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+
     return (
       <button
         onClick={onToggleCollapsed}
@@ -170,7 +184,12 @@ export function WorkTimeline({
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Clock className="w-4 h-4 text-slate-400" />
+            <div className="flex flex-col items-center">
+              <Clock className="w-4 h-4 text-slate-400 mb-0.5" />
+              <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">
+                {currentTimeStr}
+              </span>
+            </div>
             <div className="flex flex-col items-start">
               {/* Focus level on top */}
               {focusLabel && (
@@ -178,10 +197,10 @@ export function WorkTimeline({
                   {focusLabel}
                 </span>
               )}
-              {/* Timeline info */}
+              {/* Timeline info with nautical theme */}
               <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
                 {timelineMetrics?.currentWindow
-                  ? `${timelineMetrics.currentBlockLabel || WINDOW_CONFIG[timelineMetrics.currentWindow].label} • ${formatRemaining(timelineMetrics.timeUntilNext)} left`
+                  ? `${WINDOW_CONFIG[timelineMetrics.currentWindow].nauticalLabel} • ${formatRemaining(timelineMetrics.timeUntilNext)} left`
                   : 'Timeline'
                 }
               </span>
@@ -205,14 +224,14 @@ export function WorkTimeline({
     <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-200 dark:border-slate-700">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+        <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 font-cinzel">
           Your Day
         </h3>
         <button
           onClick={onToggleCollapsed}
           className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
         >
-          <ChevronDown className="w-4 h-4 text-slate-400" />
+          <ChevronDown className="w-4 h-4 text-slate-400 rotate-180" />
         </button>
       </div>
 
@@ -223,88 +242,117 @@ export function WorkTimeline({
 
         return (
           <div className={`mb-6 p-5 ${config.bgGradient} rounded-2xl border-2 ${config.borderColor} shadow-lg`}>
-            <div className="flex items-center gap-3 mb-2">
-              <div className={`w-10 h-10 rounded-full ${config.color} flex items-center justify-center shadow-md`}>
-                <IconComponent className="w-5 h-5 text-white" />
+            <div className="flex items-center gap-4">
+              <div className={`w-12 h-12 rounded-xl ${config.color} flex items-center justify-center shadow-md shrink-0`}>
+                <IconComponent className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h4 className="font-bold text-slate-900 dark:text-slate-100">
+                <h4 className="text-lg font-bold text-slate-900 dark:text-slate-100 font-crimson">
                   {timelineMetrics.currentBlockLabel || config.label}
                 </h4>
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                  {formatRemaining(timelineMetrics.timeUntilNext)} remaining
-                </p>
+                <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <span>{config.nauticalLabel}</span>
+                  <span>•</span>
+                  <span>{formatRemaining(timelineMetrics.timeUntilNext)} remaining</span>
+                </div>
               </div>
             </div>
           </div>
         );
       })()}
 
-      {/* Timeline Visualization */}
-      <div className="relative">
-        {/* Enhanced timeline bar with segments */}
-        <div className="relative h-3 bg-slate-200 dark:bg-slate-700 rounded-full mb-6 overflow-hidden">
-          {workBlocks.map((block, index) => {
-            const config = WINDOW_CONFIG[block.window];
-            const startMin = parseHM(block.start);
-            const endMin = parseHM(block.end);
-            const totalDayMinutes = 24 * 60;
-            const blockWidth = ((endMin - startMin) / totalDayMinutes) * 100;
-            const blockLeft = (startMin / totalDayMinutes) * 100;
-            const isPast = currentMinutes > endMin;
-            const isCurrent = currentMinutes >= startMin && currentMinutes < endMin;
+      {/* Timeline Visualization - Day Bar */}
+      <div className="relative h-4 bg-slate-100 dark:bg-slate-800 rounded-full mb-8 overflow-hidden border border-slate-200 dark:border-slate-700">
+        {workBlocks.map((block, index) => {
+          const config = WINDOW_CONFIG[block.window];
+          const startMin = parseHM(block.start);
+          const endMin = parseHM(block.end);
+          const totalDayMinutes = 24 * 60;
+          const blockWidth = ((endMin - startMin) / totalDayMinutes) * 100;
+          const blockLeft = (startMin / totalDayMinutes) * 100;
+          const isPast = currentMinutes > endMin;
+          const isCurrent = currentMinutes >= startMin && currentMinutes < endMin;
 
-            return (
-              <div
-                key={index}
-                className={`absolute top-0 h-full ${config.color} transition-all duration-300 ${isCurrent ? 'ring-2 ring-white dark:ring-slate-900 ring-offset-2' : ''} ${isPast ? 'opacity-40' : 'opacity-100'}`}
-                style={{
-                  left: `${blockLeft}%`,
-                  width: `${blockWidth}%`,
-                }}
-              />
-            );
-          })}
-          {/* Current time indicator */}
-          <div
-            className="absolute top-0 w-1 h-full bg-white shadow-lg z-10"
-            style={{
-              left: `${(currentMinutes / (24 * 60)) * 100}%`,
-            }}
-          />
+          return (
+            <div
+              key={index}
+              className={`absolute top-0 h-full ${config.color} transition-all duration-300 ${isCurrent ? 'opacity-100' : isPast ? 'opacity-30' : 'opacity-60'}`}
+              style={{
+                left: `${blockLeft}%`,
+                width: `${blockWidth}%`,
+              }}
+            />
+          );
+        })}
+        {/* Current time indicator */}
+        <div
+          className="absolute top-0 w-0.5 h-full bg-slate-900 dark:bg-white shadow-[0_0_8px_rgba(0,0,0,0.5)] z-10"
+          style={{
+            left: `${(currentMinutes / (24 * 60)) * 100}%`,
+          }}
+        >
+          <div className="absolute -top-1 -left-1.5 w-3.5 h-3.5 bg-slate-900 dark:bg-white rounded-full shadow-sm" />
         </div>
+      </div>
 
-        {/* Time labels and icons */}
-        <div className="flex items-start justify-between px-2">
-          {workBlocks.map((block, index) => {
-            const config = WINDOW_CONFIG[block.window];
-            const startTime = formatHMLabel(block.start);
-            const endTime = formatHMLabel(block.end);
-            const IconComponent = config.Icon;
+      {/* Vertical Schedule List */}
+      <div className="space-y-0 relative before:absolute before:inset-y-0 before:left-[27px] before:w-0.5 before:bg-slate-200 dark:before:bg-slate-700 before:z-0">
+        {workBlocks.map((block, index) => {
+          const config = WINDOW_CONFIG[block.window];
+          const startMin = parseHM(block.start);
+          const endMin = parseHM(block.end);
+          const isPast = currentMinutes > endMin;
+          const isCurrent = currentMinutes >= startMin && currentMinutes < endMin;
+          const IconComponent = config.Icon;
 
-            return (
-              <div key={index} className="flex flex-col items-center flex-1">
-                <div className={`w-10 h-10 rounded-full ${config.color} flex items-center justify-center mb-2 ring-2 ring-white dark:ring-slate-900 shadow-lg z-10`}>
-                  <IconComponent className="w-5 h-5 text-white" />
-                </div>
-                <span className="text-xs font-bold text-slate-900 dark:text-slate-100 text-center mb-1">
-                  {block.label || config.label}
-                </span>
-                <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
-                  {startTime}
-                </span>
+          return (
+            <div
+              key={index}
+              className={`relative flex items-center gap-4 py-3 pl-1 transition-all duration-300 ${isPast ? 'opacity-50 grayscale' : isCurrent ? 'opacity-100 scale-[1.02] origin-left' : 'opacity-80'
+                }`}
+            >
+              {/* Icon Node */}
+              <div className={`relative z-10 w-14 h-14 rounded-full border-4 border-white dark:border-slate-900 flex items-center justify-center shrink-0 transition-colors ${isCurrent ? config.color : isPast ? 'bg-slate-200 dark:bg-slate-700' : 'bg-slate-100 dark:bg-slate-800'
+                }`}>
+                <IconComponent className={`w-5 h-5 ${isCurrent ? 'text-white' : isPast ? 'text-slate-400' : 'text-slate-500'
+                  }`} />
               </div>
-            );
-          })}
-        </div>
+
+              {/* Content */}
+              <div className={`flex-1 min-w-0 rounded-xl p-3 border transition-all ${isCurrent
+                  ? 'bg-white dark:bg-slate-800 border-sky-200 dark:border-sky-800 shadow-md'
+                  : 'border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                }`}>
+                <div className="flex items-center justify-between gap-2 mb-0.5">
+                  <span className={`text-sm font-bold truncate ${isCurrent ? 'text-slate-900 dark:text-white' : 'text-slate-700 dark:text-slate-300'
+                    }`}>
+                    {block.label || config.label}
+                  </span>
+                  <span className={`text-xs font-mono shrink-0 ${isCurrent ? 'text-sky-600 dark:text-sky-400' : 'text-slate-400'
+                    }`}>
+                    {formatHMLabel(block.start)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                  <span>{config.nauticalLabel}</span>
+                  {isCurrent && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300 uppercase tracking-wider">
+                      Now
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Sleep reminder - integrated, subtle */}
       {sleepNotification && (
-        <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-            <Moon className="w-4 h-4" />
-            <span>Aim for bed by <span className="font-medium text-slate-700 dark:text-slate-300">{formatHMLabel(sleepNotification.bedtime)}</span></span>
+        <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex items-center justify-center gap-3 text-sm text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4">
+            <Moon className="w-5 h-5 text-indigo-400" />
+            <span>Aim for bed by <span className="font-bold text-indigo-600 dark:text-indigo-400">{formatHMLabel(sleepNotification.bedtime)}</span></span>
           </div>
         </div>
       )}

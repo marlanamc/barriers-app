@@ -2,14 +2,14 @@
 
 import { useState } from 'react';
 import { Plus, BookOpen } from 'lucide-react';
-import { useSupabaseUser } from '@/lib/useSupabaseUser';
+import { useAuth } from '@/components/AuthProvider';
 import { useThoughts } from '@/hooks/useThoughts';
 import { LogbookEmpty } from '@/components/logbook/LogbookEmpty';
 import { LogbookList } from '@/components/logbook/LogbookList';
 import { AddThoughtModal } from '@/components/logbook/AddThoughtModal';
 
 export default function LogbookPage() {
-  const { user } = useSupabaseUser();
+  const { user } = useAuth();
   const { thoughts, loading, addThought, archiveThought, convertThought } = useThoughts(user?.id);
   const [showAddModal, setShowAddModal] = useState(false);
 

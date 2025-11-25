@@ -8,8 +8,9 @@ import { TaskClarificationModal } from '@/components/TaskClarificationModal';
 import { FocusModeOverlay } from '@/components/FocusModeOverlay';
 import { WorkTimeline } from '@/components/WorkTimeline';
 import { SleepNotification } from '@/components/SleepNotification';
-import { useSupabaseUser } from '@/lib/useSupabaseUser';
-import { getCheckinByDate, saveCheckinWithFocus, type FocusItemPayload } from '@/lib/supabase';
+import { useAuth } from '@/components/AuthProvider';
+import { getCheckinByDate, saveCheckinWithFocus, getEnergySchedules, getMapModule, type FocusItemPayload, type EnergySchedule } from '@/lib/supabase';
+import { DestinationCard } from '@/components/DestinationCard';
 import { getTodayLocalDateString } from '@/lib/date-utils';
 import { type TaskComplexity, type WorkWindow, COMPLEXITY_COST } from '@/lib/capacity';
 import type { FocusLevel, UserContext } from '@/lib/user-context';
@@ -49,24 +50,24 @@ interface WorkBlock {
 }
 
 export default function TodayPage() {
-  const { user, loading: authLoading } = useSupabaseUser();
+  const { user } = useAuth();
 
   // State
   const [selectedFocus, setSelectedFocus] = useState<FocusLevel | null>(null);
   const [focusTasks, setFocusTasks] = useState<FocusTask[]>([]);
   const [lifeTasks, setLifeTasks] = useState<LifeTask[]>([]);
-  const [showFocusSelector, setShowFocusSelector] = useState(true);
+  const [showFocusSelector, setShowFocusSelector] = useState(false);
   const [clarificationTaskId, setClarificationTaskId] = useState<string | null>(null);
   const [newTaskDescription, setNewTaskDescription] = useState<string>('');
   const [activeFocusTaskId, setActiveFocusTaskId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [timelineCollapsed, setTimelineCollapsed] = useState(true);
   const [wakeTime, setWakeTime] = useState('08:00');
+  const [energySchedules, setEnergySchedules] = useState<EnergySchedule[]>([]);
+  const [destination, setDestination] = useState<string | null>(null);
 
   // Load today's data
   useEffect(() => {
-    if (authLoading) return;
-
     if (!user) {
       setIsLoading(false);
       return;
@@ -75,19 +76,45 @@ export default function TodayPage() {
     const loadTodayData = async () => {
       try {
         const today = getTodayLocalDateString();
-        const checkin = await getCheckinByDate(user.id, today);
+        const [checkin, schedules, destinationModule] = await Promise.all([
+          getCheckinByDate(user.id, today),
+          getEnergySchedules(user.id),
+          getMapModule(user.id, 'destination')
+        ]);
+
+        if (schedules) {
+          setEnergySchedules(schedules);
+        }
+
+        if (destinationModule?.content?.text) {
+          setDestination(destinationModule.content.text);
+        }
 
         if (checkin) {
           // Load existing data
-          if (checkin.internal_weather && typeof checkin.internal_weather === 'object') {
-            const weather = checkin.internal_weather as any;
-            if (weather.focus_level) {
-              setSelectedFocus(weather.focus_level as FocusLevel);
-              setShowFocusSelector(false);
+          // Load existing data
+          if (checkin.internal_weather) {
+            // Handle string format (New Schema)
+            if (typeof checkin.internal_weather === 'string') {
+              // The database stores the key directly (e.g., 'focused', 'scattered', 'unfocused')
+              // We need to validate it's a valid FocusLevel
+              const weatherKey = checkin.internal_weather;
+              if (['focused', 'scattered', 'unfocused'].includes(weatherKey)) {
+                setSelectedFocus(weatherKey as FocusLevel);
+                setShowFocusSelector(false);
+              }
             }
+            // Handle object format (Legacy)
+            else if (typeof checkin.internal_weather === 'object') {
+              const weather = checkin.internal_weather as any;
+              if (weather.focus_level) {
+                setSelectedFocus(weather.focus_level as FocusLevel);
+                setShowFocusSelector(false);
+              }
 
-            if (weather.wake_time) {
-              setWakeTime(weather.wake_time);
+              if (weather.wake_time) {
+                setWakeTime(weather.wake_time);
+              }
             }
           }
 
@@ -116,6 +143,9 @@ export default function TodayPage() {
             setFocusTasks(loadedFocusTasks);
             setLifeTasks(loadedLifeTasks);
           }
+        } else {
+          // No checkin for today - show focus selector
+          setShowFocusSelector(true);
         }
       } catch (error) {
         console.error('Error loading today data:', error);
@@ -125,7 +155,7 @@ export default function TodayPage() {
     };
 
     loadTodayData();
-  }, [user, authLoading]);
+  }, [user]);
 
   // Auto-save when tasks or focus level changes
   useEffect(() => {
@@ -332,14 +362,96 @@ export default function TodayPage() {
   const canAddMoreFocus = usedCapacity < totalCapacity;
 
   // Work blocks for timeline
-  const workBlocks: WorkBlock[] = [
-    { start: '08:00', end: '12:00', window: 'deep', label: 'Morning' },
-    { start: '12:00', end: '17:00', window: 'light', label: 'Afternoon' },
-    { start: '17:00', end: '22:00', window: 'rest', label: 'Evening' },
-  ];
+  const workBlocks: WorkBlock[] = (() => {
+    if (energySchedules.length === 0) {
+      return [
+        { start: '08:00', end: '12:00', window: 'deep', label: 'Morning' },
+        { start: '12:00', end: '17:00', window: 'light', label: 'Afternoon' },
+        { start: '17:00', end: '22:00', window: 'rest', label: 'Evening' },
+      ];
+    }
+
+    const blocks: WorkBlock[] = [];
+
+    // 1. Sort by time
+    // 2. Deduplicate by start time (keep the one with a label, or the last one seen)
+    // 3. Limit to 6 items to match Sails & Oars editor
+    const uniqueSchedules = new Map<number, EnergySchedule>();
+
+    // Process in order to handle duplicates
+    [...energySchedules]
+      .sort((a, b) => a.start_time_minutes - b.start_time_minutes)
+      .forEach(schedule => {
+        // If we already have this time, only overwrite if the new one has a label and the old one doesn't
+        if (uniqueSchedules.has(schedule.start_time_minutes)) {
+          const existing = uniqueSchedules.get(schedule.start_time_minutes)!;
+          if (!existing.label && schedule.label) {
+            uniqueSchedules.set(schedule.start_time_minutes, schedule);
+          }
+        } else {
+          uniqueSchedules.set(schedule.start_time_minutes, schedule);
+        }
+      });
+
+    const sorted = Array.from(uniqueSchedules.values())
+      .sort((a, b) => a.start_time_minutes - b.start_time_minutes)
+      .slice(0, 6); // Match MAX_MARKERS from editor
+
+    // Helper to convert minutes to HH:MM
+    const toTime = (mins: number) => {
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    };
+
+    // Helper to map energy key to window type
+    const getWindowType = (key: string): WorkWindow => {
+      switch (key) {
+        case 'high-tide':
+        case 'sparky': // Legacy support
+        case 'flowing': // Legacy support
+          return 'deep';
+        case 'steady':
+          return 'light';
+        case 'low-tide':
+        case 'sleeping':
+        case 'foggy': // Legacy support
+        case 'resting': // Legacy support
+        default:
+          return 'rest';
+      }
+    };
+
+    // If first schedule doesn't start at 00:00, add a block from 00:00 to first start
+    // using the last schedule's energy (wrapping around)
+    if (sorted.length > 0 && sorted[0].start_time_minutes > 0) {
+      const lastSchedule = sorted[sorted.length - 1];
+      blocks.push({
+        start: '00:00',
+        end: toTime(sorted[0].start_time_minutes),
+        window: getWindowType(lastSchedule.energy_key),
+        label: lastSchedule.label || 'Early'
+      });
+    }
+
+    // Add blocks for each schedule
+    for (let i = 0; i < sorted.length; i++) {
+      const current = sorted[i];
+      const next = sorted[i + 1];
+
+      blocks.push({
+        start: toTime(current.start_time_minutes),
+        end: next ? toTime(next.start_time_minutes) : '23:59',
+        window: getWindowType(current.energy_key),
+        label: current.label || (current.energy_key.charAt(0).toUpperCase() + current.energy_key.slice(1))
+      });
+    }
+
+    return blocks;
+  })();
 
   // Loading state
-  if (authLoading || isLoading) {
+  if (isLoading) {
     return (
       <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-rose-50 via-orange-50 to-sky-50 dark:from-[#0a1628] dark:via-[#0f2847] dark:to-[#1a3a5c]">
@@ -355,29 +467,6 @@ export default function TodayPage() {
           />
         </div>
         <div className="relative z-10 animate-pulse text-slate-500 dark:text-[#a8c5d8] font-crimson">Loading...</div>
-      </div>
-    );
-  }
-
-  // Not logged in
-  if (!user) {
-    return (
-      <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-rose-50 via-orange-50 to-sky-50 dark:from-[#0a1628] dark:via-[#0f2847] dark:to-[#1a3a5c]">
-          <div
-            className="absolute inset-0 opacity-[0.06] dark:opacity-[0.03]"
-            style={{
-              backgroundImage: `
-                linear-gradient(rgba(148, 163, 184, 0.4) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(148, 163, 184, 0.4) 1px, transparent 1px)
-              `,
-              backgroundSize: '40px 40px'
-            }}
-          />
-        </div>
-        <div className="relative z-10 text-center">
-          <p className="text-slate-600 dark:text-[#a8c5d8] font-crimson">Please log in to continue</p>
-        </div>
       </div>
     );
   }
@@ -417,13 +506,13 @@ export default function TodayPage() {
         {/* Compass rose decoration */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] opacity-[0.03] dark:opacity-[0.02]">
           <svg viewBox="0 0 100 100" className="w-full h-full">
-            <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="0.5" className="text-slate-400 dark:text-[#d4a574]"/>
-            <circle cx="50" cy="50" r="35" fill="none" stroke="currentColor" strokeWidth="0.3" className="text-slate-400 dark:text-[#d4a574]"/>
-            <circle cx="50" cy="50" r="25" fill="none" stroke="currentColor" strokeWidth="0.3" className="text-slate-400 dark:text-[#d4a574]"/>
-            <path d="M50 5 L52 15 L50 12 L48 15 Z" fill="currentColor" className="text-slate-400 dark:text-[#d4a574]"/>
-            <path d="M50 95 L48 85 L50 88 L52 85 Z" fill="currentColor" className="text-slate-400 dark:text-[#d4a574]"/>
-            <path d="M5 50 L15 48 L12 50 L15 52 Z" fill="currentColor" className="text-slate-400 dark:text-[#d4a574]"/>
-            <path d="M95 50 L85 52 L88 50 L85 48 Z" fill="currentColor" className="text-slate-400 dark:text-[#d4a574]"/>
+            <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="0.5" className="text-slate-400 dark:text-[#d4a574]" />
+            <circle cx="50" cy="50" r="35" fill="none" stroke="currentColor" strokeWidth="0.3" className="text-slate-400 dark:text-[#d4a574]" />
+            <circle cx="50" cy="50" r="25" fill="none" stroke="currentColor" strokeWidth="0.3" className="text-slate-400 dark:text-[#d4a574]" />
+            <path d="M50 5 L52 15 L50 12 L48 15 Z" fill="currentColor" className="text-slate-400 dark:text-[#d4a574]" />
+            <path d="M50 95 L48 85 L50 88 L52 85 Z" fill="currentColor" className="text-slate-400 dark:text-[#d4a574]" />
+            <path d="M5 50 L15 48 L12 50 L15 52 Z" fill="currentColor" className="text-slate-400 dark:text-[#d4a574]" />
+            <path d="M95 50 L85 52 L88 50 L85 48 Z" fill="currentColor" className="text-slate-400 dark:text-[#d4a574]" />
           </svg>
         </div>
 
@@ -463,6 +552,9 @@ export default function TodayPage() {
           wakeTime={wakeTime}
           focusLevel={selectedFocus}
         />
+
+        {/* Destination Card - Reminder of main goal */}
+        <DestinationCard destination={destination} />
 
         {/* Add Task Input - Always under timeline */}
         {canAddMoreFocus && (

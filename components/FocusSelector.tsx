@@ -119,7 +119,7 @@ export function FocusSelector({
   userName
 }: FocusSelectorProps) {
   const [selectedFocus, setSelectedFocus] = useState<FocusLevel | null>(null);
-  const [step, setStep] = useState<0 | 1 | 2>(0);
+  const [step, setStep] = useState<0 | 1>(0);
   const [toolkitData, setToolkitData] = useState<ToolkitData>({ northStar: null, anchorQuestion: null });
   const [fuelStatus, setFuelStatus] = useState<FuelStatus>({
     water: false,
@@ -164,7 +164,7 @@ export function FocusSelector({
 
   const handleFocusSelect = (focus: FocusLevel) => {
     setSelectedFocus(focus);
-    setStep(2);
+    setStep(1);
   };
 
   const handleSetSail = () => {
@@ -179,9 +179,6 @@ export function FocusSelector({
     : null;
 
   const fuelComplete = Object.values(fuelStatus).filter(Boolean).length;
-
-  const nextStep = () => setStep(prev => Math.min(prev + 1, 2) as 0 | 1 | 2);
-  const prevStep = () => setStep(prev => Math.max(prev - 1, 0) as 0 | 1 | 2);
 
   return (
     <div className="relative min-h-screen overflow-hidden">
@@ -202,13 +199,13 @@ export function FocusSelector({
         {/* Compass rose decoration */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] opacity-[0.03] dark:opacity-[0.02]">
           <svg viewBox="0 0 100 100" className="w-full h-full">
-            <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="0.5" className="text-slate-400 dark:text-[#d4a574]"/>
-            <circle cx="50" cy="50" r="35" fill="none" stroke="currentColor" strokeWidth="0.3" className="text-slate-400 dark:text-[#d4a574]"/>
-            <circle cx="50" cy="50" r="25" fill="none" stroke="currentColor" strokeWidth="0.3" className="text-slate-400 dark:text-[#d4a574]"/>
-            <path d="M50 5 L52 15 L50 12 L48 15 Z" fill="currentColor" className="text-slate-400 dark:text-[#d4a574]"/>
-            <path d="M50 95 L48 85 L50 88 L52 85 Z" fill="currentColor" className="text-slate-400 dark:text-[#d4a574]"/>
-            <path d="M5 50 L15 48 L12 50 L15 52 Z" fill="currentColor" className="text-slate-400 dark:text-[#d4a574]"/>
-            <path d="M95 50 L85 52 L88 50 L85 48 Z" fill="currentColor" className="text-slate-400 dark:text-[#d4a574]"/>
+            <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="0.5" className="text-slate-400 dark:text-[#d4a574]" />
+            <circle cx="50" cy="50" r="35" fill="none" stroke="currentColor" strokeWidth="0.3" className="text-slate-400 dark:text-[#d4a574]" />
+            <circle cx="50" cy="50" r="25" fill="none" stroke="currentColor" strokeWidth="0.3" className="text-slate-400 dark:text-[#d4a574]" />
+            <path d="M50 5 L52 15 L50 12 L48 15 Z" fill="currentColor" className="text-slate-400 dark:text-[#d4a574]" />
+            <path d="M50 95 L48 85 L50 88 L52 85 Z" fill="currentColor" className="text-slate-400 dark:text-[#d4a574]" />
+            <path d="M5 50 L15 48 L12 50 L15 52 Z" fill="currentColor" className="text-slate-400 dark:text-[#d4a574]" />
+            <path d="M95 50 L85 52 L88 50 L85 48 Z" fill="currentColor" className="text-slate-400 dark:text-[#d4a574]" />
           </svg>
         </div>
 
@@ -225,7 +222,7 @@ export function FocusSelector({
       {step > 0 && (
         <div className="relative z-10 max-w-lg mx-auto px-6 pt-4">
           <button
-            onClick={prevStep}
+            onClick={() => setStep(0)}
             className="flex items-center gap-2 text-slate-500 dark:text-[#d4a574]/60 hover:text-slate-700 dark:hover:text-[#d4a574] transition-colors text-sm font-medium tracking-wide font-crimson"
           >
             <span className="text-lg">←</span> Back
@@ -233,19 +230,11 @@ export function FocusSelector({
         </div>
       )}
 
-      {/* Step 1: Fuel Check */}
+      {/* Step 0: Combined Fuel Check + Sea Conditions */}
       {step === 0 && (
-        <div className="relative z-10 space-y-8 pt-8 pb-24 animate-in fade-in slide-in-from-bottom-6 duration-700">
-          <div className="text-center space-y-5 px-6">
-            {/* Progress indicator */}
-            <div className="flex items-center justify-center gap-3 mb-4">
-              <div className="h-px w-8 bg-gradient-to-r from-transparent to-slate-300 dark:to-[#d4a574]/40" />
-              <span className="px-4 py-1.5 text-xs font-medium tracking-[0.2em] uppercase text-slate-500 dark:text-[#d4a574]/70 font-crimson">
-                1 of 2
-              </span>
-              <div className="h-px w-8 bg-gradient-to-l from-transparent to-slate-300 dark:to-[#d4a574]/40" />
-            </div>
-
+        <div className="relative z-10 pt-8 pb-24 animate-in fade-in slide-in-from-bottom-6 duration-700">
+          {/* Header */}
+          <div className="text-center space-y-4 px-6 mb-8">
             {/* Greeting badge */}
             <div className="inline-flex items-center gap-3 px-5 py-2.5 bg-amber-50 dark:bg-[#d4a574]/10 rounded-full border border-amber-200 dark:border-[#d4a574]/20 backdrop-blur-sm">
               <Sparkles className="w-4 h-4 text-amber-500 dark:text-[#d4a574]" />
@@ -255,19 +244,19 @@ export function FocusSelector({
             </div>
 
             {/* Main title */}
-            <div className="space-y-3">
-              <h2 className="text-4xl font-bold text-slate-800 dark:text-[#f4e9d8] tracking-wide font-cinzel">
-                Check Your Vessel
+            <div className="space-y-2">
+              <h2 className="text-3xl md:text-4xl font-bold text-slate-800 dark:text-[#f4e9d8] tracking-wide font-cinzel">
+                Daily Captain's Log
               </h2>
-              <p className="text-slate-600 dark:text-[#a8c5d8] max-w-md mx-auto text-lg leading-relaxed font-crimson">
-                Let's check your vitals. What systems are currently online?
+              <p className="text-slate-600 dark:text-[#a8c5d8] max-w-md mx-auto text-sm leading-relaxed font-crimson">
+                Check your vessel's status and the weather conditions to set the right course for today.
               </p>
             </div>
 
             {/* North Star reminder */}
             {toolkitData.northStar && (
-              <div className="mt-6 mx-auto max-w-md px-5 py-4 bg-amber-50 dark:bg-[#d4a574]/10 rounded-xl border border-amber-200 dark:border-[#d4a574]/20">
-                <p className="text-sm text-amber-700 dark:text-[#d4a574] font-crimson">
+              <div className="mt-6 mx-auto max-w-md px-5 py-3 bg-amber-50 dark:bg-[#d4a574]/10 rounded-xl border border-amber-200 dark:border-[#d4a574]/20">
+                <p className="text-xs text-amber-700 dark:text-[#d4a574] font-crimson">
                   <span className="opacity-80">Remember your why:</span>{' '}
                   <span className="font-semibold italic">
                     "{toolkitData.northStar.slice(0, 60)}{toolkitData.northStar.length > 60 ? '...' : ''}"
@@ -277,179 +266,187 @@ export function FocusSelector({
             )}
           </div>
 
-          {/* Fuel gauges grid */}
-          <div className="grid grid-cols-3 gap-4 max-w-sm mx-auto px-6">
-            {FUEL_ITEMS.map((item, index) => {
-              const Icon = item.icon;
-              const isActive = fuelStatus[item.key as keyof FuelStatus];
-              return (
-                <button
-                  key={item.key}
-                  onClick={() => saveFuelStatus({ [item.key]: !isActive })}
-                  className="group relative"
-                  style={{ animationDelay: `${index * 80}ms` }}
-                >
-                  <div className={`
-                    relative flex flex-col items-center justify-center p-4 rounded-2xl transition-all duration-500
-                    ${isActive
-                      ? 'bg-white dark:bg-[#f4e9d8]/10 border-2 border-sky-400 dark:border-[#d4a574]/60 shadow-lg shadow-sky-100 dark:shadow-[#d4a574]/10'
-                      : 'bg-white/70 dark:bg-[#0a1628]/40 border border-slate-200 dark:border-[#d4a574]/20 hover:border-slate-300 dark:hover:border-[#d4a574]/40'
-                    }
-                  `}>
-                    {/* Ring effect */}
-                    <div className={`
-                      absolute inset-0 rounded-2xl transition-opacity duration-500
-                      ${isActive ? 'opacity-100' : 'opacity-0'}
-                    `}>
-                      <div className="absolute inset-1 rounded-xl border border-sky-200 dark:border-[#d4a574]/30" />
-                    </div>
+          {/* Main Content Container */}
+          <div className="max-w-2xl mx-auto px-6 space-y-6">
+            {/* Status Report Section */}
+            <div className="bg-white/60 dark:bg-[#0a1628]/40 backdrop-blur-sm rounded-2xl p-6 border border-slate-200 dark:border-[#d4a574]/20 shadow-sm">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200 dark:via-[#d4a574]/20 to-transparent"></div>
+                <span className="text-xs uppercase tracking-wider text-slate-500 dark:text-[#d4a574]/80 font-cinzel font-bold">
+                  Status Report
+                </span>
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200 dark:via-[#d4a574]/20 to-transparent"></div>
+              </div>
 
-                    {/* Icon */}
-                    <div className={`
-                      relative w-10 h-10 rounded-full flex items-center justify-center mb-2 transition-all duration-500
-                      ${isActive
-                        ? `bg-gradient-to-br ${item.activeColor} shadow-lg`
-                        : 'bg-slate-100 dark:bg-[#d4a574]/10'
-                      }
-                    `}>
-                      <Icon className={`
-                        w-5 h-5 transition-all duration-300
-                        ${isActive ? 'text-white scale-110' : 'text-slate-400 dark:text-[#d4a574]/50 group-hover:text-slate-500 dark:group-hover:text-[#d4a574]/70'}
-                      `} />
-                    </div>
-
-                    <span className={`
-                      text-xs font-medium tracking-wide transition-colors duration-300 font-crimson
-                      ${isActive ? 'text-slate-800 dark:text-[#f4e9d8]' : 'text-slate-400 dark:text-[#d4a574]/50 group-hover:text-slate-500 dark:group-hover:text-[#d4a574]/70'}
-                    `}>
-                      {item.label}
-                    </span>
+              {/* Fuel Check */}
+              <div className="mb-8">
+                <div className="flex items-start gap-4 mb-4">
+                  <div className="w-10 h-10 rounded-lg bg-sky-100 dark:bg-[#7eb8d8]/10 flex items-center justify-center flex-shrink-0">
+                    <Compass className="w-5 h-5 text-sky-600 dark:text-[#7eb8d8]" />
                   </div>
-                </button>
-              );
-            })}
-          </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-base font-semibold text-slate-800 dark:text-[#f4e9d8] tracking-wide font-cinzel mb-1">
+                      Vessel Status
+                    </h3>
+                    <p className="text-xs text-slate-600 dark:text-[#a8c5d8] font-crimson">
+                      What supplies are on board? Knowing this helps us avoid running aground.
+                    </p>
+                  </div>
+                </div>
 
-          {/* Coaching Nudge */}
-          <div className="max-w-md mx-auto px-6 min-h-[4rem] flex items-center justify-center text-center">
-            {(() => {
-              const baseStyle = "text-sm leading-relaxed animate-in fade-in duration-500 font-crimson";
+                {/* Fuel gauges grid */}
+                <div className="grid grid-cols-3 gap-2.5 mb-3">
+                  {FUEL_ITEMS.map((item, index) => {
+                    const Icon = item.icon;
+                    const isActive = fuelStatus[item.key as keyof FuelStatus];
+                    return (
+                      <button
+                        key={item.key}
+                        onClick={() => saveFuelStatus({ [item.key]: !isActive })}
+                        className="group relative"
+                        style={{ animationDelay: `${index * 60}ms` }}
+                      >
+                        <div className={`
+                          relative flex flex-col items-center justify-center p-2.5 rounded-lg transition-all duration-500
+                          ${isActive
+                            ? 'bg-white dark:bg-[#f4e9d8]/10 border-2 border-sky-400 dark:border-[#d4a574]/60 shadow-md'
+                            : 'bg-slate-50/50 dark:bg-[#0a1628]/20 border border-slate-200 dark:border-[#d4a574]/10 hover:border-slate-300 dark:hover:border-[#d4a574]/30'
+                          }
+                        `}>
+                          {/* Icon */}
+                          <div className={`
+                            relative w-7 h-7 rounded-full flex items-center justify-center mb-1 transition-all duration-500
+                            ${isActive
+                              ? `bg-gradient-to-br ${item.activeColor} shadow-md`
+                              : 'bg-slate-100 dark:bg-[#d4a574]/10'
+                            }
+                          `}>
+                            <Icon className={`
+                              w-3.5 h-3.5 transition-all duration-300
+                              ${isActive ? 'text-white scale-110' : 'text-slate-400 dark:text-[#d4a574]/50 group-hover:text-slate-500 dark:group-hover:text-[#d4a574]/70'}
+                            `} />
+                          </div>
 
-              if (fuelComplete === 0) return (
-                <p className={`${baseStyle} text-slate-500 dark:text-[#a8c5d8]/80`}>
-                  Starting from scratch? Take a moment to grab some water or stretch.
-                </p>
-              );
+                          <span className={`
+                            text-[9px] font-medium tracking-wide transition-colors duration-300 font-crimson uppercase
+                            ${isActive ? 'text-slate-800 dark:text-[#f4e9d8]' : 'text-slate-400 dark:text-[#d4a574]/50 group-hover:text-slate-500 dark:group-hover:text-[#d4a574]/70'}
+                          `}>
+                            {item.label}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
 
-              if (!fuelStatus.meds && !fuelStatus.caffeine) return (
-                <p className={`${baseStyle} text-amber-600 dark:text-[#d4a574]`}>
-                  <span className="opacity-70">⚠</span> No chemical support today? Be gentle with your expectations.
-                </p>
-              );
+                {/* Coaching Nudge - Integrated */}
+                <div className="pt-2">
+                  {(() => {
+                    const baseStyle = "text-[11px] leading-relaxed animate-in fade-in duration-500 font-crimson pl-1 border-l-2";
 
-              if (!fuelStatus.water || !fuelStatus.food) return (
-                <p className={`${baseStyle} text-sky-600 dark:text-[#7eb8d8]`}>
-                  Engine running hot? Hydration or a snack might help you cool down.
-                </p>
-              );
-
-              if (!fuelStatus.sleep) return (
-                <p className={`${baseStyle} text-indigo-600 dark:text-[#9b8ed4]`}>
-                  Low visibility today? It's okay to take it slow.
-                </p>
-              );
-
-              return (
-                <p className={`${baseStyle} text-emerald-600 dark:text-emerald-400`}>
-                  You're well-provisioned and ready for the high seas!
-                </p>
-              );
-            })()}
-          </div>
-
-          {/* Continue button */}
-          <div className="flex justify-center pt-2 px-6">
-            <button
-              onClick={nextStep}
-              className={`
-                group relative flex items-center gap-3 px-8 py-4 rounded-xl font-semibold
-                transition-all duration-300 overflow-hidden
-                ${fuelComplete < 2
-                  ? 'bg-amber-100 dark:bg-[#d4a574]/20 text-amber-700 dark:text-[#d4a574] border border-amber-300 dark:border-[#d4a574]/40 hover:bg-amber-200 dark:hover:bg-[#d4a574]/30'
-                  : 'bg-gradient-to-r from-sky-500 to-cyan-500 dark:from-[#d4a574] dark:to-[#c49a6c] text-white dark:text-[#0a1628] hover:shadow-xl hover:shadow-sky-200 dark:hover:shadow-[#d4a574]/20 hover:scale-[1.02]'
-                }
-              `}
-            >
-              <span className="relative z-10 tracking-wide font-crimson">
-                {fuelComplete < 2 ? 'Proceed with Caution' : 'Check Conditions'}
-              </span>
-              <ArrowRight className="w-4 h-4 relative z-10 group-hover:translate-x-1 transition-transform" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Step 2: Sea Conditions */}
-      {step === 1 && (
-        <div className="relative z-10 space-y-8 pt-8 pb-24 animate-in fade-in slide-in-from-right-8 duration-500">
-          <div className="text-center space-y-4 px-6">
-            <div className="flex items-center justify-center gap-3 mb-4">
-              <div className="h-px w-8 bg-gradient-to-r from-transparent to-slate-300 dark:to-[#d4a574]/40" />
-              <span className="px-4 py-1.5 text-xs font-medium tracking-[0.2em] uppercase text-slate-500 dark:text-[#d4a574]/70 font-crimson">
-                2 of 2
-              </span>
-              <div className="h-px w-8 bg-gradient-to-l from-transparent to-slate-300 dark:to-[#d4a574]/40" />
-            </div>
-
-            <h2 className="text-3xl font-bold text-slate-800 dark:text-[#f4e9d8] tracking-wide font-cinzel">
-              What are the seas like?
-            </h2>
-            <p className="text-slate-600 dark:text-[#a8c5d8] text-lg font-crimson">
-              Be honest with yourself—any condition is valid for sailing.
-            </p>
-          </div>
-
-          <div className="grid gap-4 max-w-lg mx-auto px-6">
-            {FOCUS_OPTIONS.map((option, index) => {
-              const Icon = option.icon;
-              return (
-                <button
-                  key={option.level}
-                  onClick={() => handleFocusSelect(option.level)}
-                  className="w-full p-5 rounded-2xl border-2 transition-all duration-300 text-left group
-                    bg-white/80 dark:bg-[#0a1628]/60 backdrop-blur-sm border-slate-200 dark:border-slate-700/30
-                    hover:bg-white dark:hover:bg-[#0a1628]/80 hover:border-slate-300 dark:hover:border-[#d4a574]/40 hover:shadow-lg"
-                  style={{ animationDelay: `${index * 100}ms` }}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0
-                      bg-slate-100 dark:bg-[#d4a574]/10 border border-slate-200 dark:border-[#d4a574]/20
-                      group-hover:bg-slate-200 dark:group-hover:bg-[#d4a574]/20 transition-all duration-300">
-                      <Icon className={`w-7 h-7 ${option.iconColor} group-hover:scale-110 transition-transform duration-300`} />
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-semibold text-slate-800 dark:text-[#f4e9d8] tracking-wide font-cinzel">
-                        {option.title}
-                      </h3>
-                      <p className="text-sm text-slate-600 dark:text-[#a8c5d8] mt-0.5 font-crimson">
-                        {option.description}
+                    if (fuelComplete === 0) return (
+                      <p className={`${baseStyle} border-slate-300 text-slate-500 dark:text-[#a8c5d8]/80`}>
+                        Starting from scratch? Take a moment to grab some water or stretch.
                       </p>
-                    </div>
+                    );
 
-                    <div className="self-center opacity-0 group-hover:opacity-100 transition-all duration-300 text-slate-400 dark:text-[#d4a574]">
-                      <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                    </div>
+                    if (!fuelStatus.meds && !fuelStatus.caffeine) return (
+                      <p className={`${baseStyle} border-amber-400 text-amber-600 dark:text-[#d4a574]`}>
+                        <span className="opacity-70">⚠</span> No chemical support today? Be gentle with your expectations.
+                      </p>
+                    );
+
+                    if (!fuelStatus.water || !fuelStatus.food) return (
+                      <p className={`${baseStyle} border-sky-400 text-sky-600 dark:text-[#7eb8d8]`}>
+                        Engine running hot? Hydration or a snack might help you cool down.
+                      </p>
+                    );
+
+                    if (!fuelStatus.sleep) return (
+                      <p className={`${baseStyle} border-indigo-400 text-indigo-600 dark:text-[#9b8ed4]`}>
+                        Low visibility today? It's okay to take it slow.
+                      </p>
+                    );
+
+                    return (
+                      <p className={`${baseStyle} border-emerald-400 text-emerald-600 dark:text-emerald-400`}>
+                        You're well-provisioned and ready for the high seas!
+                      </p>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* Sea Conditions */}
+              <div>
+                <div className="flex items-start gap-4 mb-4">
+                  <div className="w-10 h-10 rounded-lg bg-indigo-100 dark:bg-[#9b8ed4]/10 flex items-center justify-center flex-shrink-0">
+                    <CloudFog className="w-5 h-5 text-indigo-600 dark:text-[#9b8ed4]" />
                   </div>
-                </button>
-              );
-            })}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-base font-semibold text-slate-800 dark:text-[#f4e9d8] tracking-wide font-cinzel mb-1">
+                      Weather Report
+                    </h3>
+                    <p className="text-xs text-slate-600 dark:text-[#a8c5d8] font-crimson">
+                      How are the seas looking? We'll adjust our speed to match.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Focus options - matching Vessel Status style */}
+                <div className="grid grid-cols-3 gap-2.5">
+                  {FOCUS_OPTIONS.map((option, index) => {
+                    const Icon = option.icon;
+                    return (
+                      <button
+                        key={option.level}
+                        onClick={() => handleFocusSelect(option.level)}
+                        className="group relative"
+                        style={{ animationDelay: `${(index + 6) * 60}ms` }}
+                      >
+                        <div className={`
+                          relative flex flex-col items-center justify-center p-3 rounded-lg transition-all duration-500
+                          bg-slate-50/50 dark:bg-[#0a1628]/20 border border-slate-200 dark:border-[#d4a574]/10 hover:border-slate-300 dark:hover:border-[#d4a574]/30
+                          hover:bg-white dark:hover:bg-[#0a1628]/40 hover:shadow-md hover:-translate-y-0.5
+                        `}>
+                          {/* Icon */}
+                          <div className={`
+                            relative w-9 h-9 rounded-full flex items-center justify-center mb-2 transition-all duration-500
+                            bg-white dark:bg-[#d4a574]/10 border border-slate-200 dark:border-[#d4a574]/20
+                            group-hover:bg-slate-50 dark:group-hover:bg-[#d4a574]/20
+                          `}>
+                            <Icon className={`
+                              w-4 h-4 transition-all duration-300 ${option.iconColor}
+                              group-hover:scale-110
+                            `} />
+                          </div>
+
+                          <h4 className={`
+                            text-xs font-semibold tracking-wide transition-colors duration-300 font-cinzel text-center
+                            text-slate-800 dark:text-[#f4e9d8] group-hover:text-slate-900 dark:group-hover:text-[#f4e9d8]
+                          `}>
+                            {option.title}
+                          </h4>
+
+                          <p className={`
+                            text-[9px] text-center mt-1 transition-colors duration-300 font-crimson
+                            text-slate-500 dark:text-[#a8c5d8]/70 group-hover:text-slate-600 dark:group-hover:text-[#a8c5d8]
+                          `}>
+                            {option.description}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Step 3: Guidance */}
-      {step === 2 && selectedGuidance && (
+      {/* Step 1: Guidance */}
+      {step === 1 && selectedGuidance && (
         <div className="relative z-10 space-y-6 pt-6 pb-24 animate-in fade-in slide-in-from-right-8 duration-500 max-w-lg mx-auto px-6">
           <div className="bg-white/90 dark:bg-[#0a1628]/80 backdrop-blur-sm rounded-2xl p-6 border border-slate-200 dark:border-[#d4a574]/20 shadow-xl">
             <div className="flex items-center gap-4 mb-6">

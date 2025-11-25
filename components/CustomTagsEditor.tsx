@@ -3,14 +3,14 @@
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, Tag } from 'lucide-react';
 import { getCustomTags, setCustomTags } from '@/lib/supabase';
-import { useSupabaseUser } from '@/lib/useSupabaseUser';
+import { useAuth } from '@/components/AuthProvider';
 
 interface CustomTagsEditorProps {
   onTagsChange?: () => void;
 }
 
 export function CustomTagsEditor({ onTagsChange }: CustomTagsEditorProps) {
-  const { user } = useSupabaseUser();
+  const { user } = useAuth();
   const [customTags, setCustomTagsState] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [newTagInput, setNewTagInput] = useState('');

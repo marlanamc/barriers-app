@@ -8,7 +8,7 @@ import Link from "next/link";
 import { usePlanning } from "@/lib/planning-context";
 import type { RecurrenceType } from "@/lib/recurrence";
 import { getPlannedItems, deletePlannedItem, type PlannedItemWithBarrier } from "@/lib/supabase";
-import { useSupabaseUser } from "@/lib/useSupabaseUser";
+import { useAuth } from "@/components/AuthProvider";
 import { getRecurrenceDescription } from "@/lib/recurrence";
 import { getCategoryEmoji } from "@/lib/categories";
 import { useToast } from "@/components/ToastProvider";
@@ -28,7 +28,7 @@ export default function PlanAheadPage() {
     recurrenceDays,
     setRecurrenceDays,
   } = usePlanning();
-  const { user } = useSupabaseUser();
+  const { user } = useAuth();
   const { addToast } = useToast();
   const [hasEndDate, setHasEndDate] = useState(false);
   const [existingPlannedItems, setExistingPlannedItems] = useState<PlannedItemWithBarrier[]>([]);
